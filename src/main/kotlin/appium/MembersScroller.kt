@@ -10,8 +10,8 @@ object MembersScroller {
     fun scrollThroughMembers(
         driver: AndroidDriver,
         listResourceId: String,
+        maxSwipes: Int = 100,
         onScreen: (List<WebElement>) -> Unit,
-        maxSwipes: Int = 100
     ){
         var previousFirstElementText: String? = null
         var sameStateCount = 0
