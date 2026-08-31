@@ -32,6 +32,7 @@ object AppiumManager {
                 .setNoReset(true)
                 .setAppPackage("com.viber.voip")
                 .setAppActivity("com.viber.voip.WelcomeActivity")
+                .setNewCommandTimeout(Duration.ofMinutes(5))
             val serviceUri = URI.create("http://127.0.0.1:4773").toURL()
 
             driver = AndroidDriver (serviceUri, options).apply {
