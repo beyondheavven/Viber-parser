@@ -3,20 +3,17 @@ package com.viber.plugins
 import org.slf4j.LoggerFactory
 import com.viber.appium.AppiumManager
 import com.viber.appium.ParserState
+import com.viber.dto.ScrollMembersRequest
+import com.viber.dto.StatusResponse
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
+import io.ktor.server.request.receive
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.serialization.Serializable
 
 
-@Serializable
-data class StatusResponse(
-    val state: String,
-    val isDriverActive: Boolean
-)
 
 
 fun Application.configureRouting() {
@@ -50,7 +47,8 @@ fun Application.configureRouting() {
                     StatusResponse(
                         state = AppiumManager.currentState.name,
                         isDriverActive = AppiumManager.driver != null
-                    ))
+                    )
+                )
             }
 
             post("/scroll-members"){
@@ -61,9 +59,16 @@ fun Application.configureRouting() {
                     return@post
                 }
 
+                val request = try {
+                    call.receive<ScrollMembersRequest>()
+                }catch (e: Exception){
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Request is not valid"))
+                    return@post
+                }
+
                 launch(Dispatchers.IO) {
                     try {
-                        AppiumManager.scrollMembers()
+                        AppiumManager.scrollMembers(request.groupName)
                     } catch (e: Exception){
                         logger.error("Error during scroll members", e)
                     }

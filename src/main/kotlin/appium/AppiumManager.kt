@@ -53,13 +53,16 @@ object AppiumManager {
         currentState = ParserState.IDLE
     }
 
-    fun scrollMembers(){
+    fun scrollMembers(groupName: String){
         val d = driver ?: run {
             logger.error("scrollMembers() called without driver")
             throw NullPointerException("scrollMembers() called without driver")
         }
 
-        MembersScroller.scrollThroughMembers(d, "com.viber.voip:id/members_list"){ items ->
+        logger.info("Opening group: $groupName")
+        GroupNavigator.openGroup(d, groupName)
+        GroupNavigator.openMembersList(d)
+        MembersScroller.scrollThroughMembers(d){ items ->
             logger.debug("Can see ${items.size} elements")
         }
     }
