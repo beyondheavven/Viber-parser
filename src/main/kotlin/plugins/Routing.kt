@@ -1,14 +1,23 @@
 package com.viber.plugins
 
-import appium.ParserState
 import org.slf4j.LoggerFactory
 import com.viber.appium.AppiumManager
+import com.viber.appium.ParserState
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+
+
+@Serializable
+data class StatusResponse(
+    val state: String,
+    val isDriverActive: Boolean
+)
+
 
 fun Application.configureRouting() {
     val logger = LoggerFactory.getLogger(this::class.java)
@@ -37,11 +46,11 @@ fun Application.configureRouting() {
             }
 
             get("/status"){
-                val statusResponse = mapOf(
-                    "state" to AppiumManager.currentState.name,
-                    "isDriverActive" to (AppiumManager.driver != null)
-                )
-                call.respond(HttpStatusCode.OK, statusResponse)
+                call.respond(HttpStatusCode.OK,
+                    StatusResponse(
+                        state = AppiumManager.currentState.name,
+                        isDriverActive = AppiumManager.driver != null
+                    ))
             }
 
             post("/scroll-members"){
