@@ -4,11 +4,10 @@ import appium.ParserState
 import io.appium.java_client.android.AndroidDriver
 import io.appium.java_client.android.options.UiAutomator2Options
 import java.net.URI
-import java.net.URL
 import java.time.Duration
-import java.util.concurrent.TimeUnit
 
 object AppiumManager {
+
     var driver: AndroidDriver? = null
     private set
 
@@ -26,7 +25,6 @@ object AppiumManager {
                 .setNoReset(true)
                 .setAppPackage("com.viber.voip")
                 .setAppActivity("com.viber.voip.WelcomeActivity")
-
             val serviceUri = URI.create("http://127.0.0.1:4773").toURL()
 
             driver = AndroidDriver (serviceUri, options).apply {
@@ -43,6 +41,14 @@ object AppiumManager {
         driver?.quit()
         driver = null
         currentState = ParserState.IDLE
+    }
+
+    fun scrollMembers(){
+        val driver = driver ?: throw IllegalStateException("AppiumManager can't be null")
+        MembersScroller.scrollThroughMembers(driver, "com.viber.voip:id/members_list"){
+            items ->
+            println("Can see: ${items.size} elements")
+        }
     }
 
     fun executeRootCommand(command: String): String {
