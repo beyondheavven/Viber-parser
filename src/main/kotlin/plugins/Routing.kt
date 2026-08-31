@@ -1,6 +1,7 @@
 package com.viber.plugins
 
 import appium.ParserState
+import org.slf4j.LoggerFactory
 import com.viber.appium.AppiumManager
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
@@ -10,6 +11,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 fun Application.configureRouting() {
+    val logger = LoggerFactory.getLogger(this::class.java)
+
     routing {
         get("/health") {
             call.respondText("Parser started", status = HttpStatusCode.OK)
@@ -27,7 +30,7 @@ fun Application.configureRouting() {
                     try {
                         AppiumManager.startSession()
                     }catch (e: Exception){
-                        e.printStackTrace()
+                        logger.error("Error during starting session", e)
                     }
                 }
                 call.respond(HttpStatusCode.Accepted, mapOf("message" to "Processing started"))
@@ -36,9 +39,27 @@ fun Application.configureRouting() {
             get("/status"){
                 val statusResponse = mapOf(
                     "state" to AppiumManager.currentState.name,
-                    "isDriverActive " to (AppiumManager.driver != null)
+                    "isDriverActive" to (AppiumManager.driver != null)
                 )
                 call.respond(HttpStatusCode.OK, statusResponse)
+            }
+
+            post("/scroll-members"){
+                if(AppiumManager.currentState != ParserState.RUNNING){
+                    call.respond(HttpStatusCode.BadRequest,
+                        mapOf("error" to "Session is not running, current state: ${AppiumManager.currentState.name}")
+                    )
+                    return@post
+                }
+
+                launch(Dispatchers.IO) {
+                    try {
+                        AppiumManager.scrollMembers()
+                    } catch (e: Exception){
+                        logger.error("Error during scroll members", e)
+                    }
+                }
+                call.respond(HttpStatusCode.Accepted, mapOf("message" to "Scrolling started"))
             }
 
             post("/stop"){
@@ -46,8 +67,13 @@ fun Application.configureRouting() {
                     call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Parsing stopped"))
                     return@post
                 }
-                AppiumManager.stopSession()
-                call.respond(HttpStatusCode.Accepted, mapOf("message" to "Appium is stopped"))
+                try{
+                    AppiumManager.stopSession()
+                    call.respond(HttpStatusCode.Accepted, mapOf("message" to "Appium is stopped"))
+                } catch (e: Exception) {
+                    logger.error("Error during stopping session", e)
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Error during stopping session"))
+                }
             }
         }
     }

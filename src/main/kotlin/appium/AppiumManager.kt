@@ -3,10 +3,14 @@ package com.viber.appium
 import appium.ParserState
 import io.appium.java_client.android.AndroidDriver
 import io.appium.java_client.android.options.UiAutomator2Options
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import java.net.URI
 import java.time.Duration
 
 object AppiumManager {
+
+    private val logger: Logger = LoggerFactory.getLogger(AppiumManager::class.java)
 
     var driver: AndroidDriver? = null
     private set
@@ -16,8 +20,12 @@ object AppiumManager {
     private set
 
     fun startSession() {
-        if (driver != null) return
+        if (driver != null) {
+            logger.warn("startSession() is already running")
+            return
+        }
         currentState = ParserState.INITIALIZING
+        logger.info("Starting session")
         try {
             val options = UiAutomator2Options()
                 .setDeviceName("android-emulator")
@@ -31,34 +39,39 @@ object AppiumManager {
                 manage().timeouts().implicitlyWait(Duration.ofSeconds(10))
             }
             currentState = ParserState.RUNNING
+            logger.info("Started session successfully")
         } catch (e: Exception) {
             currentState = ParserState.ERROR
+            logger.warn("Failed to start session Appium", e)
             throw e
         }
     }
 
     fun stopSession() {
+        logger.info("Stopping session")
         driver?.quit()
         driver = null
         currentState = ParserState.IDLE
     }
 
     fun scrollMembers(){
-        val driver = driver ?: throw IllegalStateException("AppiumManager can't be null")
-        MembersScroller.scrollThroughMembers(driver, "com.viber.voip:id/members_list"){
-            items ->
-            println("Can see: ${items.size} elements")
+        val d = driver ?: run {
+            logger.error("scrollMembers() called without driver")
+            throw NullPointerException("scrollMembers() called without driver")
+        }
+
+        MembersScroller.scrollThroughMembers(d, "com.viber.voip:id/members_list"){ items ->
+            logger.debug("Can see ${items.size} elements")
         }
     }
 
     fun executeRootCommand(command: String): String {
         val currentDriver = driver ?: throw IllegalStateException("Driver not initialized")
-
+        logger.debug("Executing $command")
         val args = mapOf(
             "command" to "su",
             "args" to listOf("-c", command)
         )
-
         return currentDriver.executeScript("mobile: shell", args).toString()
     }
 }
