@@ -1,5 +1,12 @@
 package com.viber
 
-fun main(args: Array<String>) {
-    io.ktor.server.netty.EngineMain.main(args)
+import com.viber.plugins.configureMonitoring
+import com.viber.plugins.configureRouting
+import com.viber.plugins.configureSerialization
+import io.ktor.server.application.Application
+
+fun Application.module() {
+    configureRouting()
+    configureSerialization()
+    configureMonitoring()
 }
