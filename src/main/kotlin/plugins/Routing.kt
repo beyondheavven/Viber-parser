@@ -15,6 +15,14 @@ fun Application.configureRouting() {
             post("/start"){
                 call.respondText("Launching LDPlayer...", status = HttpStatusCode.OK)
             }
+
+            get("/status"){
+
+            }
+
+            post("/stop"){
+
+            }
         }
     }
 }
