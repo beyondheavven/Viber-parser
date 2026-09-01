@@ -1,8 +1,8 @@
 package com.viber
 
-import com.viber.db.SqlExecutor
-import com.viber.db.SqliteCsv
-import com.viber.db.ViberDatabase
+import com.viber.device.SqlExecutor
+import com.viber.device.SqliteCsv
+import com.viber.device.ViberDatabase
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -12,7 +12,7 @@ class ViberDatabaseTest {
     /** Отдаёт заранее подготовленный CSV и запоминает запрос — устройство для этого не нужно. */
     private class FakeExecutor(private val csv: String = "") : SqlExecutor {
         var lastSql: String? = null
-        override fun query(sql: String): List<com.viber.db.Row> {
+        override fun query(sql: String): List<com.viber.device.Row> {
             lastSql = sql
             return SqliteCsv.parse(csv)
         }

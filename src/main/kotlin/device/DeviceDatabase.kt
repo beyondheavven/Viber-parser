@@ -1,4 +1,4 @@
-package com.viber.db
+package com.viber.device
 
 import com.viber.appium.AppiumManager
 import com.viber.config.DatabaseSettings

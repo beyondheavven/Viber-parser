@@ -2,33 +2,12 @@ package com.viber.dto
 
 import kotlinx.serialization.Serializable
 
-@Serializable
-data class ScrollMembersRequest(
-    val groupName: String
-)
-
-@Serializable
-data class StatusResponse(
-    val state: String,
-    val isDriverActive: Boolean
-)
-
-@Serializable
-data class GroupResponse(
-    val conversationId: Long,
-    val groupId: Long,
-    val name: String?,
-    val conversationType: Int,
-    val memberCount: Int
-)
-
-@Serializable
-data class GroupsResponse(
-    val count: Int,
-    val groups: List<GroupResponse>
-)
-
-
+/**
+ * Участник в ответе `GET /api/groups/{id}/members`.
+ *
+ * Отдаём и готовое [displayedName], и все имена по отдельности: клиенту бывает нужно
+ * именно контактное имя или именно то, что человек задал внутри группы.
+ */
 @Serializable
 data class MemberResponse(
     val participantId: Long,
