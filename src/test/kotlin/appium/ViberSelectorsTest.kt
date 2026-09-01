@@ -1,6 +1,5 @@
-package com.viber
+package com.viber.appium
 
-import com.viber.appium.ViberSelectors
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

@@ -1,9 +1,8 @@
-package com.viber
+package com.viber.device.viber
 
 import com.viber.device.SqlExecutor
 import com.viber.device.sqlite.Row
 import com.viber.device.sqlite.SqliteCsv
-import com.viber.device.viber.ViberDatabase
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

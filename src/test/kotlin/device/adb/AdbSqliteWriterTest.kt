@@ -1,6 +1,5 @@
-package com.viber
+package com.viber.device.adb
 
-import com.viber.device.adb.AdbSqliteWriter
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

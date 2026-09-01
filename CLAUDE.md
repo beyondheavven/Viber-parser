@@ -13,7 +13,13 @@ Kotlin 2.4.0 · Ktor 3.5.2 · JVM toolchain 21. Use `./gradlew` (or `.\gradlew.b
 - Build (compile + test + fat jar): `./gradlew build`
 - Run the server (listens on `:8080`): `./gradlew run`
 - Run all tests: `./gradlew test`
-- Run a single test (backtick-named): `./gradlew test --tests "com.viber.SqliteCsvTest.parses a header and rows addressed by column name"`
+- Run a single test (backtick-named): `./gradlew test --tests "com.viber.device.sqlite.SqliteCsvTest.parses a header and rows addressed by column name"`
+- Run everything for one area: `./gradlew test --tests "com.viber.device.participants.*"`
+
+The test tree mirrors `src/main/kotlin` package for package, so a test sits in the same
+package as what it exercises (`com.viber.device.adb.AdbSqliteWriterTest` next to
+`AdbSqliteWriter`). Only `ServerTest` stays at the root `com.viber` — it boots the whole
+application from `application.yaml` rather than testing one part of it.
 - Build the shaded jar only: `./gradlew shadowJar` (provided by the Ktor Gradle plugin)
 
 `/api/*` endpoints only do real work when an **Appium server is reachable** (default `http://127.0.0.1:4723`) with an Android device running the Viber app — by default **LDPlayer 9** on the adb bridge `127.0.0.1:5555`. `./gradlew run` alone starts just the HTTP layer. All of it is configurable, see *Device configuration* below.
