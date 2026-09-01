@@ -1,11 +1,11 @@
 package com.viber.appium
 
+import com.viber.config.AppiumSettings
 import io.appium.java_client.android.AndroidDriver
 import io.appium.java_client.android.options.UiAutomator2Options
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.net.URI
-import java.time.Duration
 
 object AppiumManager {
 
@@ -18,31 +18,55 @@ object AppiumManager {
     var currentState: ParserState = ParserState.IDLE
     private set
 
+    /** Дефолты нацелены на LDPlayer; перекрываются из `application.yaml` через [configure]. */
+    @Volatile
+    var settings: AppiumSettings = AppiumSettings()
+        private set
+
+    fun configure(newSettings: AppiumSettings) {
+        if (driver != null) {
+            logger.warn("Session is active — new Appium settings will apply on the next startSession()")
+        }
+        settings = newSettings
+        logger.info("Appium settings: ${newSettings.describe()}")
+    }
+
     fun startSession() {
         if (driver != null) {
             logger.warn("startSession() is already running")
             return
         }
+        val config = settings
         currentState = ParserState.INITIALIZING
         logger.info("Starting session")
         try {
+            if (config.autoConnectAdb && config.udid != null) {
+                AdbConnector.ensureConnected(config.udid, config.adbPath)
+            }
+
             val options = UiAutomator2Options()
-                .setDeviceName("android-emulator")
+                .setDeviceName(config.deviceName)
                 .setAutomationName("UiAutomator2")
                 .setNoReset(true)
-                .setAppPackage("com.viber.voip")
-                .setAppActivity("com.viber.voip.WelcomeActivity")
-                .setNewCommandTimeout(Duration.ofMinutes(5))
-            val serviceUri = URI.create("http://127.0.0.1:4773").toURL()
+                .setAppPackage(config.appPackage)
+                .setAppActivity(config.appActivity)
+                .setNewCommandTimeout(config.newCommandTimeout)
+                .setAdbExecTimeout(config.adbExecTimeout)
+                .setUiautomator2ServerLaunchTimeout(config.serverLaunchTimeout)
+            config.udid?.let { options.setUdid(it) }
+            config.platformVersion?.let { options.setPlatformVersion(it) }
+            config.systemPort?.let { options.setSystemPort(it) }
+
+            val serviceUri = URI.create(config.serverUrl).toURL()
 
             driver = AndroidDriver (serviceUri, options).apply {
-                manage().timeouts().implicitlyWait(Duration.ofSeconds(10))
+                manage().timeouts().implicitlyWait(config.implicitWait)
             }
             currentState = ParserState.RUNNING
             logger.info("Started session successfully")
         } catch (e: Exception) {
             currentState = ParserState.ERROR
-            logger.warn("Failed to start session Appium", e)
+            logger.warn("Failed to start session Appium (${config.describe()})", e)
             throw e
         }
     }

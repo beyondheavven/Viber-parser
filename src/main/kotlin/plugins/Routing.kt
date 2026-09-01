@@ -25,6 +25,9 @@ fun Application.configureRouting() {
         }
 
         route("/api"){
+            // Чтение базы устройства: группы, которые вообще есть в Viber.
+            groupRoutes()
+
             post("/start"){
                 if(AppiumManager.currentState == ParserState.INITIALIZING ||
                     AppiumManager.currentState == ParserState.RUNNING){
