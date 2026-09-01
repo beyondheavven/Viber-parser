@@ -3,6 +3,7 @@ package com.viber.appium.navigation
 import com.viber.appium.navigation.ViberLocator.PARTICIPANTS_COUNT
 import com.viber.appium.navigation.ViberLocator.PIN_BUTTON
 import com.viber.appium.navigation.ViberLocator.SHOW_ALL_BUTTON_GROUP
+import com.viber.appium.navigation.ViberLocator.UNPIN_BUTTON
 import com.viber.appium.navigation.ViberLocator.groupSelectorByName
 import io.appium.java_client.AppiumBy
 import io.appium.java_client.android.AndroidDriver
@@ -77,7 +78,6 @@ object GroupNavigator {
 
     fun pinGroup(driver: AndroidDriver, groupName: String) {
         val uiSelector = groupSelectorByName(groupName)
-
         try {
             val visibleGroup = driver.findElement(AppiumBy.androidUIAutomator(uiSelector))
             val elementId = (visibleGroup as RemoteWebElement).id
@@ -93,10 +93,14 @@ object GroupNavigator {
                 pinButton.first().click()
                 logger.info("Group '$groupName' successfully pinned")
             } else {
-                logger.info("Group '$groupName' is likely already pinned. Closing context menu.")
+                val unpinButton = driver.findElement(UNPIN_BUTTON)
+                if (unpinButton != null) {
+                    logger.info("Group '$groupName' is likely already pinned. Closing context menu.")
+                } else {
+                    logger.warn("Unexpected menu state for '$groupName' (neither Pin nor Unpin found). Closing.")
+                }
                 driver.pressKey(KeyEvent(AndroidKey.BACK))
             }
-
         } catch (e: Exception) {
             logger.warn("Could not pin group '$groupName'. It might require scrolling first.", e)
         } finally {
