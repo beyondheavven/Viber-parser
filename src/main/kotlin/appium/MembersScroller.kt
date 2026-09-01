@@ -2,6 +2,8 @@ package com.viber.appium
 
 import io.appium.java_client.AppiumBy
 import io.appium.java_client.android.AndroidDriver
+import io.appium.java_client.android.nativekey.AndroidKey
+import io.appium.java_client.android.nativekey.KeyEvent
 import org.openqa.selenium.remote.RemoteWebElement
 import org.slf4j.LoggerFactory
 import java.time.Duration
@@ -46,23 +48,35 @@ object MembersScroller {
 
                     if (processedUsers.contains(name)) continue
 
-                    driver.manage().timeouts().implicitlyWait(Duration.ZERO)
-                    val adminBadge = row.findElements(AppiumBy.xpath(
-                        ".//android.widget.TextView[@text='АДМИНИСТРАТОР' or @text='СУПЕР-АДМИН']"
-                    ))
-                    driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10))
-
-                    if (adminBadge.isNotEmpty()) {
+                    if (name.startsWith("Вы ") || name.startsWith("Вы(")){
                         processedUsers.add(name)
                         continue
+                    }
+
+                    driver.manage().timeouts().implicitlyWait(Duration.ZERO)
+                    val roleBadges = row.findElements(AppiumBy.id("com.viber.voip:id/groupRole"))
+                    driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10))
+
+                    if (roleBadges.isNotEmpty()) {
+                        val roleText = roleBadges.first().text
+                        if (roleText == "АДМИНИСТРАТОР" || roleText == "СУПЕР-АДМИН") {
+                            logger.info("Skipped admin: $name")
+                            processedUsers.add(name)
+                            continue
+                        }
                     }
 
                     val clickableGroup = row.findElement(AppiumBy.id("com.viber.voip:id/group"))
                     clickableGroup.click()
                     logger.info("Clicked on user: $name")
                     processedUsers.add(name)
-                    driver.navigate().back()
 
+                    val isDialogOpen = driver.findElements(AppiumBy.androidUIAutomator("new UiSelector().textContains(\"Сообщение\")")).isNotEmpty()
+                    driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10))
+                    if (isDialogOpen) {
+                        logger.info("Tapping outside to close.")
+                        driver.executeScript("mobile: clickGesture", mapOf("x" to 50, "y" to 150))
+                    }
                     clickedInThisPass = true
                     break
                 }
