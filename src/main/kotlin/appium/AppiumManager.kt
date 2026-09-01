@@ -63,9 +63,7 @@ object AppiumManager {
         logger.info("Opening group: $groupName")
         GroupNavigator.openGroup(d, groupName)
         GroupNavigator.openMembersList(d)
-        MembersScroller.scrollThroughMembers(d){ items ->
-            logger.debug("Can see ${items.size} elements")
-        }
+        MembersScroller.processRegularMembers(d)
     }
 
     fun executeRootCommand(command: String): String {
