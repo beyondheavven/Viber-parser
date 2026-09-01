@@ -8,7 +8,7 @@ import com.viber.device.SqlWriter
 import com.viber.device.SqliteCsv
 import com.viber.device.WriteResult
 import com.viber.plugins.configureSerialization
-import com.viber.plugins.participantRoutes
+import com.viber.routes.participantRoutes
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText

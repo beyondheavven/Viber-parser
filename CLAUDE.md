@@ -21,19 +21,23 @@ Kotlin 2.4.0 · Ktor 3.5.2 · JVM toolchain 21. Use `./gradlew` (or `.\gradlew.b
 ## Architecture
 
 ### Request → automation lifecycle
-Routes in `plugins/Routing.kt` are **fire-and-forget**: `/api/start` and `/api/scroll-members` launch a coroutine on `Dispatchers.IO`, respond `202 Accepted` immediately, and only **log** failures — they are never surfaced in the HTTP response. The client observes progress solely through `GET /api/status` and the `ParserState` machine. Routes guard transitions by checking `AppiumManager.currentState` before acting (e.g. `/api/scroll-members` requires `RUNNING`, `/api/start` rejects if already `INITIALIZING`/`RUNNING`).
+Routes live in `routes/`, Ktor wiring in `plugins/` — `plugins/` installs things, `routes/`
+answers requests. `routes/Routing.kt` is only the table; each group of handlers sits in its own
+file (`SessionRoutes`, `GroupRoutes`, `ParticipantRoutes`).
+
+The session routes in `routes/SessionRoutes.kt` are **fire-and-forget**: `/api/start` and `/api/scroll-members` launch a coroutine on **the application's** scope (`call.application.launch(Dispatchers.IO)` — the work has to outlive the request that started it), respond `202 Accepted` immediately, and only **log** failures — they are never surfaced in the HTTP response. The client observes progress solely through `GET /api/status` and the `ParserState` machine. Routes guard transitions by checking `AppiumManager.currentState` before acting (e.g. `/api/scroll-members` requires `RUNNING`, `/api/start` rejects if already `INITIALIZING`/`RUNNING`).
 
 Endpoints: `GET /health`, `POST /api/start`, `GET /api/status`, `POST /api/scroll-members` (body `{ "groupName": "..." }`), `POST /api/stop`, `GET /api/groups`, `GET /api/groups/{id}/members`, `POST /api/participants/decode`.
 
-The **database routes are the exception** to the fire-and-forget rule: they hit the device **synchronously** (one adb run, no Appium session needed) and answer `503` with the underlying error when the device is unreachable. `onDevice`/`respondDeviceFailure` in `plugins/DeviceRouting.kt` is the shared shape of that — every synchronous device route goes through it. The read routes live in `plugins/GroupRoutes.kt`; the members route runs **two** queries on purpose — it looks the group up first so a missing group answers `404` instead of an empty list. Their handler takes its `ViberDatabase` as a parameter defaulting to `DeviceDatabase.viber` — that seam is what lets `GroupRoutesTest` exercise the route with a fake executor instead of a device.
+The **database routes are the exception** to the fire-and-forget rule: they hit the device **synchronously** (one adb run, no Appium session needed) and answer `503` with the underlying error when the device is unreachable. `onDevice`/`respondDeviceFailure` in `routes/DeviceRouting.kt` is the shared shape of that — every synchronous device route goes through it. The read routes live in `routes/GroupRoutes.kt`; the members route runs **two** queries on purpose — it looks the group up first so a missing group answers `404` instead of an empty list. Their handler takes its `ViberDatabase` as a parameter defaulting to `DeviceDatabase.viber` — that seam is what lets `GroupRoutesTest` exercise the route with a fake executor instead of a device.
 
-`POST /api/participants/decode` (`plugins/ParticipantRoutes.kt`) is the **only route that writes**. Body is optional — no body means defaults — and takes `dryRun`, `includeSelf`, `limit`, `restartApp`; a body that is present but unparseable is a `400` on purpose, so a typo in an option cannot silently rewrite the whole table. It refuses with `409` while an Appium session is `INITIALIZING`/`RUNNING`, because writing force-stops Viber and would yank the app out from under the automation — a dry run is allowed at any time. Both the decoder and the session state arrive as parameters, which is what lets `ParticipantRoutesTest` drive it with fakes.
+`POST /api/participants/decode` (`routes/ParticipantRoutes.kt`) is the **only route that writes**. Body is optional — no body means defaults — and takes `dryRun`, `includeSelf`, `limit`, `restartApp`; a body that is present but unparseable is a `400` on purpose, so a typo in an option cannot silently rewrite the whole table. It refuses with `409` while an Appium session is `INITIALIZING`/`RUNNING`, because writing force-stops Viber and would yank the app out from under the automation — a dry run is allowed at any time. Both the decoder and the session state arrive as parameters, which is what lets `ParticipantRoutesTest` drive it with fakes.
 
 ### Global singleton state
 `AppiumManager` is a Kotlin `object` (process-wide singleton) holding **the single `AndroidDriver`** and a `@Volatile currentState: ParserState` (`IDLE → INITIALIZING → RUNNING → ERROR`/`IDLE`). There is no lock around the driver — the state machine plus the route-level state checks are the only coordination. Assume automation calls into `AppiumManager` run one at a time; adding genuinely concurrent driver access would need explicit synchronization.
 
 ### The `appium/` package (the core)
-- `AppiumManager` — session lifecycle (`startSession`/`stopSession`), state, and `executeRootCommand` (runs `mobile: shell` as `su -c`, i.e. **requires a rooted device/emulator** — LDPlayer is rooted out of the box). Capabilities come from `AppiumManager.settings` (`config/AppiumSettings`), not from literals; `noReset` is the only hardcoded one.
+- `AppiumManager` — session lifecycle (`startSession`/`stopSession`), state, and the `scrollMembers` orchestration. Capabilities come from `AppiumManager.settings` (`config/AppiumSettings`), not from literals; `noReset` is the only hardcoded one. It no longer carries a `mobile: shell` helper — the device is reached through `device/`, and a second road to the same root shell would only drift from the first.
 - `AdbConnector` — runs `adb connect <udid>` before the session starts, because LDPlayer's network adb target drops after an emulator restart. Never throws: a missing adb only produces a warning.
 - `GroupNavigator` — the navigation used by `AppiumManager.scrollMembers` (`openGroup`, `openMembersList`). It relies on **implicit waits** and temporarily lowers the implicit-wait timeout for the "is the group already on screen" fast path before restoring it. Do **not** mix implicit + explicit waits on the same lookup — their timeouts stack unpredictably.
 - `MembersScroller.scrollThroughMembers` — pages the member list via `mobile: scrollGesture`, calling back with the visible `WebElement`s each step; detects end-of-list when the first item's text stops changing across iterations.
@@ -132,7 +136,13 @@ our own statement count. SELinux contexts are **not** restored — this relies o
 permissive.
 
 ### Selectors are locale- and resource-id-coupled
-Element lookups use `AppiumBy.androidUIAutomator` with Viber resource IDs (`com.viber.voip:id/from`, `:id/recycler_view`, `:id/name`, `:id/conversationInfo`, `:id/startText`) **and Russian UI text** (`"участник"`, `"Показать всех"`). Text-based selectors assume the device UI language is **Russian** and break on other locales; resource IDs are tied to a specific Viber build and can drift between app versions.
+Every selector lives in `appium/ViberSelectors.kt` — one file to edit when Viber updates or the
+device turns out to be on another locale. Lookups use `AppiumBy.androidUIAutomator` with Viber
+resource IDs (`com.viber.voip:id/from`, `:id/recycler_view`, `:id/name`, `:id/conversationInfo`,
+`:id/startText`) **and Russian UI text** (`"участник"`, `"Показать всех"`). Text-based selectors
+assume the device UI language is **Russian** and break on other locales; resource IDs are tied to
+a specific Viber build and can drift between app versions. `ViberSelectorsTest` pins both sets, so
+what has to change after a Viber update is visible in one place.
 
 ## Device configuration
 
@@ -153,4 +163,4 @@ Running a second LDPlayer instance means overriding both `APPIUM_UDID` (5557, 55
 `AdbConnector` does not trust `PATH` or `ANDROID_HOME`: Gradle reuses its daemon, so a forked `./gradlew run` inherits the environment of whatever started that daemon, which on this machine has neither. It walks a list of known roots (SDK locations, then the adb LDPlayer ships) before falling back to `PATH`.
 
 ## Runtime wiring gotcha
-The entry point is `io.ktor.server.netty.EngineMain`, which reads `src/main/resources/application.yaml`. The **effective module list lives in that YAML** (`ktor.application.modules` → `configureAppium`, `configureDatabase`, `configureRouting`, `configureMonitoring`, `configureSerialization`). `main.kt`'s `Application.module()` duplicates this wiring but is **not referenced by the config**, so editing `main.kt` has no effect on the running server (or on `testApplication`, which also loads the default config) — change `application.yaml` or the `configure*` functions instead.
+The entry point is `io.ktor.server.netty.EngineMain`, which reads `src/main/resources/application.yaml`. The **effective module list lives in that YAML** (`ktor.application.modules` → `configureAppium`, `configureDatabase`, `configureRouting`, `configureMonitoring`, `configureSerialization`) — note `configureRouting` is `com.viber.routes.RoutingKt`, the rest are `com.viber.plugins.*`, so moving a `configure*` function between packages means editing that list too. `main.kt`'s `Application.module()` duplicates this wiring but is **not referenced by the config**, so editing `main.kt` has no effect on the running server (or on `testApplication`, which also loads the default config) — change `application.yaml` or the `configure*` functions instead.

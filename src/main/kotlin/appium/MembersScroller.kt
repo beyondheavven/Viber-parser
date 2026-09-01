@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory
 
 object MembersScroller {
 
-    private val logger = LoggerFactory.getLogger(GroupNavigator::class.java)
+    private val logger = LoggerFactory.getLogger(MembersScroller::class.java)
 
     fun scrollThroughMembers(
         driver: AndroidDriver,
@@ -20,13 +20,13 @@ object MembersScroller {
 
         for (i in 0 until maxSwipes) {
             val listElement = try {
-                driver.findElement(By.id("com.viber.voip:id/recycler_view"))
+                driver.findElement(By.id(ViberSelectors.MEMBER_LIST_ID))
             } catch (e: Exception) {
                 logger.error("Can not find list of users on step $i", e)
                 throw e
             }
 
-            val visibleItems = listElement.findElements(By.id("com.viber.voip:id/name"))
+            val visibleItems = listElement.findElements(By.id(ViberSelectors.MEMBER_NAME_ID))
             logger.debug("Step $i: can see ${visibleItems.size} elements")
             onScreen(visibleItems)
 

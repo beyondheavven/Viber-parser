@@ -1,4 +1,4 @@
-package com.viber.plugins
+package com.viber.routes
 
 import com.viber.dto.ErrorResponse
 import io.ktor.http.HttpStatusCode
