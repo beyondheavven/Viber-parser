@@ -1,4 +1,4 @@
-package com.viber.plugins
+package com.viber.routes
 
 import com.viber.device.DeviceDatabase
 import com.viber.device.ViberDatabase

@@ -91,14 +91,4 @@ object AppiumManager {
             logger.debug("Can see ${items.size} elements")
         }
     }
-
-    fun executeRootCommand(command: String): String {
-        val currentDriver = driver ?: throw IllegalStateException("Driver not initialized")
-        logger.debug("Executing $command")
-        val args = mapOf(
-            "command" to "su",
-            "args" to listOf("-c", command)
-        )
-        return currentDriver.executeScript("mobile: shell", args).toString()
-    }
 }

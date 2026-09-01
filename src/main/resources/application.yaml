@@ -5,7 +5,7 @@ ktor:
     modules:
       - com.viber.plugins.AppiumKt.configureAppium
       - com.viber.plugins.DatabaseKt.configureDatabase
-      - com.viber.plugins.RoutingKt.configureRouting
+      - com.viber.routes.RoutingKt.configureRouting
       - com.viber.plugins.MonitoringKt.configureMonitoring
       - com.viber.plugins.SerializationKt.configureSerialization
 
