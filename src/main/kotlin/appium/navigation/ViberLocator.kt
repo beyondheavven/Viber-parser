@@ -10,11 +10,11 @@ object ViberLocator {
     val USER_GROUP_ROLE = AppiumBy.id("com.viber.voip:id/groupRole")
     val MESSAGES_LIST = AppiumBy.id("com.viber.voip:id/messages_list")
     val MESSAGE_BUTTON = AppiumBy.androidUIAutomator("new UiSelector().resourceId(\"android:id/title\").textStartsWith(\"Сообщение\")")
-    val DIALOG_CHECK = AppiumBy.androidUIAutomator("new UiSelector().textContains(\"Сообщение\")")
 
     val PARTICIPANTS_COUNT = AppiumBy.androidUIAutomator("new UiSelector().textContains(\"участник\")")
     val SHOW_ALL_BUTTON_GROUP = AppiumBy.xpath("//android.widget.TextView[@text='Показать всех']/parent::android.view.ViewGroup")
     val PIN_BUTTON = AppiumBy.androidUIAutomator("new UiSelector().textContains(\"Закрепить\")")
+    val UNPIN_BUTTON = AppiumBy.androidUIAutomator("new UiSelector().textContains(\"Открепить\")")
 
     fun groupSelectorByName(name: String): String {
         return "new UiSelector().resourceId(\"com.viber.voip:id/from\").textContains(\"$name\")"
