@@ -1,7 +1,7 @@
 package com.viber.plugins
 
 import com.viber.config.DatabaseSettings
-import com.viber.db.DeviceDatabase
+import com.viber.device.DeviceDatabase
 import io.ktor.server.application.Application
 
 /** Прокидывает секцию `database` из `application.yaml` в [DeviceDatabase]. */

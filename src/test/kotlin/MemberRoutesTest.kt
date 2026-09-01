@@ -1,9 +1,9 @@
 package com.viber
 
-import com.viber.db.Row
-import com.viber.db.SqlExecutor
-import com.viber.db.SqliteCsv
-import com.viber.db.ViberDatabase
+import com.viber.device.Row
+import com.viber.device.SqlExecutor
+import com.viber.device.SqliteCsv
+import com.viber.device.ViberDatabase
 import com.viber.plugins.configureSerialization
 import com.viber.plugins.groupRoutes
 import io.ktor.client.request.get

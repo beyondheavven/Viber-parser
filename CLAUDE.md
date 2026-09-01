@@ -13,7 +13,7 @@ Kotlin 2.4.0 · Ktor 3.5.2 · JVM toolchain 21. Use `./gradlew` (or `.\gradlew.b
 - Build (compile + test + fat jar): `./gradlew build`
 - Run the server (listens on `:8080`): `./gradlew run`
 - Run all tests: `./gradlew test`
-- Run a single test (backtick-named): `./gradlew test --tests "com.viber.ServerTest.test root endpoint"`
+- Run a single test (backtick-named): `./gradlew test --tests "com.viber.SqliteCsvTest.parses a header and rows addressed by column name"`
 - Build the shaded jar only: `./gradlew shadowJar` (provided by the Ktor Gradle plugin)
 
 `/api/*` endpoints only do real work when an **Appium server is reachable** (default `http://127.0.0.1:4723`) with an Android device running the Viber app — by default **LDPlayer 9** on the adb bridge `127.0.0.1:5555`. `./gradlew run` alone starts just the HTTP layer. All of it is configurable, see *Device configuration* below.
@@ -25,7 +25,7 @@ Routes in `plugins/Routing.kt` are **fire-and-forget**: `/api/start` and `/api/s
 
 Endpoints: `GET /health`, `POST /api/start`, `GET /api/status`, `POST /api/scroll-members` (body `{ "groupName": "..." }`), `POST /api/stop`, `GET /api/groups`, `GET /api/groups/{id}/members`.
 
-`GET /api/groups` is the exception to the fire-and-forget rule: it reads the device database **synchronously** (one adb run, no Appium session needed) and answers `503` with the underlying error when the device is unreachable. Both database routes live in `plugins/GroupRoutes.kt`; the members route runs **two** queries on purpose — it looks the group up first so a missing group answers `404` instead of an empty list. Their handler and takes its `ViberDatabase` as a parameter defaulting to `DeviceDatabase.viber` — that seam is what lets `GroupRoutesTest` exercise the route with a fake executor instead of a device.
+`GET /api/groups` is the exception to the fire-and-forget rule: it reads the device database **synchronously** (one adb run, no Appium session needed) and answers `503` with the underlying error when the device is unreachable. Both database routes live in `plugins/GroupRoutes.kt`; the members route runs **two** queries on purpose — it looks the group up first so a missing group answers `404` instead of an empty list. Their handler takes its `ViberDatabase` as a parameter defaulting to `DeviceDatabase.viber` — that seam is what lets `GroupRoutesTest` exercise the route with a fake executor instead of a device.
 
 ### Global singleton state
 `AppiumManager` is a Kotlin `object` (process-wide singleton) holding **the single `AndroidDriver`** and a `@Volatile currentState: ParserState` (`IDLE → INITIALIZING → RUNNING → ERROR`/`IDLE`). There is no lock around the driver — the state machine plus the route-level state checks are the only coordination. Assume automation calls into `AppiumManager` run one at a time; adding genuinely concurrent driver access would need explicit synchronization.
@@ -36,7 +36,8 @@ Endpoints: `GET /health`, `POST /api/start`, `GET /api/status`, `POST /api/scrol
 - `GroupNavigator` — the navigation used by `AppiumManager.scrollMembers` (`openGroup`, `openMembersList`). It relies on **implicit waits** and temporarily lowers the implicit-wait timeout for the "is the group already on screen" fast path before restoring it. Do **not** mix implicit + explicit waits on the same lookup — their timeouts stack unpredictably.
 - `MembersScroller.scrollThroughMembers` — pages the member list via `mobile: scrollGesture`, calling back with the visible `WebElement`s each step; detects end-of-list when the first item's text stops changing across iterations.
 
-### The `db/` package — reading Viber's SQLite over adb
+### The `device/` package — reading Viber's SQLite over adb
+Named `device`, not `db`, because it is the whole path to the phone (adb transport, CSV parsing, device-side queries) — a database of this project's own would live somewhere else entirely. Inside: `AdbSqlite` (transport) and `SqlExecutor` (the seam that lets repositories run without a device), `SqliteCsv` + `Row` (parsing), `ViberDatabase` (the queries), `ViberRowMapping` (rows into models — kept apart so the queries file is only about what we ask), and `model/` with `ViberGroup` / `ViberMember`. Those models are **not** DTOs: `dto/` is the shape of the HTTP response, `device/model/` is what the device's database actually holds, and `dto/ApiMappers.kt` is the only bridge between them.
 A second, independent path to the device that does **not** go through Appium. `AdbSqlite`
 runs `adb shell -T "su -c 'echo <base64> | base64 -d | sqlite3 -csv -header \"file:<db>?mode=ro\"'"`.
 Each choice there is load-bearing: `shell -T` (not `exec-out`) is the only form that carries
@@ -82,7 +83,4 @@ Running a second LDPlayer instance means overriding both `APPIUM_UDID` (5557, 55
 `AdbConnector` does not trust `PATH` or `ANDROID_HOME`: Gradle reuses its daemon, so a forked `./gradlew run` inherits the environment of whatever started that daemon, which on this machine has neither. It walks a list of known roots (SDK locations, then the adb LDPlayer ships) before falling back to `PATH`.
 
 ## Runtime wiring gotcha
-The entry point is `io.ktor.server.netty.EngineMain`, which reads `src/main/resources/application.yaml`. The **effective module list lives in that YAML** (`ktor.application.modules` → `configureRouting`, `configureMonitoring`, `configureSerialization`). `main.kt`'s `Application.module()` duplicates this wiring but is **not referenced by the config**, so editing `main.kt` has no effect on the running server (or on `testApplication`, which also loads the default config) — change `application.yaml` or the `configure*` functions instead.
-
-## Known caveat
-`ServerTest."test root endpoint"` is out of sync with the routes: it exercises `GET /`, but the app only serves `/health` and `/api/*`. As a result `./gradlew build` currently fails on this test for reasons unrelated to the Appium logic — treat a red `ServerTest` as pre-existing unless you touched Ktor routing/plugins.
+The entry point is `io.ktor.server.netty.EngineMain`, which reads `src/main/resources/application.yaml`. The **effective module list lives in that YAML** (`ktor.application.modules` → `configureAppium`, `configureDatabase`, `configureRouting`, `configureMonitoring`, `configureSerialization`). `main.kt`'s `Application.module()` duplicates this wiring but is **not referenced by the config**, so editing `main.kt` has no effect on the running server (or on `testApplication`, which also loads the default config) — change `application.yaml` or the `configure*` functions instead.

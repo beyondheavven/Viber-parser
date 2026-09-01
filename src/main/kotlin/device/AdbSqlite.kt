@@ -1,15 +1,10 @@
-package com.viber.db
+package com.viber.device
 
 import com.viber.appium.AdbConnector
 import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.util.Base64
 import java.util.concurrent.TimeUnit
-
-/** Источник строк для типизированных запросов — отделён от adb, чтобы репозитории тестировались без устройства. */
-fun interface SqlExecutor {
-    fun query(sql: String): List<Row>
-}
 
 /**
  * Выполняет SELECT прямо на устройстве: `adb shell -T` поднимает root-шелл, тот скармливает

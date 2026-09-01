@@ -3,8 +3,8 @@ package com.viber
 import com.viber.appium.AppiumManager
 import com.viber.config.AppiumSettings
 import com.viber.config.DatabaseSettings
-import com.viber.db.AdbSqlite
-import com.viber.db.DeviceDatabase
+import com.viber.device.AdbSqlite
+import com.viber.device.DeviceDatabase
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
