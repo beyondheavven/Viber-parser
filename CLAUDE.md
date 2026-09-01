@@ -43,7 +43,32 @@ The **database routes are the exception** to the fire-and-forget rule: they hit 
 - `MembersScroller.scrollThroughMembers` — pages the member list via `mobile: scrollGesture`, calling back with the visible `WebElement`s each step; detects end-of-list when the first item's text stops changing across iterations.
 
 ### The `device/` package — reading Viber's SQLite over adb
-Named `device`, not `db`, because it is the whole path to the phone (adb transport, CSV parsing, device-side queries) — a database of this project's own would live somewhere else entirely. Inside: `AdbSqlite` / `AdbSqliteWriter` (transport, over the shared `AdbShell` process runner) and `SqlExecutor` / `SqlWriter` (the seams that let repositories run without a device), `SqliteCsv` + `Row` (parsing), `ViberDatabase` (the queries), `EmKey` + `ParticipantDecoder` (the write path), `ViberRowMapping` (rows into models — kept apart so the queries file is only about what we ask), `Sql.kt` (`quote()`, the only way a string may enter a statement), and `model/` with `ViberGroup` / `ViberMember` / `ParticipantCard` / the decode report types. Those models are **not** DTOs: `dto/` is the shape of the HTTP response, `device/model/` is what the device's database actually holds, and `dto/ApiMappers.kt` is the only bridge between them.
+Named `device`, not `db`, because it is the whole path to the phone (adb transport, CSV parsing,
+device-side queries) — a database of this project's own would live somewhere else entirely.
+
+Four sub-packages, cut by the question each one answers:
+
+- **`adb/`** — *how we reach the phone.* `AdbShell` (one process runner: command, stdin, timeout),
+  `AdbSqlite` (read), `AdbSqliteWriter` (write).
+- **`sqlite/`** — *what the device's sqlite3 speaks.* `SqliteCsv` (parses `-csv -header`), `Row`
+  (a parsed row), `Sql.kt` (`quote()`, the only way a string may enter a statement). It knows
+  nothing of adb or Viber: swap the transport and this stays.
+- **`viber/`** — *what we ask the database.* `ViberDatabase` (the queries), `ViberRowMapping`
+  (rows into models — kept apart so the queries file is only about what we ask), `ViberGroup`,
+  `ViberMember`.
+- **`participants/`** — *what we change.* `ParticipantDecoder`, `EmKey`, `ParticipantRowMapping`,
+  `ParticipantCard`, `DecodeReport`.
+
+At the top sit only `DeviceDatabase` (the single entry point, and the only thing here that knows
+about `AppiumManager`) and the seams `SqlExecutor` / `SqlWriter`. The seams stay above the
+sub-packages on purpose: all three layers see them, and putting them in `adb/` would say the
+queries depend on the transport — the exact opposite of why the seams exist.
+
+There is deliberately **no `model/` folder**. Grouping by kind put `ViberGroup` next to
+`DecodeReport` — two unrelated jobs that met only because both are data classes — while keeping
+each model away from the one file that uses it. Every model now lives beside its own concern.
+Those models are still **not** DTOs: `dto/` is the shape of the HTTP response, `device/` is what
+the device's database actually holds, and `dto/ApiMappers.kt` is the only bridge between them.
 A second, independent path to the device that does **not** go through Appium. `AdbSqlite`
 runs `adb shell -T "su -c 'echo <base64> | base64 -d | sqlite3 -csv -header \"file:<db>?mode=ro\"'"`.
 Each choice there is load-bearing: `shell -T` (not `exec-out`) is the only form that carries

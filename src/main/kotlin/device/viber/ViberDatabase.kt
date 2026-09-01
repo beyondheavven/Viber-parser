@@ -1,7 +1,10 @@
-package com.viber.device
+package com.viber.device.viber
 
-import com.viber.device.model.ViberGroup
-import com.viber.device.model.ViberMember
+import com.viber.device.SqlExecutor
+import com.viber.device.sqlite.Row
+import com.viber.device.sqlite.quote
+import com.viber.device.viber.ViberGroup
+import com.viber.device.viber.ViberMember
 
 /**
  * Типизированные выборки поверх `viber_messages`.

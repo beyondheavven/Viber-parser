@@ -1,4 +1,4 @@
-package com.viber.device
+package com.viber.device.sqlite
 
 /**
  * Единственный способ внести строку в запрос к устройству.

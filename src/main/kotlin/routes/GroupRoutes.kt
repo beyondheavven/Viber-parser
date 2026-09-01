@@ -1,7 +1,7 @@
 package com.viber.routes
 
 import com.viber.device.DeviceDatabase
-import com.viber.device.ViberDatabase
+import com.viber.device.viber.ViberDatabase
 import com.viber.dto.ErrorResponse
 import com.viber.dto.toGroupsResponse
 import com.viber.dto.toMembersResponse

@@ -1,12 +1,12 @@
 package com.viber.dto
 
-import com.viber.device.model.DecodeOptions
-import com.viber.device.model.DecodeReport
-import com.viber.device.model.DecodedParticipant
-import com.viber.device.model.InvalidParticipant
-import com.viber.device.model.SkippedParticipant
-import com.viber.device.model.ViberGroup
-import com.viber.device.model.ViberMember
+import com.viber.device.participants.DecodeOptions
+import com.viber.device.participants.DecodeReport
+import com.viber.device.participants.DecodedParticipant
+import com.viber.device.participants.InvalidParticipant
+import com.viber.device.participants.SkippedParticipant
+import com.viber.device.viber.ViberGroup
+import com.viber.device.viber.ViberMember
 
 /**
  * Перевод моделей базы в форму HTTP-ответа. Слои держим врозь: форма JSON меняется под

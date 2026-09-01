@@ -1,13 +1,16 @@
-package com.viber.device
+package com.viber.device.participants
 
-import com.viber.device.model.DecodeOptions
-import com.viber.device.model.DecodeReport
-import com.viber.device.model.DecodedParticipant
-import com.viber.device.model.InvalidParticipant
-import com.viber.device.model.NormalisedCard
-import com.viber.device.model.ParticipantCard
-import com.viber.device.model.SkipReason
-import com.viber.device.model.SkippedParticipant
+import com.viber.device.SqlExecutor
+import com.viber.device.SqlWriter
+import com.viber.device.participants.DecodeOptions
+import com.viber.device.participants.DecodeReport
+import com.viber.device.participants.DecodedParticipant
+import com.viber.device.participants.InvalidParticipant
+import com.viber.device.participants.NormalisedCard
+import com.viber.device.participants.ParticipantCard
+import com.viber.device.participants.SkipReason
+import com.viber.device.participants.SkippedParticipant
+import com.viber.device.sqlite.quote
 import org.slf4j.LoggerFactory
 
 /**

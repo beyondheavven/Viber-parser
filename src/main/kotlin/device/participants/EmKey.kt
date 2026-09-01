@@ -1,4 +1,4 @@
-package com.viber.device
+package com.viber.device.participants
 
 import java.util.Base64
 

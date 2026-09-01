@@ -3,7 +3,7 @@ package com.viber.routes
 import com.viber.appium.AppiumManager
 import com.viber.appium.ParserState
 import com.viber.device.DeviceDatabase
-import com.viber.device.ParticipantDecoder
+import com.viber.device.participants.ParticipantDecoder
 import com.viber.dto.DecodeParticipantsRequest
 import com.viber.dto.ErrorResponse
 import com.viber.dto.toDecodeOptions
