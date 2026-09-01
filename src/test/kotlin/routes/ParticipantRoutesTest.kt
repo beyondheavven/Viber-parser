@@ -1,4 +1,4 @@
-package com.viber
+package com.viber.routes
 
 import com.viber.appium.ParserState
 import com.viber.device.participants.ParticipantDecoder
@@ -8,7 +8,6 @@ import com.viber.device.SqlWriter
 import com.viber.device.sqlite.SqliteCsv
 import com.viber.device.WriteResult
 import com.viber.plugins.configureSerialization
-import com.viber.routes.participantRoutes
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText

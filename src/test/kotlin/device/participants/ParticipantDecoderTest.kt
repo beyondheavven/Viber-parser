@@ -1,13 +1,10 @@
-package com.viber
+package com.viber.device.participants
 
-import com.viber.device.participants.ParticipantDecoder
 import com.viber.device.sqlite.Row
 import com.viber.device.SqlExecutor
 import com.viber.device.SqlWriter
 import com.viber.device.sqlite.SqliteCsv
 import com.viber.device.WriteResult
-import com.viber.device.participants.DecodeOptions
-import com.viber.device.participants.SkipReason
 import java.util.Base64
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -1,10 +1,9 @@
-package com.viber
+package com.viber.device
 
 import com.viber.appium.AppiumManager
 import com.viber.config.AppiumSettings
 import com.viber.config.DatabaseSettings
 import com.viber.device.adb.AdbSqlite
-import com.viber.device.DeviceDatabase
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

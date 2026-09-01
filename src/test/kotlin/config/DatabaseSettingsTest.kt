@@ -1,6 +1,5 @@
-package com.viber
+package com.viber.config
 
-import com.viber.config.DatabaseSettings
 import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.config.yaml.YamlConfigLoader

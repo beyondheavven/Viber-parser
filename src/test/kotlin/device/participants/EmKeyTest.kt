@@ -1,6 +1,5 @@
-package com.viber
+package com.viber.device.participants
 
-import com.viber.device.participants.EmKey
 import java.util.Base64
 import kotlin.test.Test
 import kotlin.test.assertEquals
