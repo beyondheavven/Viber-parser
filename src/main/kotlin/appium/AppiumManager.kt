@@ -60,6 +60,9 @@ object AppiumManager {
             throw NullPointerException("scrollMembers() called without driver")
         }
 
+        logger.info("Pinning group: $groupName")
+        GroupNavigator.pinGroup(d, groupName)
+
         logger.info("Opening group: $groupName")
         GroupNavigator.openGroup(d, groupName)
         GroupNavigator.openMembersList(d)
