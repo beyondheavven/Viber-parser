@@ -107,6 +107,7 @@ object MembersScroller {
 
     private fun clickMessageAndReturn(driver: AndroidDriver, userName: String): Boolean {
         val messageButtonSelector = "new UiSelector().resourceId(\"android:id/title\").textStartsWith(\"Сообщение\")"
+
         try {
             driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(3))
             val messageButton = driver.findElement(AppiumBy.androidUIAutomator(messageButtonSelector))
@@ -121,22 +122,33 @@ object MembersScroller {
         }
 
         try {
+            if(driver.isKeyboardShown) driver.hideKeyboard()
+        } catch (e: Exception) {
+            logger.warn("Could not hideKeyboard: ", e)
+        }
+
+        try {
             driver.pressKey(KeyEvent(AndroidKey.BACK))
         } catch (e: Exception) {
             logger.error("Failed to press BACK button", e)
         }
 
-        val isBackToList = driver.withZeroWait {
-            driver.findElements(AppiumBy.id("com.viber.voip:id/recycler_view")).isNotEmpty()
-        }
-        if (isBackToList) {
-            return false
-        }
-        val isMainList = driver.withZeroWait {
-            driver.findElements(AppiumBy.id("com.viber.voip:id/messages_list")).isNotEmpty()
-        }
-        if (isMainList) {
-            return true
+        var retries = 3
+        while (retries > 0) {
+            val isBackToList = driver.withZeroWait {
+                driver.findElements(AppiumBy.id("com.viber.voip:id/recycler_view")).isNotEmpty()
+            }
+            if (isBackToList) {
+                return false
+            }
+            val isMainList = driver.withZeroWait {
+                driver.findElements(AppiumBy.id("com.viber.voip:id/messages_list")).isNotEmpty()
+            }
+            if (isMainList) {
+                return true
+            }
+
+            retries--
         }
 
         throw IllegalStateException("Navigation completely lost after user $userName. Neither members list nor main list found.")
