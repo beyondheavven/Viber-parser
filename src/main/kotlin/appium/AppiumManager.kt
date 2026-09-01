@@ -60,10 +60,17 @@ object AppiumManager {
             throw NullPointerException("scrollMembers() called without driver")
         }
 
+        logger.info("Pinning group: $groupName")
+        GroupNavigator.pinGroup(d, groupName)
+
         logger.info("Opening group: $groupName")
         GroupNavigator.openGroup(d, groupName)
         GroupNavigator.openMembersList(d)
-        MembersScroller.processRegularMembers(d)
+        MembersScroller.processRegularMembers(d, maxSwipes = 100) {
+            logger.info("Re-opening group after chat navigation...")
+            GroupNavigator.openGroup(d, groupName)
+            GroupNavigator.openMembersList(d)
+        }
     }
 
     fun executeRootCommand(command: String): String {
