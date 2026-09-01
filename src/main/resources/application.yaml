@@ -40,3 +40,8 @@ database:
   # Диалоги, участники, сообщения. Рядом лежит viber_data — телефонная книга.
   path: "$VIBER_DB_PATH:/data/data/com.viber.voip/databases/viber_messages"
   queryTimeoutSeconds: "$VIBER_DB_QUERY_TIMEOUT_SECONDS:60"
+  # Запись (POST /api/participants/decode) — дольше чтения: гасим Viber, копируем базу,
+  # гоняем транзакцию и поднимаем приложение обратно.
+  writeTimeoutSeconds: "$VIBER_DB_WRITE_TIMEOUT_SECONDS:120"
+  # Копия базы рядом (<path>.bak) перед каждой правкой. Отключается только явным "false".
+  backupOnWrite: "$VIBER_DB_BACKUP_ON_WRITE:true"

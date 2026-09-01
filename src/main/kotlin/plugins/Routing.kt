@@ -27,6 +27,8 @@ fun Application.configureRouting() {
         route("/api"){
             // Чтение базы устройства: группы, которые вообще есть в Viber.
             groupRoutes()
+            // Единственный путь на запись: правка карточек в participants_info.
+            participantRoutes()
 
             post("/start"){
                 if(AppiumManager.currentState == ParserState.INITIALIZING ||

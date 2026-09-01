@@ -65,9 +65,6 @@ class ViberDatabase(private val executor: SqlExecutor) {
         ).map { it.toViberMember() }
     }
 
-    /** Единственный способ внести строку в запрос: удвоенная кавычка — экранирование sqlite. */
-    private fun quote(value: String): String = "'" + value.replace("'", "''") + "'"
-
     private companion object {
 
         /** Групповая беседа, которую пользователь не удалил. */

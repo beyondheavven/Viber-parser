@@ -1,5 +1,10 @@
 package com.viber.dto
 
+import com.viber.device.model.DecodeOptions
+import com.viber.device.model.DecodeReport
+import com.viber.device.model.DecodedParticipant
+import com.viber.device.model.InvalidParticipant
+import com.viber.device.model.SkippedParticipant
 import com.viber.device.model.ViberGroup
 import com.viber.device.model.ViberMember
 
@@ -38,3 +43,42 @@ fun ViberMember.toResponse(): MemberResponse = MemberResponse(
     active = active,
     groupRole = groupRole,
 )
+
+fun DecodeParticipantsRequest.toDecodeOptions(): DecodeOptions = DecodeOptions(
+    dryRun = dryRun,
+    includeSelf = includeSelf,
+    limit = limit,
+    restartApp = restartApp,
+)
+
+fun DecodeReport.toResponse(): DecodeParticipantsResponse = DecodeParticipantsResponse(
+    dryRun = dryRun,
+    read = read,
+    decodedCount = decoded.size,
+    updated = updated,
+    changedRows = changedRows,
+    skippedCount = skipped.size,
+    invalidCount = invalid.size,
+    backupPath = backupPath,
+    decoded = decoded.map { it.toResponse() },
+    skipped = skipped.map { it.toResponse() },
+    invalid = invalid.map { it.toResponse() },
+)
+
+fun DecodedParticipant.toResponse(): DecodedParticipantResponse = DecodedParticipantResponse(
+    infoId = infoId,
+    name = name,
+    newMemberId = newMemberId,
+    memberIdChanged = memberIdChanged,
+    participantType = participantType,
+    safeContact = safeContact,
+    previousMemberId = previousMemberId,
+    previousNumber = previousNumber,
+    previousParticipantType = previousParticipantType,
+)
+
+fun SkippedParticipant.toResponse(): SkippedParticipantResponse =
+    SkippedParticipantResponse(infoId = infoId, reason = reason.name)
+
+fun InvalidParticipant.toResponse(): InvalidParticipantResponse =
+    InvalidParticipantResponse(infoId = infoId, encryptedMemberId = encryptedMemberId, error = error)
