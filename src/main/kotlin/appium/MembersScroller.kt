@@ -13,7 +13,7 @@ object MembersScroller {
 
     private val logger = LoggerFactory.getLogger(MembersScroller::class.java)
 
-    fun processRegularMembers(driver: AndroidDriver, maxSwipes: Int = 100) {
+    fun processRegularMembers(driver: AndroidDriver, maxSwipes: Int = 100, onRecover: () -> Unit) {
         var previousFirstText: String? = null
         var sameStateCount = 0
         val processedUsers = mutableSetOf<String>()
@@ -32,13 +32,13 @@ object MembersScroller {
             }
 
             previousFirstText = currentFirstText
-            processCurrentScreen(driver, processedUsers)
+            processCurrentScreen(driver, processedUsers, onRecover)
             scrollListDown(driver)
         }
 
     }
 
-    private fun processCurrentScreen(driver: AndroidDriver, processedUsers: MutableSet<String>) {
+    private fun processCurrentScreen(driver: AndroidDriver, processedUsers: MutableSet<String>, onRecover: () -> Unit) {
         var screenProcessed = false
         while (!screenProcessed) {
             val listElement = driver.findElement(AppiumBy.id("com.viber.voip:id/recycler_view"))
@@ -46,7 +46,17 @@ object MembersScroller {
             var clickedInThisPass = false
 
             for (row in rows) {
-                if (processSingleRow(driver, row, processedUsers)){
+                val clickedUserName = processSingleRow(driver, row, processedUsers)
+
+                if(clickedUserName != null){
+                    val kickedToMainList = clickMessageAndReturn(driver, clickedUserName)
+
+                    if (kickedToMainList) {
+                        logger.warn("Kicked to main list! Recovering state...")
+                        onRecover()
+                        fastScrollToUser(driver, clickedUserName)
+                    }
+
                     clickedInThisPass = true
                     break
                 }
@@ -58,30 +68,29 @@ object MembersScroller {
         }
     }
 
-    private fun processSingleRow(driver: AndroidDriver, row: WebElement, processedUsers: MutableSet<String>): Boolean {
+    private fun processSingleRow(driver: AndroidDriver, row: WebElement, processedUsers: MutableSet<String>): String? {
         val name = driver.withZeroWait {
             row.findElements(AppiumBy.id("com.viber.voip:id/name")).firstOrNull()?.text
-        } ?: return false
+        } ?: return null
 
-        if (processedUsers.contains(name)) return false
+        if (processedUsers.contains(name)) return null
 
         if (name.startsWith("Вы ") || name.startsWith("Вы(")) {
             processedUsers.add(name)
-            return false
+            return null
         }
 
         if (isUserAdmin(driver, row)) {
             logger.info("Skipped admin: $name")
             processedUsers.add(name)
-            return false
+            return null
         }
 
         row.findElement(AppiumBy.id("com.viber.voip:id/group")).click()
         logger.info("Clicked on user: $name")
         processedUsers.add(name)
 
-        closeDialogIfOpened(driver)
-        return true
+        return name
     }
 
     private fun isUserAdmin(driver: AndroidDriver, row: WebElement): Boolean {
@@ -96,36 +105,41 @@ object MembersScroller {
         }
     }
 
-    private fun closeDialogIfOpened(driver: AndroidDriver) {
-        val isDialogOpen = driver.withZeroWait {
-            driver.findElements(AppiumBy.androidUIAutomator("new UiSelector().textContains(\"Сообщение\")")).isNotEmpty()
-        }
-
-        if (isDialogOpen) {
+    private fun clickMessageAndReturn(driver: AndroidDriver, userName: String): Boolean {
+        val messageButtonSelector = "new UiSelector().resourceId(\"android:id/title\").textStartsWith(\"Сообщение\")"
+        try {
+            driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(3))
+            val messageButton = driver.findElement(AppiumBy.androidUIAutomator(messageButtonSelector))
+            messageButton.click()
+            logger.info("Clicked 'Сообщение' for user: $userName")
+        } catch (e: Exception) {
+            logger.warn("Could not find 'Сообщение' button for $userName. Tapping outside to close.", e)
             driver.executeScript("mobile: clickGesture", mapOf("x" to 50, "y" to 150))
-            Thread.sleep(500)
+            return false
+        } finally {
+            driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10))
         }
 
-        var retries = 3
-        while (retries > 0) {
-            val isBackToList = driver.withZeroWait {
-                driver.findElements(AppiumBy.id("com.viber.voip:id/recycler_view")).isNotEmpty()
-            }
-
-            if (isBackToList) {
-                return
-            }
-
-            logger.warn("Not on the members list! Pressing hardware BACK button. Retries left: $retries")
-            try {
-                driver.pressKey(KeyEvent(AndroidKey.BACK))
-            } catch (e: Exception) {
-                logger.error("Failed to press BACK button", e)
-            }
-            Thread.sleep(1000)
-            retries--
+        try {
+            driver.pressKey(KeyEvent(AndroidKey.BACK))
+        } catch (e: Exception) {
+            logger.error("Failed to press BACK button", e)
         }
-        throw IllegalStateException("Failed to return to the members list after clicking a user.")
+
+        val isBackToList = driver.withZeroWait {
+            driver.findElements(AppiumBy.id("com.viber.voip:id/recycler_view")).isNotEmpty()
+        }
+        if (isBackToList) {
+            return false
+        }
+        val isMainList = driver.withZeroWait {
+            driver.findElements(AppiumBy.id("com.viber.voip:id/messages_list")).isNotEmpty()
+        }
+        if (isMainList) {
+            return true
+        }
+
+        throw IllegalStateException("Navigation completely lost after user $userName. Neither members list nor main list found.")
     }
 
     private fun getFirstRowText(driver: AndroidDriver): String? {
@@ -135,6 +149,26 @@ object MembersScroller {
                 ?.firstOrNull()
                 ?.findElements(AppiumBy.id("com.viber.voip:id/name"))
                 ?.firstOrNull()?.text
+        }
+    }
+
+    private fun fastScrollToUser(driver: AndroidDriver, targetName: String) {
+        logger.info("Fast-forwarding back to user: $targetName")
+        try {
+            val scrollSelector = "new UiScrollable(new UiSelector().resourceId(\"com.viber.voip:id/recycler_view\").scrollable(true))" +
+                    ".setMaxSearchSwipes(100).scrollIntoView(new UiSelector().text(\"$targetName\"))"
+            driver.findElement(AppiumBy.androidUIAutomator(scrollSelector))
+
+            val listForScroll = driver.findElement(AppiumBy.id("com.viber.voip:id/recycler_view"))
+            driver.executeScript("mobile: scrollGesture", mapOf(
+                "elementId" to (listForScroll as RemoteWebElement).id,
+                "direction" to "down",
+                "percent" to 0.4,
+                "speed" to 5000
+            ))
+            Thread.sleep(1000)
+        } catch (e: Exception) {
+            logger.warn("Fast scroll failed or user already visible", e)
         }
     }
 

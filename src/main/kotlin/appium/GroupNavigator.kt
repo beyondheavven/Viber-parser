@@ -63,4 +63,33 @@ object GroupNavigator {
             throw IllegalStateException("Button 'Показать всех' not found")
         }
     }
+
+    fun pinGroup(driver: AndroidDriver, groupName: String) {
+        val uiSelector = "new UiSelector().resourceId(\"com.viber.voip:id/from\").textContains(\"$groupName\")"
+
+        try {
+            val visibleGroup = driver.findElement(AppiumBy.androidUIAutomator(uiSelector))
+            val elementId = (visibleGroup as org.openqa.selenium.remote.RemoteWebElement).id
+            driver.executeScript("mobile: longClickGesture", mapOf(
+                "elementId" to elementId,
+                "duration" to 1000
+            ))
+
+            driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(2))
+
+            val pinButton = driver.findElements(AppiumBy.androidUIAutomator("new UiSelector().textContains(\"Закрепить\")"))
+            if (pinButton.isNotEmpty()) {
+                pinButton.first().click()
+                logger.info("Group '$groupName' successfully pinned")
+            } else {
+                logger.info("Group '$groupName' is likely already pinned. Closing context menu.")
+                driver.pressKey(io.appium.java_client.android.nativekey.KeyEvent(io.appium.java_client.android.nativekey.AndroidKey.BACK))
+            }
+
+        } catch (e: Exception) {
+            logger.warn("Could not pin group '$groupName'. It might require scrolling first.", e)
+        } finally {
+            driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10))
+        }
+    }
 }
