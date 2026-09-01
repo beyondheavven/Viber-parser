@@ -63,7 +63,11 @@ object AppiumManager {
         logger.info("Opening group: $groupName")
         GroupNavigator.openGroup(d, groupName)
         GroupNavigator.openMembersList(d)
-        MembersScroller.processRegularMembers(d)
+        MembersScroller.processRegularMembers(d, maxSwipes = 100) {
+            logger.info("Re-opening group after chat navigation...")
+            GroupNavigator.openGroup(d, groupName)
+            GroupNavigator.openMembersList(d)
+        }
     }
 
     fun executeRootCommand(command: String): String {
