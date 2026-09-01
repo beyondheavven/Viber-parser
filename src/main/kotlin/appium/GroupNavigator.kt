@@ -47,17 +47,26 @@ object GroupNavigator {
         logger.info("Members list opened")
 
         try {
-            val scrollSelector = "new UiScrollable(new UiSelector().resourceId(\"com.viber.voip:id/conversationInfo\").scrollable(true))" +
-                    ".scrollIntoView(new UiSelector().text(\"Показать всех\"))"
+            val viewGroupXPath = "//android.widget.TextView[@text='Показать всех']/parent::android.view.ViewGroup"
+            driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(2))
+            val visibleButtons = driver.findElements(AppiumBy.xpath(viewGroupXPath))
+            driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10))
+
+            if (visibleButtons.isNotEmpty()) {
+                visibleButtons.first().click()
+                logger.info("Clicked 'Показать всех' (was already visible)")
+                return
+            }
+
+            val scrollSelector = "new UiScrollable(new UiSelector().resourceId(\"com.viber.voip:id/conversationInfo\"))" +
+                    ".setMaxSearchSwipes(5).scrollIntoView(new UiSelector().text(\"Показать всех\"))"
 
             driver.findElement(AppiumBy.androidUIAutomator(scrollSelector))
             logger.info("Scrolled to 'Показать всех' text")
 
-            val viewGroupXPath = "//android.widget.TextView[@text='Показать всех']/parent::android.view.ViewGroup"
             val showAllButtonGroup = driver.findElement(AppiumBy.xpath(viewGroupXPath))
             showAllButtonGroup.click()
-            logger.info("Clicked 'Показать всех' ViewGroup")
-
+            logger.info("Clicked 'Показать всех' after scrolling")
         } catch (e: Exception) {
             logger.error("Could not find or click 'Показать всех' button even after scrolling", e)
             throw IllegalStateException("Button 'Показать всех' not found")
