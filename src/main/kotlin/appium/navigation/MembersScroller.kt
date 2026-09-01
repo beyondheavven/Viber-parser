@@ -1,4 +1,4 @@
-package com.viber.appium
+package com.viber.appium.navigation
 
 import io.appium.java_client.AppiumBy
 import io.appium.java_client.android.AndroidDriver

@@ -1,7 +1,10 @@
-package com.viber.appium
+package com.viber.appium.navigation
 
 import io.appium.java_client.AppiumBy
 import io.appium.java_client.android.AndroidDriver
+import io.appium.java_client.android.nativekey.AndroidKey
+import io.appium.java_client.android.nativekey.KeyEvent
+import org.openqa.selenium.remote.RemoteWebElement
 import org.slf4j.LoggerFactory
 import java.time.Duration
 
@@ -78,7 +81,7 @@ object GroupNavigator {
 
         try {
             val visibleGroup = driver.findElement(AppiumBy.androidUIAutomator(uiSelector))
-            val elementId = (visibleGroup as org.openqa.selenium.remote.RemoteWebElement).id
+            val elementId = (visibleGroup as RemoteWebElement).id
             driver.executeScript("mobile: longClickGesture", mapOf(
                 "elementId" to elementId,
                 "duration" to 1000
@@ -92,7 +95,7 @@ object GroupNavigator {
                 logger.info("Group '$groupName' successfully pinned")
             } else {
                 logger.info("Group '$groupName' is likely already pinned. Closing context menu.")
-                driver.pressKey(io.appium.java_client.android.nativekey.KeyEvent(io.appium.java_client.android.nativekey.AndroidKey.BACK))
+                driver.pressKey(KeyEvent(AndroidKey.BACK))
             }
 
         } catch (e: Exception) {
