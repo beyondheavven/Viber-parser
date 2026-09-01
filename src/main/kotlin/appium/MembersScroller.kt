@@ -164,9 +164,8 @@ object MembersScroller {
                 "elementId" to (listForScroll as RemoteWebElement).id,
                 "direction" to "down",
                 "percent" to 0.4,
-                "speed" to 5000
+                "speed" to 7000
             ))
-            Thread.sleep(1000)
         } catch (e: Exception) {
             logger.warn("Fast scroll failed or user already visible", e)
         }
