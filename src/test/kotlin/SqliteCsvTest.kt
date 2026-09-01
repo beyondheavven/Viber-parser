@@ -1,6 +1,6 @@
 package com.viber
 
-import com.viber.device.SqliteCsv
+import com.viber.device.sqlite.SqliteCsv
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

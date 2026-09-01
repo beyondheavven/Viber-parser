@@ -1,4 +1,4 @@
-package com.viber.device
+package com.viber.device.adb
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit

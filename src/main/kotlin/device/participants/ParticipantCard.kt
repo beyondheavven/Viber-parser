@@ -1,4 +1,4 @@
-package com.viber.device.model
+package com.viber.device.participants
 
 /**
  * Строка `participants_info` такой, какая она сейчас на устройстве — до правки.

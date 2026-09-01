@@ -1,4 +1,4 @@
-package com.viber.device
+package com.viber.device.sqlite
 
 /** Строка результата с доступом по имени колонки. */
 class Row internal constructor(

@@ -1,4 +1,4 @@
-package com.viber.device.model
+package com.viber.device.participants
 
 /**
  * Что и как разбирать.
@@ -58,7 +58,7 @@ data class DecodedParticipant(
 
     /**
      * Разошёлся ли извлечённый ключ с тем, что уже лежит в `member_id`. На живой базе
-     * почти всегда false — Viber хранит там те же байты, см. [com.viber.device.EmKey].
+     * почти всегда false — Viber хранит там те же байты, см. [EmKey].
      */
     val memberIdChanged: Boolean get() = previousMemberId != newMemberId
 }

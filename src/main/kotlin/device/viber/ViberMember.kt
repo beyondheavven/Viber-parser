@@ -1,4 +1,4 @@
-package com.viber.device.model
+package com.viber.device.viber
 
 /**
  * Участник группы: строка `participants`, склеенная с карточкой из `participants_info`.

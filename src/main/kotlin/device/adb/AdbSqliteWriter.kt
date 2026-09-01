@@ -1,6 +1,8 @@
-package com.viber.device
+package com.viber.device.adb
 
 import com.viber.appium.AdbConnector
+import com.viber.device.SqlWriter
+import com.viber.device.WriteResult
 import org.slf4j.LoggerFactory
 import java.time.Duration
 

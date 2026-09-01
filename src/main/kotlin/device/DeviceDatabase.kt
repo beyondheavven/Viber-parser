@@ -2,6 +2,10 @@ package com.viber.device
 
 import com.viber.appium.AppiumManager
 import com.viber.config.DatabaseSettings
+import com.viber.device.adb.AdbSqlite
+import com.viber.device.adb.AdbSqliteWriter
+import com.viber.device.participants.ParticipantDecoder
+import com.viber.device.viber.ViberDatabase
 import org.slf4j.LoggerFactory
 
 /**
