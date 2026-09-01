@@ -23,7 +23,9 @@ Kotlin 2.4.0 · Ktor 3.5.2 · JVM toolchain 21. Use `./gradlew` (or `.\gradlew.b
 ### Request → automation lifecycle
 Routes in `plugins/Routing.kt` are **fire-and-forget**: `/api/start` and `/api/scroll-members` launch a coroutine on `Dispatchers.IO`, respond `202 Accepted` immediately, and only **log** failures — they are never surfaced in the HTTP response. The client observes progress solely through `GET /api/status` and the `ParserState` machine. Routes guard transitions by checking `AppiumManager.currentState` before acting (e.g. `/api/scroll-members` requires `RUNNING`, `/api/start` rejects if already `INITIALIZING`/`RUNNING`).
 
-Endpoints: `GET /health`, `POST /api/start`, `GET /api/status`, `POST /api/scroll-members` (body `{ "groupName": "..." }`), `POST /api/stop`.
+Endpoints: `GET /health`, `POST /api/start`, `GET /api/status`, `POST /api/scroll-members` (body `{ "groupName": "..." }`), `POST /api/stop`, `GET /api/groups`, `GET /api/groups/{id}/members`.
+
+`GET /api/groups` is the exception to the fire-and-forget rule: it reads the device database **synchronously** (one adb run, no Appium session needed) and answers `503` with the underlying error when the device is unreachable. Both database routes live in `plugins/GroupRoutes.kt`; the members route runs **two** queries on purpose — it looks the group up first so a missing group answers `404` instead of an empty list. Their handler and takes its `ViberDatabase` as a parameter defaulting to `DeviceDatabase.viber` — that seam is what lets `GroupRoutesTest` exercise the route with a fake executor instead of a device.
 
 ### Global singleton state
 `AppiumManager` is a Kotlin `object` (process-wide singleton) holding **the single `AndroidDriver`** and a `@Volatile currentState: ParserState` (`IDLE → INITIALIZING → RUNNING → ERROR`/`IDLE`). There is no lock around the driver — the state machine plus the route-level state checks are the only coordination. Assume automation calls into `AppiumManager` run one at a time; adding genuinely concurrent driver access would need explicit synchronization.
@@ -33,6 +35,36 @@ Endpoints: `GET /health`, `POST /api/start`, `GET /api/status`, `POST /api/scrol
 - `AdbConnector` — runs `adb connect <udid>` before the session starts, because LDPlayer's network adb target drops after an emulator restart. Never throws: a missing adb only produces a warning.
 - `GroupNavigator` — the navigation used by `AppiumManager.scrollMembers` (`openGroup`, `openMembersList`). It relies on **implicit waits** and temporarily lowers the implicit-wait timeout for the "is the group already on screen" fast path before restoring it. Do **not** mix implicit + explicit waits on the same lookup — their timeouts stack unpredictably.
 - `MembersScroller.scrollThroughMembers` — pages the member list via `mobile: scrollGesture`, calling back with the visible `WebElement`s each step; detects end-of-list when the first item's text stops changing across iterations.
+
+### The `db/` package — reading Viber's SQLite over adb
+A second, independent path to the device that does **not** go through Appium. `AdbSqlite`
+runs `adb shell -T "su -c 'echo <base64> | base64 -d | sqlite3 -csv -header \"file:<db>?mode=ro\"'"`.
+Each choice there is load-bearing: `shell -T` (not `exec-out`) is the only form that carries
+the **exit code** back and keeps stderr separate — `exec-out` reports 0 for a failed query;
+base64 keeps the command line free of quotes and newlines, so SQL cannot break the device
+shell or Windows argument quoting; `file:...?mode=ro` opens the live database read-only
+(`-readonly` does not exist in the sqlite 3.22 shipped with Android 9). Because the exit
+code can still be swallowed by some `su` builds, `toRows` also treats an `Error:` line as a
+failure. `SqliteCsv` parses the result and deliberately keeps **NULL distinct from `""`**
+(sqlite prints NULL as a bare field, `''` as a quoted one).
+
+**Duplicates.** Viber stores one person as two `participants_info` rows — `participant_type = 1`
+with the real number and `participant_type = 2` whose `number` is an encrypted value — and
+**both are referenced from `participants`**, so an unfiltered member list double-counts (53 rows
+for 38 people in a live group). Queries collapse them on `encrypted_member_id`
+(`coalesce(nullif(encrypted_member_id,''), member_id, 'row'||_id)` — never on `member_id` alone,
+which can itself be the encrypted value), keeping the card with the real phone. sqlite 3.22 on the
+device has **no window functions**, so this relies on `max()` + bare columns: sqlite returns the
+other columns from the row where the max was reached. Deleting these rows on the device is *not*
+an option — both are live foreign keys from `participants`.
+
+`ViberDatabase` holds the typed queries (`groups`, `members`, `membersOfGroup`) over
+`conversations` → `participants` → `participants_info`; a group conversation is
+`group_id != 0`, `p.active = 1` filters out people who left. The device CLI has **no bound
+parameters**, so every string value goes through `quote()` — do not interpolate a string
+into these queries any other way. `DeviceDatabase` is the singleton entry point; it takes
+the udid and adb path from `AppiumManager.settings` (one device, one source of truth) and
+its own `database` yaml section for the path and timeout.
 
 ### Selectors are locale- and resource-id-coupled
 Element lookups use `AppiumBy.androidUIAutomator` with Viber resource IDs (`com.viber.voip:id/from`, `:id/recycler_view`, `:id/name`, `:id/conversationInfo`, `:id/startText`) **and Russian UI text** (`"участник"`, `"Показать всех"`). Text-based selectors assume the device UI language is **Russian** and break on other locales; resource IDs are tied to a specific Viber build and can drift between app versions.

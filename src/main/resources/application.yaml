@@ -4,6 +4,7 @@ ktor:
   application:
     modules:
       - com.viber.plugins.AppiumKt.configureAppium
+      - com.viber.plugins.DatabaseKt.configureDatabase
       - com.viber.plugins.RoutingKt.configureRouting
       - com.viber.plugins.MonitoringKt.configureMonitoring
       - com.viber.plugins.SerializationKt.configureSerialization
@@ -32,3 +33,10 @@ appium:
   # Путь к adb. Пусто -> ANDROID_HOME/platform-tools -> adb из PATH.
   # Можно указать adb самого LDPlayer: C:/LDPlayer/LDPlayer9/adb.exe
   adbPath: "$ADB_PATH:"
+
+# Чтение базы Viber прямо на устройстве через adb + устройский sqlite3. Само устройство
+# (udid, путь к adb) берётся из секции appium — здесь только что и как долго читаем.
+database:
+  # Диалоги, участники, сообщения. Рядом лежит viber_data — телефонная книга.
+  path: "$VIBER_DB_PATH:/data/data/com.viber.voip/databases/viber_messages"
+  queryTimeoutSeconds: "$VIBER_DB_QUERY_TIMEOUT_SECONDS:60"
