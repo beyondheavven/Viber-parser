@@ -27,6 +27,9 @@ object DeviceDatabase {
     /** Типизированные выборки: группы и их участники. */
     val viber: ViberDatabase get() = ViberDatabase(executor())
 
+    /** Разбор конвертов `encrypted_member_id` и правка карточек — единственный путь на запись. */
+    val participants: ParticipantDecoder get() = ParticipantDecoder(executor(), writer())
+
     /** Для произвольного SELECT — когда типизированной выборки ещё нет. */
     fun executor(): SqlExecutor {
         val device = AppiumManager.settings
@@ -38,6 +41,27 @@ object DeviceDatabase {
             adbPath = device.adbPath,
             databasePath = settings.databasePath,
             timeout = settings.queryTimeout,
+        )
+    }
+
+    /**
+     * Путь на запись. Отдельно от [executor]: чтение открывает базу read-only, запись гасит
+     * Viber, кладёт копию рядом и возвращает файлы приложению — это другой набор шагов и
+     * другой таймаут, а не флаг у того же клиента.
+     */
+    fun writer(): SqlWriter {
+        val device = AppiumManager.settings
+        val udid = device.udid
+            ?: error("No device udid configured — set appium.udid (APPIUM_UDID) to reach the database")
+
+        return AdbSqliteWriter(
+            udid = udid,
+            adbPath = device.adbPath,
+            databasePath = settings.databasePath,
+            appPackage = device.appPackage,
+            appActivity = device.appActivity,
+            backup = settings.backupOnWrite,
+            timeout = settings.writeTimeout,
         )
     }
 }

@@ -6,17 +6,9 @@ import com.viber.dto.ErrorResponse
 import com.viber.dto.toGroupsResponse
 import com.viber.dto.toMembersResponse
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.ApplicationCall
-import io.ktor.server.request.uri
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
-
-private val logger: Logger = LoggerFactory.getLogger("com.viber.plugins.GroupRoutes")
 
 /**
  * Чтение базы Viber на устройстве: группы и их участники.
@@ -29,7 +21,7 @@ private val logger: Logger = LoggerFactory.getLogger("com.viber.plugins.GroupRou
 fun Route.groupRoutes(database: () -> ViberDatabase = { DeviceDatabase.viber }) {
 
     get("/groups") {
-        readDevice { database().groups().toGroupsResponse() }
+        onDevice { database().groups().toGroupsResponse() }
             .onSuccess { call.respond(HttpStatusCode.OK, it) }
             .onFailure { call.respondDeviceFailure(it) }
     }
@@ -42,7 +34,7 @@ fun Route.groupRoutes(database: () -> ViberDatabase = { DeviceDatabase.viber }) 
         }
         val includeInactive = call.request.queryParameters["includeInactive"].toBoolean()
 
-        readDevice {
+        onDevice {
             val database = database()
             // Группу ищем отдельно: иначе «нет такой группы» неотличимо от «группа пустая».
             database.group(conversationId)
@@ -60,21 +52,4 @@ fun Route.groupRoutes(database: () -> ViberDatabase = { DeviceDatabase.viber }) 
             }
             .onFailure { call.respondDeviceFailure(it) }
     }
-}
-
-/** Запуск adb блокирует поток — уводим с event loop, падение превращаем в результат. */
-private suspend fun <T> readDevice(load: () -> T): Result<T> =
-    try {
-        Result.success(withContext(Dispatchers.IO) { load() })
-    } catch (e: Exception) {
-        Result.failure(e)
-    }
-
-/** Недоступное устройство — это 503, а не пустой ответ: клиент должен различать эти случаи. */
-private suspend fun ApplicationCall.respondDeviceFailure(cause: Throwable) {
-    logger.error("Failed to read the device database for ${request.uri}", cause)
-    respond(
-        HttpStatusCode.ServiceUnavailable,
-        ErrorResponse(cause.message?.take(300) ?: "Device database is not readable"),
-    )
 }

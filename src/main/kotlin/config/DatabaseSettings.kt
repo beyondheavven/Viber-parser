@@ -11,9 +11,12 @@ import java.time.Duration
 data class DatabaseSettings(
     val databasePath: String = DEFAULT_DATABASE_PATH,
     val queryTimeout: Duration = Duration.ofSeconds(60),
+    val writeTimeout: Duration = Duration.ofSeconds(120),
+    val backupOnWrite: Boolean = true,
 ) {
 
-    fun describe(): String = "path=$databasePath, queryTimeout=${queryTimeout.seconds}s"
+    fun describe(): String = "path=$databasePath, queryTimeout=${queryTimeout.seconds}s, " +
+        "writeTimeout=${writeTimeout.seconds}s, backupOnWrite=$backupOnWrite"
 
     companion object {
         const val DEFAULT_DATABASE_PATH = "/data/data/com.viber.voip/databases/viber_messages"
@@ -25,6 +28,8 @@ data class DatabaseSettings(
             return DatabaseSettings(
                 databasePath = config.text("path") ?: defaults.databasePath,
                 queryTimeout = config.seconds("queryTimeoutSeconds") ?: defaults.queryTimeout,
+                writeTimeout = config.seconds("writeTimeoutSeconds") ?: defaults.writeTimeout,
+                backupOnWrite = config.text("backupOnWrite")?.toBooleanStrictOrNull() ?: defaults.backupOnWrite,
             )
         }
 

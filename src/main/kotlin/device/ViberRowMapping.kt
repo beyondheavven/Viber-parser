@@ -1,5 +1,6 @@
 package com.viber.device
 
+import com.viber.device.model.ParticipantCard
 import com.viber.device.model.ViberGroup
 import com.viber.device.model.ViberMember
 
@@ -27,4 +28,20 @@ internal fun Row.toViberMember(): ViberMember = ViberMember(
     aliasName = string("alias_name"),
     active = boolean("active"),
     groupRole = int("group_role") ?: 0,
+)
+
+/**
+ * Сырая строка `participants_info` — без склейки карточек одного человека: правим мы
+ * каждую строку отдельно.
+ */
+internal fun Row.toParticipantCard(): ParticipantCard = ParticipantCard(
+    infoId = requireLong("_id"),
+    memberId = string("member_id"),
+    encryptedMemberId = string("encrypted_member_id"),
+    number = string("number"),
+    participantType = int("participant_type"),
+    contactName = string("contact_name"),
+    displayName = string("display_name"),
+    viberName = string("viber_name"),
+    safeContact = int("safe_contact"),
 )
