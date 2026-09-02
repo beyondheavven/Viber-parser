@@ -3,40 +3,32 @@ package com.viber.config
 import io.ktor.server.config.ApplicationConfig
 import java.time.Duration
 
-/**
- * Настройки подключения к устройству и Appium-серверу.
- *
- * Дефолты рассчитаны на LDPlayer 9 (Android 9 / API 28): эмулятор поднимает adb-мост
- * на 127.0.0.1:5555, поэтому [udid] задан именно так, а не как `emulator-5554`.
- * Значения переопределяются в `application.yaml` (секция `appium`) и переменными
- * окружения, подставляемыми в этот же yaml.
- */
 data class AppiumSettings(
-    val serverUrl: String = DEFAULT_SERVER_URL,
+    val serverUrl: String,
 
-    val deviceName: String = DEFAULT_DEVICE_NAME,
+    val deviceName: String,
 
-    val udid: String? = DEFAULT_UDID,
+    val udid: String?,
 
-    val platformVersion: String? = DEFAULT_PLATFORM_VERSION,
+    val platformVersion: String?,
 
-    val appPackage: String = DEFAULT_APP_PACKAGE,
+    val appPackage: String,
 
-    val appActivity: String = DEFAULT_APP_ACTIVITY,
+    val appActivity: String,
 
-    val systemPort: Int? = null,
+    val systemPort: Int?,
 
-    val newCommandTimeout: Duration = Duration.ofMinutes(5),
+    val newCommandTimeout: Duration,
 
-    val implicitWait: Duration = Duration.ZERO,
+    val implicitWait: Duration,
 
-    val adbExecTimeout: Duration = Duration.ofSeconds(60),
+    val adbExecTimeout: Duration,
 
-    val serverLaunchTimeout: Duration = Duration.ofSeconds(120),
+    val serverLaunchTimeout: Duration,
 
-    val adbPath: String? = null,
+    val adbPath: String?,
 
-    val autoConnectAdb: Boolean = true,
+    val autoConnectAdb: Boolean,
 ) {
 
     fun describe(): String =
@@ -44,48 +36,44 @@ data class AppiumSettings(
             "app=$appPackage/$appActivity, systemPort=$systemPort, autoConnectAdb=$autoConnectAdb"
 
     companion object {
-
-        const val DEFAULT_SERVER_URL = "http://127.0.0.1:4723"
-
-        const val DEFAULT_DEVICE_NAME = "LDPlayer"
-
-        const val DEFAULT_UDID = "127.0.0.1:5555"
-
-        const val DEFAULT_PLATFORM_VERSION = "9"
-
-        const val DEFAULT_APP_PACKAGE = "com.viber.voip"
-
-        const val DEFAULT_APP_ACTIVITY = "com.viber.voip.WelcomeActivity"
-
-        private const val SECTION = "appium"
-
         fun from(config: ApplicationConfig): AppiumSettings {
-            val defaults = AppiumSettings()
             return AppiumSettings(
-                serverUrl = config.text("serverUrl") ?: defaults.serverUrl,
-                deviceName = config.text("deviceName") ?: defaults.deviceName,
-                udid = config.optionalText("udid", defaults.udid),
-                platformVersion = config.optionalText("platformVersion", defaults.platformVersion),
-                appPackage = config.text("appPackage") ?: defaults.appPackage,
-                appActivity = config.text("appActivity") ?: defaults.appActivity,
+                serverUrl = config.requireText("serverUrl"),
+                deviceName = config.requireText("deviceName"),
+                udid = config.text("udid"),
+                platformVersion = config.text("platformVersion"),
+                appPackage = config.requireText("appPackage"),
+                appActivity = config.requireText("appActivity"),
                 systemPort = config.int("systemPort"),
-                newCommandTimeout = config.seconds("newCommandTimeoutSeconds") ?: defaults.newCommandTimeout,
-                adbExecTimeout = config.seconds("adbExecTimeoutSeconds") ?: defaults.adbExecTimeout,
-                serverLaunchTimeout = config.seconds("serverLaunchTimeoutSeconds") ?: defaults.serverLaunchTimeout,
-                adbPath = config.text("adbPath"),
-                autoConnectAdb = config.text("autoConnectAdb")?.toBooleanStrictOrNull() ?: defaults.autoConnectAdb,
+                newCommandTimeout = config.requireSeconds("newCommandTimeoutSeconds"),
+                implicitWait = config.requireSeconds("implicitWaitSeconds"),
+                adbExecTimeout = config.requireSeconds("adbExecTimeoutSeconds"),
+                autoConnectAdb = config.bool("autoConnectAdb") ?: true,
+                serverLaunchTimeout = config.requireSeconds("serverLaunchTimeoutSeconds"),
+                adbPath = config.text("adbPath")
             )
         }
 
+        private fun ApplicationConfig.text(key: String): String? {
+            val raw = propertyOrNull("appium.$key")?.getString()?.trim() ?: return null
 
-        private fun ApplicationConfig.optionalText(key: String, default: String?): String? =
-            if (propertyOrNull("$SECTION.$key") == null) default else text(key)
+            if (raw.startsWith("$") && raw.contains(":")) {
+                val envVarName = raw.substringAfter("$").substringBefore(":")
+                val yamlDefault = raw.substringAfter(":")
+                return System.getenv(envVarName)?.takeIf { it.isNotEmpty() } ?: yamlDefault
+            }
+            return raw.takeIf { it.isNotEmpty() }
+        }
 
-        private fun ApplicationConfig.text(key: String): String? =
-            propertyOrNull("$SECTION.$key")?.getString()?.trim()?.takeIf { it.isNotEmpty() }
+        private fun ApplicationConfig.requireText(key: String): String =
+            text(key) ?: throw IllegalArgumentException("Missing required config: appium.$key")
+
+        private fun ApplicationConfig.requireSeconds(key: String): Duration =
+            text(key)?.toLongOrNull()?.let(Duration::ofSeconds)
+                ?: throw IllegalArgumentException("Missing or invalid time config: appium.$key")
 
         private fun ApplicationConfig.int(key: String): Int? = text(key)?.toIntOrNull()
 
-        private fun ApplicationConfig.seconds(key: String): Duration? = text(key)?.toLongOrNull()?.let(Duration::ofSeconds)
+        private fun ApplicationConfig.bool(key: String): Boolean? = text(key)?.toBooleanStrictOrNull()
     }
 }
