@@ -13,6 +13,7 @@ import io.appium.java_client.android.nativekey.AndroidKey
 import io.appium.java_client.android.nativekey.KeyEvent
 import org.openqa.selenium.WebElement
 import org.openqa.selenium.remote.RemoteWebElement
+import org.openqa.selenium.support.ui.WebDriverWait
 import org.slf4j.LoggerFactory
 import java.time.Duration
 
@@ -53,8 +54,7 @@ object MembersScroller {
             var clickedInThisPass = false
 
             for (row in rows) {
-                val clickedUserName = processSingleRow(driver, row, processedUsers)
-
+                val clickedUserName = processSingleRow(row, processedUsers)
                 if(clickedUserName != null){
                     val kickedToMainList = clickMessageAndReturn(driver, clickedUserName)
 
@@ -75,10 +75,8 @@ object MembersScroller {
         }
     }
 
-    private fun processSingleRow(driver: AndroidDriver, row: WebElement, processedUsers: MutableSet<String>): String? {
-        val name = driver.withZeroWait {
-            row.findElements(USER_NAME).firstOrNull()?.text
-        } ?: return null
+    private fun processSingleRow(row: WebElement, processedUsers: MutableSet<String>): String? {
+        val name = row.findElements(USER_NAME).firstOrNull()?.text ?: return null
 
         if (processedUsers.contains(name)) return null
 
@@ -87,7 +85,7 @@ object MembersScroller {
             return null
         }
 
-        if (isUserAdmin(driver, row)) {
+        if (isUserAdmin(row)) {
             logger.info("Skipped admin: $name")
             processedUsers.add(name)
             return null
@@ -99,21 +97,18 @@ object MembersScroller {
         return name
     }
 
-    private fun isUserAdmin(driver: AndroidDriver, row: WebElement): Boolean {
-        return driver.withZeroWait {
-            val roleBadges = row.findElements(USER_GROUP_ROLE)
-            if (roleBadges.isNotEmpty()) {
-                val roleText = roleBadges.first().text
-                roleText == "АДМИНИСТРАТОР" || roleText == "СУПЕР-АДМИН"
-            } else {
-                false
-            }
+    private fun isUserAdmin(row: WebElement): Boolean {
+        val roleBadges = row.findElements(USER_GROUP_ROLE)
+        if (roleBadges.isNotEmpty()) {
+            val roleText = roleBadges.first().text
+            return roleText == "АДМИНИСТРАТОР" || roleText == "СУПЕР-АДМИН"
         }
+        return false
     }
 
     private fun clickMessageAndReturn(driver: AndroidDriver, userName: String): Boolean {
         try {
-            driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(3))
+            val wait = WebDriverWait(driver, Duration.ofSeconds(2))
             val messageButton = driver.findElement(MESSAGE_BUTTON)
             messageButton.click()
             logger.info("Clicked 'Сообщение' for user: $userName")
@@ -121,14 +116,6 @@ object MembersScroller {
             logger.warn("Could not find 'Сообщение' button for $userName. Tapping outside to close.", e)
             driver.executeScript("mobile: clickGesture", mapOf("x" to 50, "y" to 150))
             return false
-        } finally {
-            driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10))
-        }
-
-        try {
-            if(driver.isKeyboardShown) driver.hideKeyboard()
-        } catch (e: Exception) {
-            logger.warn("Could not hideKeyboard: ", e)
         }
 
         try {
@@ -139,19 +126,15 @@ object MembersScroller {
 
         var retries = 3
         while (retries > 0) {
-            val isBackToList = driver.withZeroWait {
-                driver.findElements(RECYCLER_VIEW).isNotEmpty()
-            }
+            val isBackToList = driver.findElements(RECYCLER_VIEW).isNotEmpty()
+
             if (isBackToList) {
                 return false
             }
-            val isMainList = driver.withZeroWait {
-                driver.findElements(MESSAGES_LIST).isNotEmpty()
-            }
+            val isMainList = driver.findElements(MESSAGES_LIST).isNotEmpty()
             if (isMainList) {
                 return true
             }
-
             retries--
 
             if (retries == 2) {
@@ -164,13 +147,11 @@ object MembersScroller {
     }
 
     private fun getFirstRowText(driver: AndroidDriver): String? {
-        return driver.withZeroWait {
-            val listCheck = driver.findElements(RECYCLER_VIEW).firstOrNull()
-            listCheck?.findElements(ITEM_LAYOUT)
-                ?.firstOrNull()
-                ?.findElements(USER_NAME)
-                ?.firstOrNull()?.text
-        }
+        val listCheck = driver.findElements(RECYCLER_VIEW).firstOrNull()
+        return listCheck?.findElements(ITEM_LAYOUT)
+            ?.firstOrNull()
+            ?.findElements(USER_NAME)
+            ?.firstOrNull()?.text
     }
 
     private fun fastScrollToUser(driver: AndroidDriver, targetName: String) {
@@ -205,15 +186,4 @@ object MembersScroller {
         )
         driver.executeScript("mobile: scrollGesture", args)
     }
-
-    private fun <T> AndroidDriver.withZeroWait(block: () -> T): T {
-        this.manage().timeouts().implicitlyWait(Duration.ZERO)
-        try {
-            return block()
-        } finally {
-            this.manage().timeouts().implicitlyWait(Duration.ofSeconds(10))
-        }
-    }
-
-
 }

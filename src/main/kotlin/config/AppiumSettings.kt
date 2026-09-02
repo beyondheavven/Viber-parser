@@ -13,40 +13,52 @@ import java.time.Duration
  */
 data class AppiumSettings(
     val serverUrl: String = DEFAULT_SERVER_URL,
+
     val deviceName: String = DEFAULT_DEVICE_NAME,
+
     val udid: String? = DEFAULT_UDID,
+
     val platformVersion: String? = DEFAULT_PLATFORM_VERSION,
+
     val appPackage: String = DEFAULT_APP_PACKAGE,
+
     val appActivity: String = DEFAULT_APP_ACTIVITY,
+
     val systemPort: Int? = null,
+
     val newCommandTimeout: Duration = Duration.ofMinutes(5),
-    val implicitWait: Duration = Duration.ofSeconds(10),
+
+    val implicitWait: Duration = Duration.ZERO,
+
     val adbExecTimeout: Duration = Duration.ofSeconds(60),
+
     val serverLaunchTimeout: Duration = Duration.ofSeconds(120),
+
     val adbPath: String? = null,
+
     val autoConnectAdb: Boolean = true,
 ) {
 
-    /** Строка для логов без лишнего шума — сюда смотрят, когда сессия не поднялась. */
     fun describe(): String =
         "serverUrl=$serverUrl, udid=$udid, deviceName=$deviceName, platformVersion=$platformVersion, " +
             "app=$appPackage/$appActivity, systemPort=$systemPort, autoConnectAdb=$autoConnectAdb"
 
     companion object {
+
         const val DEFAULT_SERVER_URL = "http://127.0.0.1:4723"
+
         const val DEFAULT_DEVICE_NAME = "LDPlayer"
+
         const val DEFAULT_UDID = "127.0.0.1:5555"
+
         const val DEFAULT_PLATFORM_VERSION = "9"
+
         const val DEFAULT_APP_PACKAGE = "com.viber.voip"
+
         const val DEFAULT_APP_ACTIVITY = "com.viber.voip.WelcomeActivity"
 
         private const val SECTION = "appium"
 
-        /**
-         * Читает секцию `appium` из корневого конфига приложения. Отсутствующие и пустые
-         * значения падают в дефолты: пустая переменная окружения не должна «выигрывать»
-         * у осмысленного значения по умолчанию.
-         */
         fun from(config: ApplicationConfig): AppiumSettings {
             val defaults = AppiumSettings()
             return AppiumSettings(
@@ -58,7 +70,6 @@ data class AppiumSettings(
                 appActivity = config.text("appActivity") ?: defaults.appActivity,
                 systemPort = config.int("systemPort"),
                 newCommandTimeout = config.seconds("newCommandTimeoutSeconds") ?: defaults.newCommandTimeout,
-                implicitWait = config.seconds("implicitWaitSeconds") ?: defaults.implicitWait,
                 adbExecTimeout = config.seconds("adbExecTimeoutSeconds") ?: defaults.adbExecTimeout,
                 serverLaunchTimeout = config.seconds("serverLaunchTimeoutSeconds") ?: defaults.serverLaunchTimeout,
                 adbPath = config.text("adbPath"),
@@ -66,10 +77,7 @@ data class AppiumSettings(
             )
         }
 
-        /**
-         * Для capability, которые можно не передавать вовсе: ключа в конфиге нет — берём
-         * дефолт LDPlayer, ключ есть, но пустой — сознательное «не передавать».
-         */
+
         private fun ApplicationConfig.optionalText(key: String, default: String?): String? =
             if (propertyOrNull("$SECTION.$key") == null) default else text(key)
 

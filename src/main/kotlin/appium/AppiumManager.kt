@@ -3,6 +3,7 @@ package com.viber.appium
 import com.viber.appium.navigation.GroupNavigator
 import com.viber.appium.navigation.MembersScroller
 import com.viber.config.AppiumSettings
+import io.appium.java_client.Setting
 import io.appium.java_client.android.AndroidDriver
 import io.appium.java_client.android.options.UiAutomator2Options
 import org.slf4j.Logger
@@ -38,7 +39,9 @@ object AppiumManager {
             return
         }
         val config = settings
+
         currentState = ParserState.INITIALIZING
+
         logger.info("Starting session")
         try {
             if (config.autoConnectAdb && config.udid != null) {
@@ -62,6 +65,8 @@ object AppiumManager {
 
             driver = AndroidDriver (serviceUri, options).apply {
                 manage().timeouts().implicitlyWait(config.implicitWait)
+                setSetting(Setting.WAIT_FOR_IDLE_TIMEOUT, 100)
+                setSetting(Setting.IGNORE_UNIMPORTANT_VIEWS, true)
             }
             currentState = ParserState.RUNNING
             logger.info("Started session successfully")
@@ -96,15 +101,5 @@ object AppiumManager {
             GroupNavigator.openGroup(d, groupName)
             GroupNavigator.openMembersList(d)
         }
-    }
-
-    fun executeRootCommand(command: String): String {
-        val currentDriver = driver ?: throw IllegalStateException("Driver not initialized")
-        logger.debug("Executing $command")
-        val args = mapOf(
-            "command" to "su",
-            "args" to listOf("-c", command)
-        )
-        return currentDriver.executeScript("mobile: shell", args).toString()
     }
 }

@@ -12,7 +12,7 @@ object ViberLocator {
     val MESSAGE_BUTTON = AppiumBy.androidUIAutomator("new UiSelector().resourceId(\"android:id/title\").textStartsWith(\"Сообщение\")")!!
 
     val PARTICIPANTS_COUNT = AppiumBy.androidUIAutomator("new UiSelector().textContains(\"участник\")")!!
-    val SHOW_ALL_BUTTON_GROUP = AppiumBy.xpath("//android.widget.TextView[@text='Показать всех']/parent::android.view.ViewGroup")!!
+    val SHOW_ALL_BUTTON_GROUP = AppiumBy.androidUIAutomator("new UiSelector().text(\"Показать всех\")")!!
     val PIN_BUTTON = AppiumBy.androidUIAutomator("new UiSelector().textContains(\"Закрепить чат\")")!!
     val UNPIN_BUTTON = AppiumBy.androidUIAutomator("new UiSelector().textContains(\"Открепить чат\")")!!
 
