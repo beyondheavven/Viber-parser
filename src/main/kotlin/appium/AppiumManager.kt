@@ -20,7 +20,6 @@ object AppiumManager {
     var currentState: ParserState = ParserState.IDLE
     private set
 
-    /** Дефолты нацелены на LDPlayer; перекрываются из `application.yaml` через [configure]. */
     @Volatile
     var settings: AppiumSettings = AppiumSettings()
         private set

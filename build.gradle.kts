@@ -24,6 +24,9 @@ dependencies {
     implementation(ktorLibs.server.callLogging)
     implementation(libs.logback.classic)
 
+    implementation("io.github.smiley4:ktor-openapi:5.7.0")
+    implementation("io.github.smiley4:ktor-swagger-ui:5.7.0")
+
     implementation("io.appium:java-client:9.3.0")
     implementation("org.seleniumhq.selenium:selenium-java:4.23.0")
     implementation("io.ktor:ktor-server-content-negotiation:3.5.2")
