@@ -6,15 +6,16 @@ import com.viber.appium.ParserState
 import com.viber.dto.ScrollMembersRequest
 import com.viber.dto.StatusResponse
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.*
+import io.ktor.server.application.Application
 import io.ktor.server.request.receive
-import io.ktor.server.response.*
-import io.ktor.server.routing.*
+import io.ktor.server.response.respond
+import io.ktor.server.response.respondText
+import io.ktor.server.routing.get
+import io.ktor.server.routing.post
+import io.ktor.server.routing.route
+import io.ktor.server.routing.routing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-
-
-
 
 fun Application.configureRouting() {
     val logger = LoggerFactory.getLogger(this::class.java)
@@ -25,7 +26,6 @@ fun Application.configureRouting() {
         }
 
         route("/api"){
-            // Чтение базы устройства: группы, которые вообще есть в Viber.
             groupRoutes()
 
             post("/start"){

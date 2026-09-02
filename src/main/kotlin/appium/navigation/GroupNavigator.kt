@@ -1,7 +1,15 @@
-package com.viber.appium
+package com.viber.appium.navigation
 
+import com.viber.appium.navigation.ViberLocator.PARTICIPANTS_COUNT
+import com.viber.appium.navigation.ViberLocator.PIN_BUTTON
+import com.viber.appium.navigation.ViberLocator.SHOW_ALL_BUTTON_GROUP
+import com.viber.appium.navigation.ViberLocator.UNPIN_BUTTON
+import com.viber.appium.navigation.ViberLocator.groupSelectorByName
 import io.appium.java_client.AppiumBy
 import io.appium.java_client.android.AndroidDriver
+import io.appium.java_client.android.nativekey.AndroidKey
+import io.appium.java_client.android.nativekey.KeyEvent
+import org.openqa.selenium.remote.RemoteWebElement
 import org.slf4j.LoggerFactory
 import java.time.Duration
 
@@ -10,8 +18,7 @@ object GroupNavigator {
     private val logger = LoggerFactory.getLogger(GroupNavigator::class.java)
 
     fun openGroup(driver: AndroidDriver, groupName: String) {
-        val uiSelector = "new UiSelector().resourceId(\"com.viber.voip:id/from\").textContains(\"$groupName\")"
-
+        val uiSelector = groupSelectorByName(groupName)
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(1))
 
         try {
@@ -32,7 +39,6 @@ object GroupNavigator {
             val scrolledGroup = driver.findElement(AppiumBy.androidUIAutomator(scrollSelector))
             scrolledGroup.click()
             logger.info("Group opened after scrolling: $groupName")
-
         } catch (e: Exception) {
             logger.error("Group with name $groupName not found even after scrolling", e)
             throw IllegalStateException("Group with name $groupName not found")
@@ -40,16 +46,13 @@ object GroupNavigator {
     }
 
     fun openMembersList(driver: AndroidDriver) {
-        val participantsCountElement = driver.findElement(
-            AppiumBy.androidUIAutomator("new UiSelector().textContains(\"участник\")")
-        )
+        val participantsCountElement = driver.findElement(PARTICIPANTS_COUNT)
         participantsCountElement.click()
         logger.info("Members list opened")
 
         try {
-            val viewGroupXPath = "//android.widget.TextView[@text='Показать всех']/parent::android.view.ViewGroup"
             driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(2))
-            val visibleButtons = driver.findElements(AppiumBy.xpath(viewGroupXPath))
+            val visibleButtons = driver.findElements(SHOW_ALL_BUTTON_GROUP)
             driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10))
 
             if (visibleButtons.isNotEmpty()) {
@@ -64,7 +67,7 @@ object GroupNavigator {
             driver.findElement(AppiumBy.androidUIAutomator(scrollSelector))
             logger.info("Scrolled to 'Показать всех' text")
 
-            val showAllButtonGroup = driver.findElement(AppiumBy.xpath(viewGroupXPath))
+            val showAllButtonGroup = driver.findElement(SHOW_ALL_BUTTON_GROUP)
             showAllButtonGroup.click()
             logger.info("Clicked 'Показать всех' after scrolling")
         } catch (e: Exception) {
@@ -74,11 +77,10 @@ object GroupNavigator {
     }
 
     fun pinGroup(driver: AndroidDriver, groupName: String) {
-        val uiSelector = "new UiSelector().resourceId(\"com.viber.voip:id/from\").textContains(\"$groupName\")"
-
+        val uiSelector = groupSelectorByName(groupName)
         try {
             val visibleGroup = driver.findElement(AppiumBy.androidUIAutomator(uiSelector))
-            val elementId = (visibleGroup as org.openqa.selenium.remote.RemoteWebElement).id
+            val elementId = (visibleGroup as RemoteWebElement).id
             driver.executeScript("mobile: longClickGesture", mapOf(
                 "elementId" to elementId,
                 "duration" to 1000
@@ -86,15 +88,19 @@ object GroupNavigator {
 
             driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(2))
 
-            val pinButton = driver.findElements(AppiumBy.androidUIAutomator("new UiSelector().textContains(\"Закрепить\")"))
+            val pinButton = driver.findElements(PIN_BUTTON)
             if (pinButton.isNotEmpty()) {
                 pinButton.first().click()
                 logger.info("Group '$groupName' successfully pinned")
             } else {
-                logger.info("Group '$groupName' is likely already pinned. Closing context menu.")
-                driver.pressKey(io.appium.java_client.android.nativekey.KeyEvent(io.appium.java_client.android.nativekey.AndroidKey.BACK))
+                val unpinButton = driver.findElement(UNPIN_BUTTON)
+                if (unpinButton != null) {
+                    logger.info("Group '$groupName' is likely already pinned. Closing context menu.")
+                } else {
+                    logger.warn("Unexpected menu state for '$groupName' (neither Pin nor Unpin found). Closing.")
+                }
+                driver.pressKey(KeyEvent(AndroidKey.BACK))
             }
-
         } catch (e: Exception) {
             logger.warn("Could not pin group '$groupName'. It might require scrolling first.", e)
         } finally {
