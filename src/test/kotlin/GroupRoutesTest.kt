@@ -5,7 +5,7 @@ import com.viber.device.SqlExecutor
 import com.viber.device.SqliteCsv
 import com.viber.device.ViberDatabase
 import com.viber.plugins.configureSerialization
-import com.viber.plugins.groupRoutes
+import com.viber.routes.groupRoutes
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
