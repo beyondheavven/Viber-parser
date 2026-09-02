@@ -8,6 +8,7 @@ ktor:
       - com.viber.plugins.RoutingKt.configureRouting
       - com.viber.plugins.MonitoringKt.configureMonitoring
       - com.viber.plugins.SerializationKt.configureSerialization
+      - com.viber.plugins.OpenApiKt.configureOpenApi
 
 # Подключение к устройству. Дефолты — под LDPlayer 9 (Android 9 / API 28), который
 # отдаёт adb-мост на 127.0.0.1:5555. Любое значение переопределяется переменной
