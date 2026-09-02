@@ -1,5 +1,12 @@
-package com.viber.appium
+package com.viber.appium.navigation
 
+import com.viber.appium.navigation.ViberLocator.ITEM_LAYOUT
+import com.viber.appium.navigation.ViberLocator.MESSAGES_LIST
+import com.viber.appium.navigation.ViberLocator.MESSAGE_BUTTON
+import com.viber.appium.navigation.ViberLocator.RECYCLER_VIEW
+import com.viber.appium.navigation.ViberLocator.USER_GROUP_ROLE
+import com.viber.appium.navigation.ViberLocator.USER_NAME
+import com.viber.appium.navigation.ViberLocator.VIBER_GROUP
 import io.appium.java_client.AppiumBy
 import io.appium.java_client.android.AndroidDriver
 import io.appium.java_client.android.nativekey.AndroidKey
@@ -41,8 +48,8 @@ object MembersScroller {
     private fun processCurrentScreen(driver: AndroidDriver, processedUsers: MutableSet<String>, onRecover: () -> Unit) {
         var screenProcessed = false
         while (!screenProcessed) {
-            val listElement = driver.findElement(AppiumBy.id("com.viber.voip:id/recycler_view"))
-            val rows = listElement.findElements(AppiumBy.id("com.viber.voip:id/itemLayout"))
+            val listElement = driver.findElement(RECYCLER_VIEW)
+            val rows = listElement.findElements(ITEM_LAYOUT)
             var clickedInThisPass = false
 
             for (row in rows) {
@@ -70,7 +77,7 @@ object MembersScroller {
 
     private fun processSingleRow(driver: AndroidDriver, row: WebElement, processedUsers: MutableSet<String>): String? {
         val name = driver.withZeroWait {
-            row.findElements(AppiumBy.id("com.viber.voip:id/name")).firstOrNull()?.text
+            row.findElements(USER_NAME).firstOrNull()?.text
         } ?: return null
 
         if (processedUsers.contains(name)) return null
@@ -86,16 +93,15 @@ object MembersScroller {
             return null
         }
 
-        row.findElement(AppiumBy.id("com.viber.voip:id/group")).click()
+        row.findElement(VIBER_GROUP).click()
         logger.info("Clicked on user: $name")
         processedUsers.add(name)
-
         return name
     }
 
     private fun isUserAdmin(driver: AndroidDriver, row: WebElement): Boolean {
         return driver.withZeroWait {
-            val roleBadges = row.findElements(AppiumBy.id("com.viber.voip:id/groupRole"))
+            val roleBadges = row.findElements(USER_GROUP_ROLE)
             if (roleBadges.isNotEmpty()) {
                 val roleText = roleBadges.first().text
                 roleText == "АДМИНИСТРАТОР" || roleText == "СУПЕР-АДМИН"
@@ -106,11 +112,9 @@ object MembersScroller {
     }
 
     private fun clickMessageAndReturn(driver: AndroidDriver, userName: String): Boolean {
-        val messageButtonSelector = "new UiSelector().resourceId(\"android:id/title\").textStartsWith(\"Сообщение\")"
-
         try {
             driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(3))
-            val messageButton = driver.findElement(AppiumBy.androidUIAutomator(messageButtonSelector))
+            val messageButton = driver.findElement(MESSAGE_BUTTON)
             messageButton.click()
             logger.info("Clicked 'Сообщение' for user: $userName")
         } catch (e: Exception) {
@@ -136,19 +140,24 @@ object MembersScroller {
         var retries = 3
         while (retries > 0) {
             val isBackToList = driver.withZeroWait {
-                driver.findElements(AppiumBy.id("com.viber.voip:id/recycler_view")).isNotEmpty()
+                driver.findElements(RECYCLER_VIEW).isNotEmpty()
             }
             if (isBackToList) {
                 return false
             }
             val isMainList = driver.withZeroWait {
-                driver.findElements(AppiumBy.id("com.viber.voip:id/messages_list")).isNotEmpty()
+                driver.findElements(MESSAGES_LIST).isNotEmpty()
             }
             if (isMainList) {
                 return true
             }
 
             retries--
+
+            if (retries == 2) {
+                logger.warn("Still not back. Pressing BACK again...")
+                try { driver.pressKey(KeyEvent(AndroidKey.BACK)) } catch (e: Exception) { }
+            }
         }
 
         throw IllegalStateException("Navigation completely lost after user $userName. Neither members list nor main list found.")
@@ -156,10 +165,10 @@ object MembersScroller {
 
     private fun getFirstRowText(driver: AndroidDriver): String? {
         return driver.withZeroWait {
-            val listCheck = driver.findElements(AppiumBy.id("com.viber.voip:id/recycler_view")).firstOrNull()
-            listCheck?.findElements(AppiumBy.id("com.viber.voip:id/itemLayout"))
+            val listCheck = driver.findElements(RECYCLER_VIEW).firstOrNull()
+            listCheck?.findElements(ITEM_LAYOUT)
                 ?.firstOrNull()
-                ?.findElements(AppiumBy.id("com.viber.voip:id/name"))
+                ?.findElements(USER_NAME)
                 ?.firstOrNull()?.text
         }
     }
@@ -171,12 +180,12 @@ object MembersScroller {
                     ".setMaxSearchSwipes(100).scrollIntoView(new UiSelector().text(\"$targetName\"))"
             driver.findElement(AppiumBy.androidUIAutomator(scrollSelector))
 
-            val listForScroll = driver.findElement(AppiumBy.id("com.viber.voip:id/recycler_view"))
+            val listForScroll = driver.findElement(RECYCLER_VIEW)
             driver.executeScript("mobile: scrollGesture", mapOf(
                 "elementId" to (listForScroll as RemoteWebElement).id,
                 "direction" to "down",
-                "percent" to 0.4,
-                "speed" to 7000
+                "percent" to 0.5,
+                "speed" to 4000
             ))
         } catch (e: Exception) {
             logger.warn("Fast scroll failed or user already visible", e)
@@ -184,15 +193,15 @@ object MembersScroller {
     }
 
     private fun scrollListDown(driver: AndroidDriver) {
-        val listForScroll = driver.findElement(AppiumBy.id("com.viber.voip:id/recycler_view"))
+        val listForScroll = driver.findElement(RECYCLER_VIEW)
         val elementId = (listForScroll as? RemoteWebElement)?.id
             ?: throw IllegalStateException("elementId is null")
 
         val args = mapOf(
             "elementId" to elementId,
             "direction" to "down",
-            "percent" to 1,
-            "speed" to 7000
+            "percent" to 0.5,
+            "speed" to 4000
         )
         driver.executeScript("mobile: scrollGesture", args)
     }

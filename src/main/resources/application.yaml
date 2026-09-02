@@ -13,7 +13,7 @@ ktor:
 # отдаёт adb-мост на 127.0.0.1:5555. Любое значение переопределяется переменной
 # окружения из "$VAR:default" — например APPIUM_UDID=127.0.0.1:5557 для второго инстанса.
 appium:
-  serverUrl: "$APPIUM_SERVER_URL:http://127.0.0.1:4723"
+  serverUrl: "$APPIUM_SERVER_URL:http://127.0.0.1:4773"
   deviceName: "$APPIUM_DEVICE_NAME:LDPlayer"
   udid: "$APPIUM_UDID:127.0.0.1:5555"
   platformVersion: "$APPIUM_PLATFORM_VERSION:9"
