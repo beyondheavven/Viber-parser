@@ -1,5 +1,6 @@
 package com.viber.appium.navigation
 
+import com.viber.appium.navigation.ViberLocator.CHAT_TOOLBAR
 import com.viber.appium.navigation.ViberLocator.ITEM_LAYOUT
 import com.viber.appium.navigation.ViberLocator.MESSAGES_LIST
 import com.viber.appium.navigation.ViberLocator.MESSAGE_BUTTON
@@ -9,10 +10,9 @@ import com.viber.appium.navigation.ViberLocator.USER_NAME
 import com.viber.appium.navigation.ViberLocator.VIBER_GROUP
 import io.appium.java_client.AppiumBy
 import io.appium.java_client.android.AndroidDriver
-import io.appium.java_client.android.nativekey.AndroidKey
-import io.appium.java_client.android.nativekey.KeyEvent
 import org.openqa.selenium.WebElement
 import org.openqa.selenium.remote.RemoteWebElement
+import org.openqa.selenium.support.ui.WebDriverWait
 import org.slf4j.LoggerFactory
 import java.time.Duration
 
@@ -48,22 +48,35 @@ object MembersScroller {
     private fun processCurrentScreen(driver: AndroidDriver, processedUsers: MutableSet<String>, onRecover: () -> Unit) {
         var screenProcessed = false
         while (!screenProcessed) {
-            val listElement = driver.findElement(RECYCLER_VIEW)
+            val listElement = try {
+                WebDriverWait(driver, Duration.ofSeconds(5)).until {
+                    driver.findElement(RECYCLER_VIEW)
+                }
+            } catch (e: Exception) {
+                logger.warn("Error during getting screen process.", e)
+                throw e
+            }
             val rows = listElement.findElements(ITEM_LAYOUT)
             var clickedInThisPass = false
 
             for (row in rows) {
-                val clickedUserName = processSingleRow(driver, row, processedUsers)
-
+                val clickedUserName = processSingleRow(row, processedUsers)
                 if(clickedUserName != null){
                     val kickedToMainList = clickMessageAndReturn(driver, clickedUserName)
+                    logger.info("clickMessageAndReturn returned: $kickedToMainList for $clickedUserName")
 
                     if (kickedToMainList) {
                         logger.warn("Kicked to main list! Recovering state...")
-                        onRecover()
+                        try {
+                            onRecover()
+                            logger.info("onRecover() completed successfully")
+                        } catch (e: Exception) {
+                            logger.error("onRecover() THREW an exception", e)
+                            throw e
+                        }
                         fastScrollToUser(driver, clickedUserName)
+                        logger.info("fastScrollToUser() completed")
                     }
-
                     clickedInThisPass = true
                     break
                 }
@@ -75,10 +88,8 @@ object MembersScroller {
         }
     }
 
-    private fun processSingleRow(driver: AndroidDriver, row: WebElement, processedUsers: MutableSet<String>): String? {
-        val name = driver.withZeroWait {
-            row.findElements(USER_NAME).firstOrNull()?.text
-        } ?: return null
+    private fun processSingleRow(row: WebElement, processedUsers: MutableSet<String>): String? {
+        val name = row.findElements(USER_NAME).firstOrNull()?.text ?: return null
 
         if (processedUsers.contains(name)) return null
 
@@ -87,7 +98,7 @@ object MembersScroller {
             return null
         }
 
-        if (isUserAdmin(driver, row)) {
+        if (isUserAdmin(row)) {
             logger.info("Skipped admin: $name")
             processedUsers.add(name)
             return null
@@ -99,78 +110,53 @@ object MembersScroller {
         return name
     }
 
-    private fun isUserAdmin(driver: AndroidDriver, row: WebElement): Boolean {
-        return driver.withZeroWait {
-            val roleBadges = row.findElements(USER_GROUP_ROLE)
-            if (roleBadges.isNotEmpty()) {
-                val roleText = roleBadges.first().text
-                roleText == "АДМИНИСТРАТОР" || roleText == "СУПЕР-АДМИН"
-            } else {
-                false
-            }
+    private fun isUserAdmin(row: WebElement): Boolean {
+        val roleBadges = row.findElements(USER_GROUP_ROLE)
+        if (roleBadges.isNotEmpty()) {
+            val roleText = roleBadges.first().text
+            return roleText == "АДМИНИСТРАТОР" || roleText == "СУПЕР-АДМИН"
         }
+        return false
     }
 
     private fun clickMessageAndReturn(driver: AndroidDriver, userName: String): Boolean {
         try {
-            driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(3))
-            val messageButton = driver.findElement(MESSAGE_BUTTON)
+            val wait = WebDriverWait(driver, Duration.ofSeconds(3))
+            val messageButton = wait.until {
+                driver.findElement(MESSAGE_BUTTON)
+            }
             messageButton.click()
             logger.info("Clicked 'Сообщение' for user: $userName")
+
+            wait.until {
+                driver.findElements(CHAT_TOOLBAR).isNotEmpty()
+            }
         } catch (e: Exception) {
             logger.warn("Could not find 'Сообщение' button for $userName. Tapping outside to close.", e)
             driver.executeScript("mobile: clickGesture", mapOf("x" to 50, "y" to 150))
             return false
-        } finally {
-            driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10))
         }
 
-        try {
-            if(driver.isKeyboardShown) driver.hideKeyboard()
+        try{
+            val upButton = WebDriverWait(driver, Duration.ofSeconds(3)).until {
+                driver.findElement(AppiumBy.accessibilityId("Перейти вверх"))
+            }
+            upButton.click()
+            logger.info("Clicked 'Перейти вверх' for user: $userName")
         } catch (e: Exception) {
-            logger.warn("Could not hideKeyboard: ", e)
+            logger.error("Could not find 'Перейти вверх' button for $userName", e)
+            throw IllegalStateException("Failed to leave chat with $userName: 'Перейти вверх' button not found", e)
         }
 
-        try {
-            driver.pressKey(KeyEvent(AndroidKey.BACK))
-        } catch (e: Exception) {
-            logger.error("Failed to press BACK button", e)
-        }
-
-        var retries = 3
-        while (retries > 0) {
-            val isBackToList = driver.withZeroWait {
-                driver.findElements(RECYCLER_VIEW).isNotEmpty()
-            }
-            if (isBackToList) {
-                return false
-            }
-            val isMainList = driver.withZeroWait {
-                driver.findElements(MESSAGES_LIST).isNotEmpty()
-            }
-            if (isMainList) {
-                return true
-            }
-
-            retries--
-
-            if (retries == 2) {
-                logger.warn("Still not back. Pressing BACK again...")
-                try { driver.pressKey(KeyEvent(AndroidKey.BACK)) } catch (e: Exception) { }
-            }
-        }
-
-        throw IllegalStateException("Navigation completely lost after user $userName. Neither members list nor main list found.")
+        return true
     }
 
     private fun getFirstRowText(driver: AndroidDriver): String? {
-        return driver.withZeroWait {
-            val listCheck = driver.findElements(RECYCLER_VIEW).firstOrNull()
-            listCheck?.findElements(ITEM_LAYOUT)
-                ?.firstOrNull()
-                ?.findElements(USER_NAME)
-                ?.firstOrNull()?.text
-        }
+        val listCheck = driver.findElements(RECYCLER_VIEW).firstOrNull()
+        return listCheck?.findElements(ITEM_LAYOUT)
+            ?.firstOrNull()
+            ?.findElements(USER_NAME)
+            ?.firstOrNull()?.text
     }
 
     private fun fastScrollToUser(driver: AndroidDriver, targetName: String) {
@@ -205,15 +191,4 @@ object MembersScroller {
         )
         driver.executeScript("mobile: scrollGesture", args)
     }
-
-    private fun <T> AndroidDriver.withZeroWait(block: () -> T): T {
-        this.manage().timeouts().implicitlyWait(Duration.ZERO)
-        try {
-            return block()
-        } finally {
-            this.manage().timeouts().implicitlyWait(Duration.ofSeconds(10))
-        }
-    }
-
-
 }
