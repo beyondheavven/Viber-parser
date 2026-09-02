@@ -21,10 +21,6 @@ fun Application.configureRouting() {
             swaggerUI("/api.json")
         }
 
-        get("/health") {
-            call.respondText("Parser started", status = HttpStatusCode.OK)
-        }
-
         route("/api"){
             parserRoutes()
             groupRoutes()
