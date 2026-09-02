@@ -24,23 +24,36 @@ object GroupNavigator {
         if (visibleGroup.isNotEmpty()) {
             visibleGroup.first().click()
             logger.info("Group opened (was already on screen): $groupName")
-            return
+        } else {
+            try {
+                val scrollSelector = "new UiScrollable(new UiSelector().resourceId(\"android:id/list\"))" +
+                        ".scrollIntoView($uiSelector)"
+                val scrolledGroup = driver.findElement(AppiumBy.androidUIAutomator(scrollSelector))
+                scrolledGroup.click()
+                logger.info("Group opened after scrolling: $groupName")
+            } catch (e: Exception) {
+                logger.error("Group with name $groupName not found even after scrolling", e)
+                throw IllegalStateException("Group with name $groupName not found")
+            }
         }
 
         try {
-            val scrollSelector = "new UiScrollable(new UiSelector().resourceId(\"android:id/list\"))" +
-                    ".scrollIntoView($uiSelector)"
-            val scrolledGroup = driver.findElement(AppiumBy.androidUIAutomator(scrollSelector))
-            scrolledGroup.click()
-            logger.info("Group opened after scrolling: $groupName")
+            WebDriverWait(driver, Duration.ofSeconds(5)).until {
+                driver.findElements(PARTICIPANTS_COUNT).isNotEmpty()
+            }
+            logger.info("Confirmed group chat screen opened: $groupName")
         } catch (e: Exception) {
-            logger.error("Group with name $groupName not found even after scrolling", e)
-            throw IllegalStateException("Group with name $groupName not found")
+            logger.error("Chat screen for $groupName did not load in time after click", e)
+            throw IllegalStateException("Group chat for $groupName did not open (timeout waiting for toolbar)", e)
         }
     }
 
     fun openMembersList(driver: AndroidDriver) {
-        val participantsCountElement = driver.findElement(PARTICIPANTS_COUNT)
+        val wait = WebDriverWait(driver, Duration.ofSeconds(5))
+        val participantsCountElement = wait.until {
+            driver.findElement(PARTICIPANTS_COUNT)
+        }
+
         participantsCountElement.click()
         logger.info("Members list opened")
 
@@ -49,19 +62,29 @@ object GroupNavigator {
             visibleButtons.first().click()
             logger.info("Clicked 'Показать всех' (was already visible)")
             return
+        } else {
+            try {
+                val scrollSelector = "new UiScrollable(new UiSelector().resourceId(\"com.viber.voip:id/conversationInfo\"))" +
+                        ".setMaxSearchSwipes(5).scrollIntoView(new UiSelector().text(\"Показать всех\"))"
+                driver.findElement(AppiumBy.androidUIAutomator(scrollSelector))
+                logger.info("Scrolled to 'Показать всех' text")
+
+                driver.findElement(SHOW_ALL_BUTTON_GROUP).click()
+                logger.info("Clicked 'Показать всех' after scrolling")
+            } catch (e: Exception) {
+                logger.error("Could not find or click 'Показать всех' button even after scrolling", e)
+                throw IllegalStateException("Button 'Показать всех' not found")
+            }
         }
 
         try {
-            val scrollSelector = "new UiScrollable(new UiSelector().resourceId(\"com.viber.voip:id/conversationInfo\"))" +
-                    ".setMaxSearchSwipes(5).scrollIntoView(new UiSelector().text(\"Показать всех\"))"
-            driver.findElement(AppiumBy.androidUIAutomator(scrollSelector))
-            logger.info("Scrolled to 'Показать всех' text")
-
-            driver.findElement(SHOW_ALL_BUTTON_GROUP).click()
-            logger.info("Clicked 'Показать всех' after scrolling")
+            WebDriverWait(driver, Duration.ofSeconds(5)).until {
+                driver.findElements(ViberLocator.RECYCLER_VIEW).isNotEmpty()
+            }
+            logger.info("Confirmed members list (RECYCLER_VIEW) is visible")
         } catch (e: Exception) {
-            logger.error("Could not find or click 'Показать всех' button even after scrolling", e)
-            throw IllegalStateException("Button 'Показать всех' not found")
+            logger.error("Members list did not appear after clicking 'Показать всех'", e)
+            throw IllegalStateException("Members list did not load after 'Показать всех' click", e)
         }
     }
 
@@ -80,7 +103,7 @@ object GroupNavigator {
                 "duration" to 1000
             ))
 
-            val wait = WebDriverWait(driver, Duration.ofSeconds(2))
+            val wait = WebDriverWait(driver, Duration.ofSeconds(5))
             try {
                 wait.until {
                     driver.findElements(PIN_BUTTON).isNotEmpty() || driver.findElements(UNPIN_BUTTON).isNotEmpty()
@@ -102,7 +125,7 @@ object GroupNavigator {
                 } else {
                     logger.warn("Unexpected menu state for '$groupName' (neither Pin nor Unpin found). Closing.")
                 }
-                driver.pressKey(KeyEvent(AndroidKey.BACK))
+                driver.executeScript("mobile: clickGesture", mapOf("x" to 50, "y" to 150))
             }
         } catch (e: Exception) {
             logger.warn("Could not pin group '$groupName'. It might require scrolling first.", e)

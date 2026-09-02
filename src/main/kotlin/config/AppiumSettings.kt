@@ -24,8 +24,6 @@ data class AppiumSettings(
 
     val adbExecTimeout: Duration,
 
-    val serverLaunchTimeout: Duration,
-
     val adbPath: String?,
 
     val autoConnectAdb: Boolean,
@@ -49,7 +47,6 @@ data class AppiumSettings(
                 implicitWait = config.requireSeconds("implicitWaitSeconds"),
                 adbExecTimeout = config.requireSeconds("adbExecTimeoutSeconds"),
                 autoConnectAdb = config.bool("autoConnectAdb") ?: true,
-                serverLaunchTimeout = config.requireSeconds("serverLaunchTimeoutSeconds"),
                 adbPath = config.text("adbPath")
             )
         }

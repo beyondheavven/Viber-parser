@@ -21,9 +21,8 @@ object AppiumManager {
     var currentState: ParserState = ParserState.IDLE
     private set
 
-    @Volatile
-    var settings: AppiumSettings = AppiumSettings()
-        private set
+    lateinit var settings: AppiumSettings
+    private set
 
     fun configure(newSettings: AppiumSettings) {
         if (driver != null) {
@@ -56,7 +55,6 @@ object AppiumManager {
                 .setAppActivity(config.appActivity)
                 .setNewCommandTimeout(config.newCommandTimeout)
                 .setAdbExecTimeout(config.adbExecTimeout)
-                .setUiautomator2ServerLaunchTimeout(config.serverLaunchTimeout)
             config.udid?.let { options.setUdid(it) }
             config.platformVersion?.let { options.setPlatformVersion(it) }
             config.systemPort?.let { options.setSystemPort(it) }
