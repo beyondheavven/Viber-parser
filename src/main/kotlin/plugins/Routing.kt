@@ -1,5 +1,6 @@
 package com.viber.plugins
 
+import com.viber.routes.groupRoutes
 import com.viber.routes.parserRoutes
 import io.github.smiley4.ktoropenapi.openApi
 import io.github.smiley4.ktorswaggerui.swaggerUI

@@ -17,9 +17,9 @@ import kotlinx.coroutines.launch
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-fun Route.parserRoutes() {
+private val logger: Logger = LoggerFactory.getLogger("ParserRoutes")
 
-    val logger: Logger = LoggerFactory.getLogger("ParserRoutes")
+fun Route.parserRoutes() {
 
     route("/parser", ParserDocs.group) {
         post("/start", ParserDocs.start){
