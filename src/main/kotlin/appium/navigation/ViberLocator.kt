@@ -8,11 +8,11 @@ object ViberLocator {
     val USER_NAME = AppiumBy.id("com.viber.voip:id/name")!!
     val VIBER_GROUP = AppiumBy.id("com.viber.voip:id/group")!!
     val USER_GROUP_ROLE = AppiumBy.id("com.viber.voip:id/groupRole")!!
-    val MESSAGES_LIST = AppiumBy.id("com.viber.voip:id/messages_list")!!
     val MESSAGE_BUTTON = AppiumBy.androidUIAutomator("new UiSelector().resourceId(\"android:id/title\").textStartsWith(\"Сообщение\")")!!
 
+    val CHAT_TOOLBAR = AppiumBy.id("com.viber.voip:id/toolbar")!!
     val PARTICIPANTS_COUNT = AppiumBy.androidUIAutomator("new UiSelector().textContains(\"участник\")")!!
-    val SHOW_ALL_BUTTON_GROUP = AppiumBy.xpath("//android.widget.TextView[@text='Показать всех']/parent::android.view.ViewGroup")!!
+    val SHOW_ALL_BUTTON_GROUP = AppiumBy.androidUIAutomator("new UiSelector().text(\"Показать всех\")")!!
     val PIN_BUTTON = AppiumBy.androidUIAutomator("new UiSelector().textContains(\"Закрепить чат\")")!!
     val UNPIN_BUTTON = AppiumBy.androidUIAutomator("new UiSelector().textContains(\"Открепить чат\")")!!
 
