@@ -1,5 +1,6 @@
 package com.viber.config
 
+import com.viber.config.util.ConfigUtil
 import io.ktor.server.config.ApplicationConfig
 
 data class SupabaseSettings(

@@ -1,4 +1,4 @@
-package com.viber.config
+package com.viber.config.util
 
 import io.ktor.server.config.ApplicationConfig
 import java.time.Duration

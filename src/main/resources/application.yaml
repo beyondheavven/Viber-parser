@@ -9,6 +9,7 @@ ktor:
       - com.viber.plugins.MonitoringKt.configureMonitoring
       - com.viber.plugins.SerializationKt.configureSerialization
       - com.viber.plugins.OpenApiKt.configureOpenApi
+      - com.viber.supabase.SupabaseClientKt.configureSupabaseClient
 
 supabase:
   url: "$SUPABASE_URL:jdbc:postgresql://supabase-db:5432/viber_data"
