@@ -38,7 +38,7 @@ services:
       VIBER_DB_PATH: "/data/data/com.viber.voip/databases/viber_messages"
       VIBER_DB_QUERY_TIMEOUT_SECONDS: "60"
       SUPABASE_URL: ${SUPABASE_URL}
-      SUPABASE_KEY: ${SUPABASE_KEY}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY}
 
     extra_hosts:
       - "host.docker.internal:host-gateway"
