@@ -19,6 +19,6 @@ object ViberLocator {
 
 
     fun groupSelectorByName(name: String): String {
-        return "new UiSelector().resourceId(\"com.viber.voip:id/from\").textContains(\"$name\")"
+        return "new UiSelector().resourceId(\"com.viber.voip:id/from\").textMatches(\"(?i).*$name.*\")"
     }
 }
