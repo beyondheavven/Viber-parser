@@ -67,7 +67,6 @@ object GroupNavigator {
                 val scrollSelector = "new UiScrollable(new UiSelector().resourceId(\"com.viber.voip:id/conversationInfo\"))" +
                         ".setMaxSearchSwipes(5).scrollIntoView(new UiSelector().text(\"Показать всех\"))"
                 driver.findElement(AppiumBy.androidUIAutomator(scrollSelector))
-                logger.info("Scrolled to 'Показать всех' text")
 
                 driver.findElement(SHOW_ALL_BUTTON_GROUP).click()
                 logger.info("Clicked 'Показать всех' after scrolling")

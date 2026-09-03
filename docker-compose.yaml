@@ -1,16 +1,32 @@
 services:
+  appium-server:
+    image: appium/appium:latest
+    container_name: appium-server
+    privileged: true
+    ports:
+      - "4773:4723"
+    environment:
+      - RELAXED_SECURITY=true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    entrypoint: /bin/sh
+    command: -c "appium driver install uiautomator2 || true && adb connect host.docker.internal:5555 && appium --relaxed-security"
+    restart: unless-stopped
+
   viber-parser-api:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: viber-parser-api
+    depends_on:
+      - appium-server
     ports:
       - "8080:8080"
     environment:
       PORT: "8080"
-      APPIUM_SERVER_URL: "http://host.docker.internal:4773"
+      APPIUM_SERVER_URL: "http://appium-server:4723"
       APPIUM_DEVICE_NAME: "LDPlayer"
-      APPIUM_UDID: "127.0.0.1:5555"
+      APPIUM_UDID: "host.docker.internal:5555"
       APPIUM_PLATFORM_VERSION: "9"
       APPIUM_APP_PACKAGE: "com.viber.voip"
       APPIUM_APP_ACTIVITY: "com.viber.voip.WelcomeActivity"
