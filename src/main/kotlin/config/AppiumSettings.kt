@@ -5,6 +5,7 @@ import io.ktor.server.config.ApplicationConfig
 import java.time.Duration
 
 data class AppiumSettings(
+
     val serverUrl: String,
 
     val deviceName: String,
