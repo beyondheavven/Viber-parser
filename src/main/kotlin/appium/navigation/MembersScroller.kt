@@ -1,8 +1,8 @@
 package com.viber.appium.navigation
 
+import com.viber.appium.navigation.ViberLocator.BOTTOM_NAV_BAR
 import com.viber.appium.navigation.ViberLocator.CHAT_TOOLBAR
 import com.viber.appium.navigation.ViberLocator.ITEM_LAYOUT
-import com.viber.appium.navigation.ViberLocator.MESSAGES_LIST
 import com.viber.appium.navigation.ViberLocator.MESSAGE_BUTTON
 import com.viber.appium.navigation.ViberLocator.RECYCLER_VIEW
 import com.viber.appium.navigation.ViberLocator.USER_GROUP_ROLE
@@ -148,7 +148,15 @@ object MembersScroller {
             throw IllegalStateException("Failed to leave chat with $userName: 'Перейти вверх' button not found", e)
         }
 
-        return true
+        val isMainList = try {
+            WebDriverWait(driver, Duration.ofSeconds(5)).until {
+                driver.findElements(BOTTOM_NAV_BAR).isNotEmpty()
+            }
+        }catch (e:Exception){
+            false
+        }
+        logger.info("clickMessageAndReturn: isMainList=\$isMainList for \$userName")
+        return isMainList
     }
 
     private fun getFirstRowText(driver: AndroidDriver): String? {
