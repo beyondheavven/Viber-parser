@@ -10,6 +10,11 @@ ktor:
       - com.viber.plugins.SerializationKt.configureSerialization
       - com.viber.plugins.OpenApiKt.configureOpenApi
 
+supabase:
+  url: "$SUPABASE_URL:jdbc:postgresql://supabase-db:5432/viber_data"
+  user: "$SUPABASE_USER:postgres"
+  password: "$SUPABASE_PASSWORD:your_super_secret_password"
+  driver: "org.postgresql.Driver"
 
 appium:
   #Покдлючение

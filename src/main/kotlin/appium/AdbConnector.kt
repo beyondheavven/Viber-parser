@@ -4,11 +4,7 @@ import org.slf4j.LoggerFactory
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-/**
- * Тонкая обёртка над `adb connect`. LDPlayer публикует устройство как сетевой adb-таргет
- * (`127.0.0.1:5555`) и после перезапуска эмулятора связь нужно поднимать заново, иначе
- * Appium стартует сессию против отсутствующего udid.
- */
+
 object AdbConnector {
 
     private val logger = LoggerFactory.getLogger(AdbConnector::class.java)
@@ -17,16 +13,8 @@ object AdbConnector {
 
     private const val CONNECT_TIMEOUT_SECONDS = 20L
 
-    /** `adb connect` имеет смысл только для таргетов вида host:port. */
     fun isNetworkTarget(udid: String): Boolean = NETWORK_TARGET.matches(udid)
 
-    /**
-     * Каталоги, где обычно лежит adb. Порядок = приоритет.
-     *
-     * Полагаться на PATH и ANDROID_HOME недостаточно: Gradle переиспользует демон, и
-     * форкнутый `run` наследует окружение того процесса, который демон поднял — там
-     * переменных Android SDK может не быть вовсе.
-     */
     fun defaultSearchRoots(
         androidHome: String? = System.getenv("ANDROID_HOME"),
         androidSdkRoot: String? = System.getenv("ANDROID_SDK_ROOT"),
@@ -36,16 +24,11 @@ object AdbConnector {
         androidHome.dir("platform-tools")?.let(::add)
         androidSdkRoot.dir("platform-tools")?.let(::add)
         localAppData.dir("Android", "Sdk", "platform-tools")?.let(::add)
-        // LDPlayer кладёт собственный adb.exe рядом с эмулятором.
         add(File("C:/LDPlayer/LDPlayer9").path)
         add(File("C:/LDPlayer/LDPlayer64").path)
         programFiles.dir("LDPlayer", "LDPlayer9")?.let(::add)
     }.distinct()
 
-    /**
-     * Путь к adb: явная настройка → первый [searchRoots], где реально лежит бинарь →
-     * `adb` из PATH как последняя попытка.
-     */
     fun resolveAdbExecutable(
         configured: String?,
         searchRoots: List<String> = defaultSearchRoots(),
@@ -60,12 +43,6 @@ object AdbConnector {
         return "adb"
     }
 
-    /**
-     * Пытается подключить устройство. Не бросает: недоступный adb не должен ронять
-     * старт сессии — Appium всё равно попробует свой путь и выдаст свою ошибку.
-     *
-     * @return true, если adb отчитался об установленном (или уже существующем) соединении.
-     */
     fun ensureConnected(udid: String, adbPath: String?): Boolean {
         if (!isNetworkTarget(udid)) {
             logger.debug("udid '$udid' is not a network target, skipping 'adb connect'")

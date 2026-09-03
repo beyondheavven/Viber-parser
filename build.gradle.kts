@@ -34,6 +34,9 @@ dependencies {
     implementation("org.slf4j:slf4j-api:2.0.13")
     implementation("ch.qos.logback:logback-classic:1.5.6")
 
+    implementation("io.github.jan-tennert.supabase:postgrest-kt:2.6.0")
+    implementation("io.ktor:ktor-client-cio")
+
     testImplementation(kotlin("test"))
     testImplementation(ktorLibs.server.testHost)
 }
