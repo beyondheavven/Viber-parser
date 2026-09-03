@@ -11,33 +11,27 @@ ktor:
       - com.viber.plugins.OpenApiKt.configureOpenApi
       - com.viber.supabase.SupabaseClientKt.configureSupabaseClient
 
-supabase:
-  url: "$SUPABASE_URL:jdbc:postgresql://supabase-db:5432/viber_data"
-  user: "$SUPABASE_USER:postgres"
-  password: "$SUPABASE_PASSWORD:your_super_secret_password"
-  driver: "org.postgresql.Driver"
 
 appium:
-  #Покдлючение
   serverUrl: "$APPIUM_SERVER_URL:http://127.0.0.1:4773"
   deviceName: "$APPIUM_DEVICE_NAME:LDPlayer"
   udid: "$APPIUM_UDID:127.0.0.1:5555"
   platformVersion: "$APPIUM_PLATFORM_VERSION:9"
 
-  #Приложение
   appPackage: "$APPIUM_APP_PACKAGE:com.viber.voip"
   appActivity: "$APPIUM_APP_ACTIVITY:com.viber.voip.WelcomeActivity"
 
-  #Таймауты
   newCommandTimeoutSeconds: "$APPIUM_NEW_COMMAND_TIMEOUT_SECONDS:300"
   implicitWaitSeconds: "$APPIUM_IMPLICIT_WAIT_SECONDS:0"
   adbExecTimeoutSeconds: "$APPIUM_ADB_EXEC_TIMEOUT_SECONDS:60"
 
-  #Управление ADB
   autoConnectAdb: "$APPIUM_AUTO_CONNECT_ADB:true"
   adbPath: "$ADB_PATH:"
 
-# Чтение БД Viber через ADB
 database:
   path: "$VIBER_DB_PATH:/data/data/com.viber.voip/databases/viber_messages"
   queryTimeoutSeconds: "$VIBER_DB_QUERY_TIMEOUT_SECONDS:60"
+
+supabase:
+  url: "$SUPABASE_URL:jdbc:postgresql://supabase-db:5432/viber_data"
+  key: "$SUPABASE_KEY:sb_secret_key"
