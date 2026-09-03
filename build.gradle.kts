@@ -29,13 +29,13 @@ dependencies {
 
     implementation("io.appium:java-client:9.3.0")
     implementation("org.seleniumhq.selenium:selenium-java:4.23.0")
-    implementation("io.ktor:ktor-server-content-negotiation:3.5.2")
 
     implementation("org.slf4j:slf4j-api:2.0.13")
     implementation("ch.qos.logback:logback-classic:1.5.6")
 
-    implementation("io.github.jan-tennert.supabase:postgrest-kt:2.6.0")
+    implementation("io.github.jan-tennert.supabase:postgrest-kt:3.6.0")
     implementation("io.ktor:ktor-client-cio")
+    implementation("io.ktor:ktor-client-content-negotiation")
 
     testImplementation(kotlin("test"))
     testImplementation(ktorLibs.server.testHost)

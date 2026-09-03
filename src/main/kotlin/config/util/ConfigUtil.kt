@@ -8,7 +8,7 @@ class ConfigUtil(
     private val prefix: String,
 ) {
     fun text(key: String): String?{
-        val fullKey = "$prefix:$key"
+        val fullKey = "$prefix.$key"
         val raw = config.propertyOrNull(fullKey)?.getString()?.trim() ?: return null
 
         if (raw.startsWith("$") && raw.contains(":")) {
