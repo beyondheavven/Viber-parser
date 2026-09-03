@@ -63,8 +63,7 @@ object AppiumManager {
 
             driver = AndroidDriver (serviceUri, options).apply {
                 manage().timeouts().implicitlyWait(config.implicitWait)
-                setSetting(Setting.WAIT_FOR_IDLE_TIMEOUT, 100)
-                setSetting(Setting.IGNORE_UNIMPORTANT_VIEWS, true)
+                setSetting(Setting.WAIT_FOR_IDLE_TIMEOUT, 500)
             }
             currentState = ParserState.RUNNING
             logger.info("Started session successfully")
