@@ -12,10 +12,8 @@ ktor:
       - com.viber.supabase.SupabaseClientKt.configureSupabaseClient
 
 supabase:
-  url: "$SUPABASE_URL:jdbc:postgresql://supabase-db:5432/viber_data"
-  user: "$SUPABASE_USER:postgres"
-  password: "$SUPABASE_PASSWORD:your_super_secret_password"
-  driver: "org.postgresql.Driver"
+  url: "$SUPABASE_URL:"
+  key: "$SUPABASE_KEY:"
 
 appium:
   #Покдлючение
