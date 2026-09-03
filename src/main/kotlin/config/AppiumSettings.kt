@@ -1,5 +1,6 @@
 package com.viber.config
 
+import com.viber.config.util.ConfigUtil
 import io.ktor.server.config.ApplicationConfig
 import java.time.Duration
 
@@ -35,42 +36,21 @@ data class AppiumSettings(
 
     companion object {
         fun from(config: ApplicationConfig): AppiumSettings {
+            val util = ConfigUtil(config, "appium")
             return AppiumSettings(
-                serverUrl = config.requireText("serverUrl"),
-                deviceName = config.requireText("deviceName"),
-                udid = config.text("udid"),
-                platformVersion = config.text("platformVersion"),
-                appPackage = config.requireText("appPackage"),
-                appActivity = config.requireText("appActivity"),
-                systemPort = config.int("systemPort"),
-                newCommandTimeout = config.requireSeconds("newCommandTimeoutSeconds"),
-                implicitWait = config.requireSeconds("implicitWaitSeconds"),
-                adbExecTimeout = config.requireSeconds("adbExecTimeoutSeconds"),
-                autoConnectAdb = config.bool("autoConnectAdb") ?: true,
-                adbPath = config.text("adbPath")
+                serverUrl = util.requireText("serverUrl"),
+                deviceName = util.requireText("deviceName"),
+                udid = util.text("udid"),
+                platformVersion = util.text("platformVersion"),
+                appPackage = util.requireText("appPackage"),
+                appActivity = util.requireText("appActivity"),
+                systemPort = util.int("systemPort"),
+                newCommandTimeout = util.requireSeconds("newCommandTimeoutSeconds"),
+                implicitWait = util.requireSeconds("implicitWaitSeconds"),
+                adbExecTimeout = util.requireSeconds("adbExecTimeoutSeconds"),
+                autoConnectAdb = util.bool("autoConnectAdb") ?: true,
+                adbPath = util.text("adbPath")
             )
         }
-
-        private fun ApplicationConfig.text(key: String): String? {
-            val raw = propertyOrNull("appium.$key")?.getString()?.trim() ?: return null
-
-            if (raw.startsWith("$") && raw.contains(":")) {
-                val envVarName = raw.substringAfter("$").substringBefore(":")
-                val yamlDefault = raw.substringAfter(":")
-                return System.getenv(envVarName)?.takeIf { it.isNotEmpty() } ?: yamlDefault
-            }
-            return raw.takeIf { it.isNotEmpty() }
-        }
-
-        private fun ApplicationConfig.requireText(key: String): String =
-            text(key) ?: throw IllegalArgumentException("Missing required config: appium.$key")
-
-        private fun ApplicationConfig.requireSeconds(key: String): Duration =
-            text(key)?.toLongOrNull()?.let(Duration::ofSeconds)
-                ?: throw IllegalArgumentException("Missing or invalid time config: appium.$key")
-
-        private fun ApplicationConfig.int(key: String): Int? = text(key)?.toIntOrNull()
-
-        private fun ApplicationConfig.bool(key: String): Boolean? = text(key)?.toBooleanStrictOrNull()
     }
 }
