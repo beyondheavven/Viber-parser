@@ -1,0 +1,27 @@
+services:
+  viber-parser-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: viber-parser-api
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      APPIUM_SERVER_URL: "http://host.docker.internal:4773"
+      APPIUM_DEVICE_NAME: "LDPlayer"
+      APPIUM_UDID: "127.0.0.1:5555"
+      APPIUM_PLATFORM_VERSION: "9"
+      APPIUM_APP_PACKAGE: "com.viber.voip"
+      APPIUM_APP_ACTIVITY: "com.viber.voip.WelcomeActivity"
+      APPIUM_NEW_COMMAND_TIMEOUT_SECONDS: "300"
+      APPIUM_IMPLICIT_WAIT_SECONDS: "0"
+      APPIUM_ADB_EXEC_TIMEOUT_SECONDS: "60"
+      APPIUM_AUTO_CONNECT_ADB: "true"
+      ADB_PATH: ""
+      VIBER_DB_PATH: "/data/data/com.viber.voip/databases/viber_messages"
+      VIBER_DB_QUERY_TIMEOUT_SECONDS: "60"
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
