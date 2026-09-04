@@ -1,6 +1,9 @@
 package com.viber.appium
 
+import com.viber.appium.navigation.GroupNavigator
+import com.viber.appium.navigation.MembersScroller
 import com.viber.config.AppiumSettings
+import io.appium.java_client.Setting
 import io.appium.java_client.android.AndroidDriver
 import io.appium.java_client.android.options.UiAutomator2Options
 import org.slf4j.Logger
@@ -18,10 +21,8 @@ object AppiumManager {
     var currentState: ParserState = ParserState.IDLE
     private set
 
-    /** Дефолты нацелены на LDPlayer; перекрываются из `application.yaml` через [configure]. */
-    @Volatile
-    var settings: AppiumSettings = AppiumSettings()
-        private set
+    lateinit var settings: AppiumSettings
+    private set
 
     fun configure(newSettings: AppiumSettings) {
         if (driver != null) {
@@ -37,7 +38,9 @@ object AppiumManager {
             return
         }
         val config = settings
+
         currentState = ParserState.INITIALIZING
+
         logger.info("Starting session")
         try {
             if (config.autoConnectAdb && config.udid != null) {
@@ -52,7 +55,6 @@ object AppiumManager {
                 .setAppActivity(config.appActivity)
                 .setNewCommandTimeout(config.newCommandTimeout)
                 .setAdbExecTimeout(config.adbExecTimeout)
-                .setUiautomator2ServerLaunchTimeout(config.serverLaunchTimeout)
             config.udid?.let { options.setUdid(it) }
             config.platformVersion?.let { options.setPlatformVersion(it) }
             config.systemPort?.let { options.setSystemPort(it) }
@@ -61,6 +63,7 @@ object AppiumManager {
 
             driver = AndroidDriver (serviceUri, options).apply {
                 manage().timeouts().implicitlyWait(config.implicitWait)
+                setSetting(Setting.WAIT_FOR_IDLE_TIMEOUT, 500)
             }
             currentState = ParserState.RUNNING
             logger.info("Started session successfully")
@@ -84,11 +87,16 @@ object AppiumManager {
             throw NullPointerException("scrollMembers() called without driver")
         }
 
+        logger.info("Pinning group: $groupName")
+        GroupNavigator.pinGroup(d, groupName)
+
         logger.info("Opening group: $groupName")
         GroupNavigator.openGroup(d, groupName)
         GroupNavigator.openMembersList(d)
-        MembersScroller.scrollThroughMembers(d){ items ->
-            logger.debug("Can see ${items.size} elements")
+        MembersScroller.processRegularMembers(d, maxSwipes = 100) {
+            logger.info("Re-opening group after chat navigation...")
+            GroupNavigator.openGroup(d, groupName)
+            GroupNavigator.openMembersList(d)
         }
     }
 }

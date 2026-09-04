@@ -1,0 +1,44 @@
+services:
+  appium-server:
+    image: appium/appium:latest
+    container_name: appium-server
+    privileged: true
+    ports:
+      - "${APPIUM_HOST_PORT:-4773}:4723"
+    environment:
+      - RELAXED_SECURITY=true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    entrypoint: /bin/sh
+    command: -c "appium driver install uiautomator2 || true && adb connect host.docker.internal:${APPIUM_ADB_PORT:-5555} && appium --relaxed-security"
+    restart: unless-stopped
+
+  viber-parser-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: viber-parser-api
+    depends_on:
+      - appium-server
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      PORT: "${PORT:-8080}"
+      APPIUM_SERVER_URL: "http://appium-server:4723"
+      APPIUM_DEVICE_NAME: "${APPIUM_DEVICE_NAME:-LDPlayer}"
+      APPIUM_UDID: "host.docker.internal:${APPIUM_ADB_PORT:-5555}"
+      APPIUM_PLATFORM_VERSION: "${APPIUM_PLATFORM_VERSION:-9}"
+      APPIUM_APP_PACKAGE: "${APPIUM_APP_PACKAGE:-com.viber.voip}"
+      APPIUM_APP_ACTIVITY: "${APPIUM_APP_ACTIVITY:-com.viber.voip.WelcomeActivity}"
+      APPIUM_NEW_COMMAND_TIMEOUT_SECONDS: "${APPIUM_NEW_COMMAND_TIMEOUT_SECONDS:-300}"
+      APPIUM_IMPLICIT_WAIT_SECONDS: "${APPIUM_IMPLICIT_WAIT_SECONDS:-0}"
+      APPIUM_ADB_EXEC_TIMEOUT_SECONDS: "${APPIUM_ADB_EXEC_TIMEOUT_SECONDS:-60}"
+      APPIUM_AUTO_CONNECT_ADB: "${APPIUM_AUTO_CONNECT_ADB:-true}"
+      ADB_PATH: "${ADB_PATH:-}"
+      VIBER_DB_PATH: "${VIBER_DB_PATH:-/data/data/com.viber.voip/databases/viber_messages}"
+      VIBER_DB_QUERY_TIMEOUT_SECONDS: "${VIBER_DB_QUERY_TIMEOUT_SECONDS:-60}"
+      SUPABASE_URL: "${SUPABASE_URL:?SUPABASE_URL not configured}"
+      SUPABASE_SERVICE_KEY: "${SUPABASE_SERVICE_KEY:?SUPABASE_SERVICE_KEY not configured}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
