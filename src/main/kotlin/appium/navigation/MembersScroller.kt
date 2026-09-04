@@ -20,7 +20,7 @@ object MembersScroller {
 
     private val logger = LoggerFactory.getLogger(MembersScroller::class.java)
 
-    fun processRegularMembers(driver: AndroidDriver, maxSwipes: Int = 100, onRecover: () -> Unit) {
+    fun processRegularMembers(driver: AndroidDriver, maxSwipes: Int = 10000, onRecover: () -> Unit) {
         var previousFirstText: String? = null
         var sameStateCount = 0
         val processedUsers = mutableSetOf<String>()
@@ -171,16 +171,9 @@ object MembersScroller {
         logger.info("Fast-forwarding back to user: $targetName")
         try {
             val scrollSelector = "new UiScrollable(new UiSelector().resourceId(\"com.viber.voip:id/recycler_view\").scrollable(true))" +
-                    ".setMaxSearchSwipes(100).scrollIntoView(new UiSelector().text(\"$targetName\"))"
+                    ".setMaxSearchSwipes(2000).scrollIntoView(new UiSelector().text(\"$targetName\"))"
             driver.findElement(AppiumBy.androidUIAutomator(scrollSelector))
 
-            val listForScroll = driver.findElement(RECYCLER_VIEW)
-            driver.executeScript("mobile: scrollGesture", mapOf(
-                "elementId" to (listForScroll as RemoteWebElement).id,
-                "direction" to "down",
-                "percent" to 0.5,
-                "speed" to 4000
-            ))
         } catch (e: Exception) {
             logger.warn("Fast scroll failed or user already visible", e)
         }
@@ -194,8 +187,8 @@ object MembersScroller {
         val args = mapOf(
             "elementId" to elementId,
             "direction" to "down",
-            "percent" to 0.5,
-            "speed" to 4000
+            "percent" to 0.4,
+            "speed" to 3000
         )
         driver.executeScript("mobile: scrollGesture", args)
     }
