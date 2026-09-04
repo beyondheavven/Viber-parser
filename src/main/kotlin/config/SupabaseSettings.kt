@@ -18,7 +18,6 @@ data class SupabaseSettings(
             val url = util.text("url")?.takeIf { it.isNotBlank() }
             val key = util.text("key")?.takeIf { it.isNotBlank() }
 
-            // Пусто и то и другое — Supabase просто выключен, это не ошибка.
             if (url == null && key == null) return null
 
             require(url != null) { missing("supabase.url") }

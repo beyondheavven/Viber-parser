@@ -1,6 +1,7 @@
 package com.viber.appium.navigation
 
 import io.appium.java_client.AppiumBy
+import java.util.regex.Pattern
 
 object ViberLocator {
     val RECYCLER_VIEW = AppiumBy.id("com.viber.voip:id/recycler_view")!!
@@ -19,6 +20,7 @@ object ViberLocator {
 
 
     fun groupSelectorByName(name: String): String {
-        return "new UiSelector().resourceId(\"com.viber.voip:id/from\").textMatches(\"(?i).*$name.*\")"
+        val escapedName = Pattern.quote(name)
+        return "new UiSelector().resourceId(\"com.viber.voip:id/from\").textMatches(\"(?i).*$escapedName.*\")"
     }
 }

@@ -4,7 +4,6 @@ import com.viber.config.DatabaseSettings
 import com.viber.device.DeviceDatabase
 import io.ktor.server.application.Application
 
-/** Прокидывает секцию `database` из `application.yaml` в [DeviceDatabase]. */
 fun Application.configureDatabase() {
     DeviceDatabase.configure(DatabaseSettings.from(environment.config))
 }
