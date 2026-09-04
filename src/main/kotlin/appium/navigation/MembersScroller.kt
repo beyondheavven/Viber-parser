@@ -30,7 +30,7 @@ object MembersScroller {
 
             if (currentFirstText != null && currentFirstText == previousFirstText) {
                 sameStateCount++
-                if (sameStateCount >=2){
+                if (sameStateCount >=4){
                     logger.info("List is not changing on step $swipe. Reached the end.")
                     break
                 }
@@ -187,8 +187,8 @@ object MembersScroller {
         val args = mapOf(
             "elementId" to elementId,
             "direction" to "down",
-            "percent" to 0.4,
-            "speed" to 3000
+            "percent" to 0.1,
+            "speed" to 1000
         )
         driver.executeScript("mobile: scrollGesture", args)
     }
