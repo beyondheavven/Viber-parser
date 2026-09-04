@@ -1,7 +1,6 @@
-package com.viber.device
+package com.viber.device.viber
 
-import com.viber.device.model.ViberGroup
-import com.viber.device.model.ViberMember
+import com.viber.device.sqlite.Row
 
 /**
  * Разбор строк CSV в модели. Держится отдельно от [ViberDatabase]: там — что спрашиваем
