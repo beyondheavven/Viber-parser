@@ -1,6 +1,5 @@
-package com.viber
+package com.viber.device.adb
 
-import com.viber.device.AdbSqlite
 import java.util.Base64
 import kotlin.test.Test
 import kotlin.test.assertEquals

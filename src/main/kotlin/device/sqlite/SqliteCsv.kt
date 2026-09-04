@@ -1,4 +1,4 @@
-package com.viber.device
+package com.viber.device.sqlite
 
 /**
  * Разбор вывода `sqlite3 -csv -header`.

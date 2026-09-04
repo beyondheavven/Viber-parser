@@ -1,12 +1,13 @@
-package com.viber
+package com.viber.config
 
-import com.viber.config.DatabaseSettings
 import io.ktor.server.config.ApplicationConfig
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.config.yaml.YamlConfigLoader
 import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class DatabaseSettingsTest {
 
@@ -16,6 +17,8 @@ class DatabaseSettingsTest {
 
         assertEquals("/data/data/com.viber.voip/databases/viber_messages", settings.databasePath)
         assertEquals(Duration.ofSeconds(60), settings.queryTimeout)
+        assertEquals(Duration.ofSeconds(120), settings.writeTimeout)
+        assertTrue(settings.backupOnWrite)
     }
 
     @Test
@@ -23,12 +26,26 @@ class DatabaseSettingsTest {
         val config = MapApplicationConfig(
             "database.path" to "/data/data/com.viber.voip/databases/viber_data",
             "database.queryTimeoutSeconds" to "5",
+            "database.writeTimeoutSeconds" to "7",
+            "database.backupOnWrite" to "false",
         )
 
         val settings = DatabaseSettings.from(config)
 
         assertEquals("/data/data/com.viber.voip/databases/viber_data", settings.databasePath)
         assertEquals(Duration.ofSeconds(5), settings.queryTimeout)
+        assertEquals(Duration.ofSeconds(7), settings.writeTimeout)
+        assertFalse(settings.backupOnWrite)
+    }
+
+    @Test
+    fun `keeps the backup when the flag is anything but a plain false`() {
+        // Пустая или мусорная переменная окружения не должна отменить копию базы.
+        listOf("", "no", "0", "FALSE").forEach { value ->
+            val settings = DatabaseSettings.from(MapApplicationConfig("database.backupOnWrite" to value))
+
+            assertTrue(settings.backupOnWrite, "backupOnWrite must survive '" + value + "'")
+        }
     }
 
     @Test
@@ -36,12 +53,14 @@ class DatabaseSettingsTest {
         val config = MapApplicationConfig(
             "database.path" to "",
             "database.queryTimeoutSeconds" to "",
+            "database.writeTimeoutSeconds" to "",
         )
 
         val settings = DatabaseSettings.from(config)
 
         assertEquals("/data/data/com.viber.voip/databases/viber_messages", settings.databasePath)
         assertEquals(Duration.ofSeconds(60), settings.queryTimeout)
+        assertEquals(Duration.ofSeconds(120), settings.writeTimeout)
     }
 
     @Test
@@ -52,5 +71,7 @@ class DatabaseSettingsTest {
         val settings = DatabaseSettings.from(config)
 
         assertEquals("/data/data/com.viber.voip/databases/viber_messages", settings.databasePath)
+        assertEquals(Duration.ofSeconds(120), settings.writeTimeout)
+        assertTrue(settings.backupOnWrite)
     }
 }

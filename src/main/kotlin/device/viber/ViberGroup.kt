@@ -1,4 +1,4 @@
-package com.viber.device.model
+package com.viber.device.viber
 
 /**
  * Беседа-группа из `conversations`.

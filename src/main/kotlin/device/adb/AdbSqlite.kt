@@ -1,10 +1,12 @@
-package com.viber.device
+package com.viber.device.adb
 
 import com.viber.appium.AdbConnector
+import com.viber.device.SqlExecutor
+import com.viber.device.sqlite.Row
+import com.viber.device.sqlite.SqliteCsv
 import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.util.Base64
-import java.util.concurrent.TimeUnit
 
 /**
  * Выполняет SELECT прямо на устройстве: `adb shell -T` поднимает root-шелл, тот скармливает
@@ -32,19 +34,9 @@ class AdbSqlite(
         val command = command(sql)
         logger.debug("Querying {} on {}: {}", databasePath, udid, sql.replace('\n', ' ').take(200))
 
-        val process = ProcessBuilder(command).start()
-        val stdout = process.inputStream.bufferedReader()
-        val stderr = process.errorStream.bufferedReader()
-        // Читаем оба потока до waitFor: полный буфер трубы иначе подвесит устройство.
-        val out = stdout.readText()
-        val err = stderr.readText()
+        val output = AdbShell.run(command, timeout, "Query on $udid ($sql)")
 
-        if (!process.waitFor(timeout.seconds, TimeUnit.SECONDS)) {
-            process.destroyForcibly()
-            error("Query on $udid timed out after ${timeout.seconds}s: $sql")
-        }
-
-        return toRows(process.exitValue(), out, err)
+        return toRows(output.exitCode, output.stdout, output.stderr)
     }
 
     internal fun command(sql: String): List<String> = listOf(
