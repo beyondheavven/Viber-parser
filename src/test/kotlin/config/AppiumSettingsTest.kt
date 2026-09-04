@@ -6,23 +6,17 @@ import io.ktor.server.config.yaml.YamlConfigLoader
 import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class AppiumSettingsTest {
 
     @Test
-    fun `falls back to LDPlayer defaults when the appium section is missing`() {
-        val settings = AppiumSettings.from(MapApplicationConfig())
+    fun `a missing required key fails at startup`() {
+        val error = assertFailsWith<IllegalArgumentException> { AppiumSettings.from(MapApplicationConfig()) }
 
-        assertEquals("http://127.0.0.1:4723", settings.serverUrl)
-        assertEquals("127.0.0.1:5555", settings.udid)
-        assertEquals("9", settings.platformVersion)
-        assertEquals("com.viber.voip", settings.appPackage)
-        assertEquals("com.viber.voip.WelcomeActivity", settings.appActivity)
-        assertEquals(Duration.ofMinutes(5), settings.newCommandTimeout)
-        assertEquals(Duration.ofSeconds(10), settings.implicitWait)
-        assertTrue(settings.autoConnectAdb)
+        assertTrue(error.message!!.contains("appium.serverUrl"), error.message!!)
     }
 
     @Test
@@ -38,7 +32,6 @@ class AppiumSettingsTest {
             "appium.newCommandTimeoutSeconds" to "600",
             "appium.implicitWaitSeconds" to "3",
             "appium.adbExecTimeoutSeconds" to "90",
-            "appium.serverLaunchTimeoutSeconds" to "150",
             "appium.adbPath" to "C:/LDPlayer/LDPlayer9/adb.exe",
             "appium.autoConnectAdb" to "false",
         )
@@ -55,7 +48,6 @@ class AppiumSettingsTest {
         assertEquals(Duration.ofSeconds(600), settings.newCommandTimeout)
         assertEquals(Duration.ofSeconds(3), settings.implicitWait)
         assertEquals(Duration.ofSeconds(90), settings.adbExecTimeout)
-        assertEquals(Duration.ofSeconds(150), settings.serverLaunchTimeout)
         assertEquals("C:/LDPlayer/LDPlayer9/adb.exe", settings.adbPath)
         assertEquals(false, settings.autoConnectAdb)
     }
@@ -63,14 +55,19 @@ class AppiumSettingsTest {
     @Test
     fun `treats blank values as unset so an empty env var does not win`() {
         val config = MapApplicationConfig(
-            "appium.serverUrl" to "  ",
+            "appium.serverUrl" to "http://127.0.0.1:4723",
+            "appium.deviceName" to "LDPlayer",
             "appium.udid" to "",
+            "appium.appPackage" to "com.viber.voip",
+            "appium.appActivity" to "com.viber.voip.WelcomeActivity",
             "appium.systemPort" to "",
+            "appium.newCommandTimeoutSeconds" to "300",
+            "appium.implicitWaitSeconds" to "0",
+            "appium.adbExecTimeoutSeconds" to "60",
         )
 
         val settings = AppiumSettings.from(config)
 
-        assertEquals("http://127.0.0.1:4723", settings.serverUrl)
         assertNull(settings.udid)
         assertNull(settings.systemPort)
     }
@@ -83,7 +80,7 @@ class AppiumSettingsTest {
         val settings = AppiumSettings.from(config)
 
         // Ломается, если env APPIUM_* заданы в окружении прогона — это ожидаемо.
-        assertEquals("http://127.0.0.1:4723", settings.serverUrl)
+        assertEquals("http://127.0.0.1:4773", settings.serverUrl)
         assertEquals("127.0.0.1:5555", settings.udid)
         assertEquals("9", settings.platformVersion)
         assertEquals("com.viber.voip", settings.appPackage)

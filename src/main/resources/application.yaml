@@ -1,6 +1,6 @@
 ktor:
   deployment:
-    port: 8080
+    port: "$PORT:8080"
   application:
     modules:
       - com.viber.plugins.AppiumKt.configureAppium
@@ -8,36 +8,26 @@ ktor:
       - com.viber.routes.RoutingKt.configureRouting
       - com.viber.plugins.MonitoringKt.configureMonitoring
       - com.viber.plugins.SerializationKt.configureSerialization
+      - com.viber.plugins.OpenApiKt.configureOpenApi
+      - com.viber.supabase.SupabaseClientKt.configureSupabaseClient
 
 # Подключение к устройству. Дефолты — под LDPlayer 9 (Android 9 / API 28), который
 # отдаёт adb-мост на 127.0.0.1:5555. Любое значение переопределяется переменной
 # окружения из "$VAR:default" — например APPIUM_UDID=127.0.0.1:5557 для второго инстанса.
 appium:
-  serverUrl: "$APPIUM_SERVER_URL:http://127.0.0.1:4723"
+  serverUrl: "$APPIUM_SERVER_URL:http://127.0.0.1:4773"
   deviceName: "$APPIUM_DEVICE_NAME:LDPlayer"
   udid: "$APPIUM_UDID:127.0.0.1:5555"
   platformVersion: "$APPIUM_PLATFORM_VERSION:9"
   appPackage: "$APPIUM_APP_PACKAGE:com.viber.voip"
   appActivity: "$APPIUM_APP_ACTIVITY:com.viber.voip.WelcomeActivity"
-  # Порт UiAutomator2-сервера на хосте. По умолчанию не задаём: Appium сам возьмёт
-  # свободный, иначе любая осиротевшая сессия намертво блокирует старт новой.
-  # Задавать только когда нужны параллельные инстансы LDPlayer (8200, 8201, ...).
-  # systemPort: "$APPIUM_SYSTEM_PORT:8200"
   newCommandTimeoutSeconds: "$APPIUM_NEW_COMMAND_TIMEOUT_SECONDS:300"
-  implicitWaitSeconds: "$APPIUM_IMPLICIT_WAIT_SECONDS:10"
-  # LDPlayer стартует медленнее реального устройства — таймауты с запасом.
+  implicitWaitSeconds: "$APPIUM_IMPLICIT_WAIT_SECONDS:0"
   adbExecTimeoutSeconds: "$APPIUM_ADB_EXEC_TIMEOUT_SECONDS:60"
-  serverLaunchTimeoutSeconds: "$APPIUM_SERVER_LAUNCH_TIMEOUT_SECONDS:120"
-  # Выполнять "adb connect <udid>" перед стартом сессии.
   autoConnectAdb: "$APPIUM_AUTO_CONNECT_ADB:true"
-  # Путь к adb. Пусто -> ANDROID_HOME/platform-tools -> adb из PATH.
-  # Можно указать adb самого LDPlayer: C:/LDPlayer/LDPlayer9/adb.exe
   adbPath: "$ADB_PATH:"
 
-# Чтение базы Viber прямо на устройстве через adb + устройский sqlite3. Само устройство
-# (udid, путь к adb) берётся из секции appium — здесь только что и как долго читаем.
 database:
-  # Диалоги, участники, сообщения. Рядом лежит viber_data — телефонная книга.
   path: "$VIBER_DB_PATH:/data/data/com.viber.voip/databases/viber_messages"
   queryTimeoutSeconds: "$VIBER_DB_QUERY_TIMEOUT_SECONDS:60"
   # Запись (POST /api/participants/decode) — дольше чтения: гасим Viber, копируем базу,
@@ -45,3 +35,7 @@ database:
   writeTimeoutSeconds: "$VIBER_DB_WRITE_TIMEOUT_SECONDS:120"
   # Копия базы рядом (<path>.bak) перед каждой правкой. Отключается только явным "false".
   backupOnWrite: "$VIBER_DB_BACKUP_ON_WRITE:true"
+
+supabase:
+  url: "$SUPABASE_URL"
+  key: "$SUPABASE_SERVICE_KEY"
