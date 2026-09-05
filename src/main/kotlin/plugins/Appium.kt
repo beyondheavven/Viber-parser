@@ -1,7 +1,6 @@
 package com.viber.plugins
 
 import com.viber.appium.AppiumManager
-import com.viber.config.AppiumSettings
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopping
 import io.ktor.server.application.log

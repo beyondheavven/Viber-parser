@@ -2,7 +2,6 @@ package com.viber.appium
 
 import com.viber.appium.navigation.GroupNavigator
 import com.viber.appium.navigation.MembersScroller
-import com.viber.config.AppiumSettings
 import io.appium.java_client.Setting
 import io.appium.java_client.android.AndroidDriver
 import io.appium.java_client.android.options.UiAutomator2Options

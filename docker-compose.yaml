@@ -1,16 +1,19 @@
 services:
-  appium-server:
-    image: appium/appium:latest
-    container_name: appium-server
+  android-emulator:
+    image: shmayro/dockerify-android:latest
+    container_name: android-emulator
     privileged: true
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
     ports:
-      - "${APPIUM_HOST_PORT:-4773}:4723"
+      - "${EMULATOR_ADB_PORT}:5555"
+      - "${EMULATOR_VNC_PORT}:6080"
+    volumes:
+      - viber-db:${VIBER_EMULATOR_DB_PATH}
     environment:
-      - RELAXED_SECURITY=true
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    entrypoint: /bin/sh
-    command: -c "appium driver install uiautomator2 || true && adb connect host.docker.internal:${APPIUM_ADB_PORT:-5555} && appium --relaxed-security"
+      - EMULATOR_SYSTEM_IMAGE=${ANDROID_IMAGE}
+      - ANDROID_PLATFORM_VERSION=${ANDROID_VERSION}
     restart: unless-stopped
 
   viber-parser-api:
@@ -19,26 +22,22 @@ services:
       dockerfile: Dockerfile
     container_name: viber-parser-api
     depends_on:
-      - appium-server
+      - android-emulator
     ports:
-      - "${PORT:-8080}:8080"
+      - "${PORT}:8080"
     environment:
-      PORT: "${PORT:-8080}"
-      APPIUM_SERVER_URL: "http://appium-server:4723"
-      APPIUM_DEVICE_NAME: "${APPIUM_DEVICE_NAME:-LDPlayer}"
-      APPIUM_UDID: "host.docker.internal:${APPIUM_ADB_PORT:-5555}"
-      APPIUM_PLATFORM_VERSION: "${APPIUM_PLATFORM_VERSION:-9}"
-      APPIUM_APP_PACKAGE: "${APPIUM_APP_PACKAGE:-com.viber.voip}"
-      APPIUM_APP_ACTIVITY: "${APPIUM_APP_ACTIVITY:-com.viber.voip.WelcomeActivity}"
-      APPIUM_NEW_COMMAND_TIMEOUT_SECONDS: "${APPIUM_NEW_COMMAND_TIMEOUT_SECONDS:-300}"
-      APPIUM_IMPLICIT_WAIT_SECONDS: "${APPIUM_IMPLICIT_WAIT_SECONDS:-0}"
-      APPIUM_ADB_EXEC_TIMEOUT_SECONDS: "${APPIUM_ADB_EXEC_TIMEOUT_SECONDS:-60}"
-      APPIUM_AUTO_CONNECT_ADB: "${APPIUM_AUTO_CONNECT_ADB:-true}"
-      ADB_PATH: "${ADB_PATH:-}"
-      VIBER_DB_PATH: "${VIBER_DB_PATH:-/data/data/com.viber.voip/databases/viber_messages}"
-      VIBER_DB_QUERY_TIMEOUT_SECONDS: "${VIBER_DB_QUERY_TIMEOUT_SECONDS:-60}"
+      PORT: "${PORT}"
+      ADB_HOST: "${ADB_HOST}"
+      ADB_PORT: "${ADB_PORT}"
+      ADB_CONNECT_RETRIES: "${ADB_CONNECT_RETRIES}"
+      VIBER_DB_PATH: "${VIBER_DB_PATH}"
       SUPABASE_URL: "${SUPABASE_URL:?SUPABASE_URL not configured}"
       SUPABASE_SERVICE_KEY: "${SUPABASE_SERVICE_KEY:?SUPABASE_SERVICE_KEY not configured}"
+    volumes:
+      - viber-db:${VIBER_API_DB_MOUNT}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
+
+volumes:
+  viber-db:

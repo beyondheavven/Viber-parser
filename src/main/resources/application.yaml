@@ -3,41 +3,23 @@ ktor:
     port: "$PORT:8080"
   application:
     modules:
-      - com.viber.plugins.AppiumKt.configureAppium
       - com.viber.plugins.DatabaseKt.configureDatabase
-      - com.viber.plugins.FridaKt.configureFrida
       - com.viber.routes.RoutingKt.configureRouting
       - com.viber.plugins.MonitoringKt.configureMonitoring
       - com.viber.plugins.SerializationKt.configureSerialization
       - com.viber.plugins.OpenApiKt.configureOpenApi
       - com.viber.supabase.SupabaseClientKt.configureSupabaseClient
 
-appium:
-  serverUrl: "$APPIUM_SERVER_URL:http://127.0.0.1:4773"
-  deviceName: "$APPIUM_DEVICE_NAME:LDPlayer"
-  udid: "$APPIUM_UDID:127.0.0.1:5555"
-  platformVersion: "$APPIUM_PLATFORM_VERSION:9"
-  appPackage: "$APPIUM_APP_PACKAGE:com.viber.voip"
-  appActivity: "$APPIUM_APP_ACTIVITY:com.viber.voip.WelcomeActivity"
-  newCommandTimeoutSeconds: "$APPIUM_NEW_COMMAND_TIMEOUT_SECONDS:300"
-  implicitWaitSeconds: "$APPIUM_IMPLICIT_WAIT_SECONDS:0"
-  adbExecTimeoutSeconds: "$APPIUM_ADB_EXEC_TIMEOUT_SECONDS:60"
-  autoConnectAdb: "$APPIUM_AUTO_CONNECT_ADB:true"
-  adbPath: "$ADB_PATH:"
+adb:
+  host: "$ADB_HOST:android-emulator"
+  port: "$ADB_PORT:5555"
+  connectRetries: "$ADB_CONNECT_RETRIES:30"
 
 database:
-  path: "$VIBER_DB_PATH:/data/data/com.viber.voip/databases/viber_messages"
+  path: "$VIBER_DB_PATH:/mnt/viber-db/viber_messages"
   queryTimeoutSeconds: "$VIBER_DB_QUERY_TIMEOUT_SECONDS:60"
   writeTimeoutSeconds: "$VIBER_DB_WRITE_TIMEOUT_SECONDS:120"
   backupOnWrite: "$VIBER_DB_BACKUP_ON_WRITE:true"
-
-frida:
-  fridaPath: "$FRIDA_PATH:"
-  appPackage: "$FRIDA_APP_PACKAGE:com.viber.voip"
-  processName: "$FRIDA_PROCESS_NAME:com.viber.voip"
-  scriptPath: "$FRIDA_SCRIPT_PATH:src/main/resources/frida/warm_members.js"
-  timeoutSeconds: "$FRIDA_TIMEOUT_SECONDS:120"
-  spawn: "$FRIDA_SPAWN:false"
 
 supabase:
   url: "$SUPABASE_URL"
