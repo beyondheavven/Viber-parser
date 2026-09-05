@@ -6,7 +6,7 @@ import io.ktor.server.application.Application
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 
-fun Application.configureRouting() {
+fun Application.configureRouting(viberService: ViberService) {
     routing {
         route("api.json") {
             openApi()
@@ -17,8 +17,8 @@ fun Application.configureRouting() {
         }
 
         route("/api") {
-            viberSystemRoutes()
-            authRoutes()
+            viberSystemRoutes(viberService)
+            authRoutes(viberService)
         }
     }
 }
