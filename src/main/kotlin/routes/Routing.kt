@@ -17,6 +17,8 @@ fun Application.configureRouting() {
         }
 
         route("/api") {
+            viberSystemRoutes()
+            authRoutes()
         }
     }
 }
