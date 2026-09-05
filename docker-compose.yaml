@@ -16,6 +16,20 @@ services:
       - ANDROID_PLATFORM_VERSION=${ANDROID_VERSION}
     restart: unless-stopped
 
+  scrcpy-web:
+    image: shmayro/scrcpy-web:latest
+    container_name: scrcpy-web
+    privileged: true
+    ports:
+      - "8000:8000"
+    depends_on:
+      android-emulator:
+        condition: service_healthy
+    command: >
+      sh -c "adb connect android-emulator:5555 && npm start"
+    restart: unless-stopped
+
+
   viber-parser-api:
     build:
       context: .
