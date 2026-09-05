@@ -10,14 +10,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 
-/**
- * Чтение базы Viber на устройстве: группы и их участники.
- *
- * В отличие от `/api/start` и `/api/scroll-members` эти маршруты отвечают синхронно —
- * запрос к базе это один короткий запуск adb, а не многоминутная автоматизация UI, и
- * Appium-сессия им не нужна. Источник данных приходит параметром: подставив фейковый
- * [ViberDatabase], маршруты можно проверять без устройства.
- */
+
 fun Route.groupRoutes(database: () -> ViberDatabase = { DeviceDatabase.viber }) {
 
     get("/groups") {
@@ -36,7 +29,6 @@ fun Route.groupRoutes(database: () -> ViberDatabase = { DeviceDatabase.viber }) 
 
         onDevice {
             val database = database()
-            // Группу ищем отдельно: иначе «нет такой группы» неотличимо от «группа пустая».
             database.group(conversationId)
                 ?.toMembersResponse(database.members(conversationId, includeInactive))
         }

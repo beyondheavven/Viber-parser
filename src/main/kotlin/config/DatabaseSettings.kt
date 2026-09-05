@@ -3,11 +3,7 @@ package com.viber.config
 import io.ktor.server.config.ApplicationConfig
 import java.time.Duration
 
-/**
- * Что и как долго читаем на устройстве. Само подключение (udid, путь к adb) живёт в
- * [AppiumSettings] — устройство у нас одно, и дублировать его адрес в двух секциях
- * значило бы завести два источника правды.
- */
+
 data class DatabaseSettings(
     val databasePath: String = DEFAULT_DATABASE_PATH,
     val queryTimeout: Duration = Duration.ofSeconds(60),
