@@ -2,11 +2,7 @@ package com.viber.dto
 
 import kotlinx.serialization.Serializable
 
-/**
- * Поля без префикса — то, что записано (или было бы записано) в строку; `previous*` — то,
- * что в ней лежало до этого. [participantType] и [safeContact] в каждой строке одинаковы:
- * к ним карточки и приводятся.
- */
+
 @Serializable
 data class DecodedParticipantResponse(
     val infoId: Long,

@@ -14,8 +14,20 @@ RUN ./gradlew buildFatJar --no-daemon
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      android-tools-adb \
+      python3 \
+      python3-pip \
+      curl \
+      unzip && \
+    pip3 install --no-cache-dir frida-tools && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /app/build/libs/*-all.jar app.jar
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-Dfile.encoding=UTF-8", "-jar", "app.jar"]
+CMD ["./start.sh"]
