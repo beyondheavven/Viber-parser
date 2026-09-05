@@ -1,7 +1,6 @@
 package com.viber.device
 
 import com.viber.appium.AppiumManager
-import com.viber.config.AppiumSettings
 import com.viber.config.DatabaseSettings
 import com.viber.device.adb.AdbSqlite
 import kotlin.test.Test
