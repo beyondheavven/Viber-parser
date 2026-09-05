@@ -2,7 +2,6 @@ package com.viber.dto
 
 import kotlinx.serialization.Serializable
 
-/** Группа в ответе `GET /api/groups`. */
 @Serializable
 data class GroupResponse(
     val conversationId: Long,
