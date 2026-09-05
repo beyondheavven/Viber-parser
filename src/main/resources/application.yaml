@@ -5,15 +5,13 @@ ktor:
     modules:
       - com.viber.plugins.AppiumKt.configureAppium
       - com.viber.plugins.DatabaseKt.configureDatabase
+      - com.viber.plugins.FridaKt.configureFrida
       - com.viber.routes.RoutingKt.configureRouting
       - com.viber.plugins.MonitoringKt.configureMonitoring
       - com.viber.plugins.SerializationKt.configureSerialization
       - com.viber.plugins.OpenApiKt.configureOpenApi
       - com.viber.supabase.SupabaseClientKt.configureSupabaseClient
 
-# Подключение к устройству. Дефолты — под LDPlayer 9 (Android 9 / API 28), который
-# отдаёт adb-мост на 127.0.0.1:5555. Любое значение переопределяется переменной
-# окружения из "$VAR:default" — например APPIUM_UDID=127.0.0.1:5557 для второго инстанса.
 appium:
   serverUrl: "$APPIUM_SERVER_URL:http://127.0.0.1:4773"
   deviceName: "$APPIUM_DEVICE_NAME:LDPlayer"
@@ -30,11 +28,16 @@ appium:
 database:
   path: "$VIBER_DB_PATH:/data/data/com.viber.voip/databases/viber_messages"
   queryTimeoutSeconds: "$VIBER_DB_QUERY_TIMEOUT_SECONDS:60"
-  # Запись (POST /api/participants/decode) — дольше чтения: гасим Viber, копируем базу,
-  # гоняем транзакцию и поднимаем приложение обратно.
   writeTimeoutSeconds: "$VIBER_DB_WRITE_TIMEOUT_SECONDS:120"
-  # Копия базы рядом (<path>.bak) перед каждой правкой. Отключается только явным "false".
   backupOnWrite: "$VIBER_DB_BACKUP_ON_WRITE:true"
+
+frida:
+  fridaPath: "$FRIDA_PATH:"
+  appPackage: "$FRIDA_APP_PACKAGE:com.viber.voip"
+  processName: "$FRIDA_PROCESS_NAME:com.viber.voip"
+  scriptPath: "$FRIDA_SCRIPT_PATH:src/main/resources/frida/warm_members.js"
+  timeoutSeconds: "$FRIDA_TIMEOUT_SECONDS:120"
+  spawn: "$FRIDA_SPAWN:false"
 
 supabase:
   url: "$SUPABASE_URL"
