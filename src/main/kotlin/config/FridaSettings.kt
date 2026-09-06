@@ -5,11 +5,11 @@ import io.ktor.server.config.ApplicationConfig
 
 class FridaSettings(config: ConfigUtil) {
 
-    val serverPath: String = config.text("serverPath") ?: "/data/local/tmp/frida-server"
+    val host: String = config.requireText("host")
 
-    val version: String = config.text("version") ?: "0.0.1"
+    val port: Int = config.requireInt("port")
 
-    val deviceName: String = config.text("deviceName") ?: "Unknown"
+    val bridgeScriptPath: String = config.text("bridgeScriptPath") ?: "/scripts/frida_bridge.py"
 
     companion object {
         fun from(config: ApplicationConfig): FridaSettings {
