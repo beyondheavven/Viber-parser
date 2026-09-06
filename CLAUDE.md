@@ -73,8 +73,8 @@ queries depend on the transport — the exact opposite of why the seams exist.
 There is deliberately **no `model/` folder**. Grouping by kind put `ViberGroup` next to
 `DecodeReport` — two unrelated jobs that met only because both are data classes — while keeping
 each model away from the one file that uses it. Every model now lives beside its own concern.
-Those models are still **not** DTOs: `dto/` is the shape of the HTTP response, `device/` is what
-the device's database actually holds, and `dto/ApiMappers.kt` is the only bridge between them.
+Those models are still **not** DTOs: `models/` is the shape of the HTTP response, `device/` is what
+the device's database actually holds, and `models/ApiMappers.kt` is the only bridge between them.
 A second, independent path to the device that does **not** go through Appium. `AdbSqlite`
 runs `adb shell -T "su -c 'echo <base64> | base64 -d | sqlite3 -csv -header \"file:<db>?mode=ro\"'"`.
 Each choice there is load-bearing: `shell -T` (not `exec-out`) is the only form that carries

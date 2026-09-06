@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  appium:
+    image: appium/appium:latest
+    container_name: viber-appium
+    ports:
+      - "4723:4723"
+    environment:
+      - RELAXED_SECURITY=true
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: viber-rest-api
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - APPIUM_HOST=appium
+      - APPIUM_PORT=4723
+      - ANDROID_SERIAL=host.docker.internal:5555
+    depends_on:
+      - appium
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

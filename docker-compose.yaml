@@ -11,6 +11,7 @@ services:
       - "${EMULATOR_VNC_PORT}:6080"
     volumes:
       - viber-db:${VIBER_EMULATOR_DB_PATH}
+      - android-data:/data
     environment:
       - EMULATOR_SYSTEM_IMAGE=${ANDROID_IMAGE}
       - ANDROID_PLATFORM_VERSION=${ANDROID_VERSION}
@@ -29,6 +30,38 @@ services:
       sh -c "adb connect android-emulator:5555 && npm start"
     restart: unless-stopped
 
+  appium:
+    image: appium/appium:latest
+    container_name: viber-appium
+    environment:
+      - RELAXED_SECURITY=true
+    depends_on:
+      android-emulator:
+        condition: service_healthy
+    restart: unless-stopped
+
+
+  automation:
+    build:
+      context: ./automation
+      dockerfile: Dockerfile
+    container_name: viber-automation
+    environment:
+      - PORT=3000
+      - APPIUM_HOST=appium
+      - APPIUM_PORT=4723
+      - ANDROID_SERIAL=android-emulator:5555
+      - ADB_BIN=adb
+      - VIBER_PACKAGE=com.viber.voip
+      - VIBER_MESSAGES_DB=/data/data/com.viber.voip/databases/viber_messages
+    depends_on:
+      android-emulator:
+        condition: service_healthy
+      appium:
+        condition: service_started
+    volumes:
+      - viber-automation-data:/app/data
+    restart: unless-stopped
 
   viber-parser-api:
     build:
@@ -44,14 +77,16 @@ services:
       ADB_HOST: "${ADB_HOST}"
       ADB_PORT: "${ADB_PORT}"
       ADB_CONNECT_RETRIES: "${ADB_CONNECT_RETRIES}"
+      FRIDA_HOST: "${FRIDA_HOST}"
+      FRIDA_PORT: "${FRIDA_PORT}"
       VIBER_DB_PATH: "${VIBER_DB_PATH}"
       SUPABASE_URL: "${SUPABASE_URL:?SUPABASE_URL not configured}"
       SUPABASE_SERVICE_KEY: "${SUPABASE_SERVICE_KEY:?SUPABASE_SERVICE_KEY not configured}"
     volumes:
       - viber-db:${VIBER_API_DB_MOUNT}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
 volumes:
   viber-db:
+  android-data:
+  viber-automation-data:

@@ -17,17 +17,17 @@ WORKDIR /app
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       android-tools-adb \
-      python3 \
-      python3-pip \
-      curl \
-      unzip && \
-    pip3 install --no-cache-dir frida-tools && \
+      curl && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/build/libs/*-all.jar app.jar
+
+COPY apk/viber.apk /apk/viber.apk
+
 COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+COPY install_apk.sh /app/install_apk.sh
+RUN chmod +x /app/start.sh /app/install_apk.sh
 
 EXPOSE 8080
 
-CMD ["./start.sh"]
+CMD ["/app/start.sh"]

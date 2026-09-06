@@ -1,5 +1,6 @@
 package com.viber
 
+
 import com.viber.plugins.configureMonitoring
 import com.viber.routes.configureRouting
 import com.viber.plugins.configureOpenApi
