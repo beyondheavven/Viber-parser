@@ -16,12 +16,19 @@ WORKDIR /app
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+      software-properties-common \
       android-tools-adb \
-      python3 \
-      python3-pip \
       curl \
       unzip && \
-    pip3 install --no-cache-dir frida-tools && \
+    add-apt-repository -y ppa:deadsnakes/ppa && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+      python3.11 \
+      python3.11-venv \
+      python3.11-distutils && \
+    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
+    curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11 && \
+    python3.11 -m pip install --no-cache-dir frida-tools && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/build/libs/*-all.jar app.jar

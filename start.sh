@@ -25,7 +25,11 @@ adb push /tmp/frida-server /data/local/tmp/frida-server
 adb shell chmod 755 /data/local/tmp/frida-server
 
 echo "--> Launching Frida-server..."
-adb shell "nohup /data/local/tmp/frida-server -l 0.0.0.0:27042 > /dev/null 2>&1 &"
+adb shell "nohup /data/local/tmp/frida-server > /dev/null 2>&1 &"
+
+echo "--> Forwarding Frida port via adb..."
+sleep 2
+adb forward tcp:27042 tcp:27042
 
 echo "--> Start Ktor API..."
 exec java -Dfile.encoding=UTF-8 -jar /app/app.jar
