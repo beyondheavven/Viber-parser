@@ -41,9 +41,9 @@ class AdbClient(
         return exec("shell pidof $packageName").isNotBlank()
     }
 
-    fun isAppForeground(packageName: String): Boolean {
-        val output = exec("shell dumpsys activity activities | grep mResumedActivity")
-        return output.contains(packageName)
+    fun getPid(packageName: String): Int? {
+        val output = exec("shell pidof $packageName").trim()
+        return output.toIntOrNull()
     }
 
 }
