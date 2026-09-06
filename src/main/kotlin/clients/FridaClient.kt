@@ -21,19 +21,24 @@ class FridaClient(
                 settings.host,
                 settings.port.toString(),
                 packageName
-            ).redirectErrorStream(true).start()
+            ).start()
 
             process.outputStream.bufferedWriter().use { writer ->
                 writer.write(script)
             }
 
-            val output = process.inputStream.bufferedReader().readText()
-            process.waitFor()
+            val stdout = process.inputStream.bufferedReader().readText()
 
-            if (output.isBlank()) {
-                FridaBridgeResult(success = false, error = "Пустой ответ от бриджа")
+            val stderr = process.errorStream.bufferedReader().readText()
+
+            if (stderr.isNotBlank()) {
+                println("Frida bridge stderr: $stderr")
+            }
+
+            if (stdout.isBlank()) {
+                FridaBridgeResult(success = false, error = "Пустой ответ от бриджа. stderr: $stderr")
             } else {
-                json.decodeFromString<FridaBridgeResult>(output.trim())
+                json.decodeFromString<FridaBridgeResult>(stdout.trim())
             }
         } catch (e: Exception) {
             FridaBridgeResult(success = false, error = e.message)

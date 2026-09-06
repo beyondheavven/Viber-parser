@@ -12,6 +12,7 @@ services:
       - "${EMULATOR_FRIDA_PORT}:27042"
     volumes:
       - viber-db:${VIBER_EMULATOR_DB_PATH}
+      - android-data:/data
     environment:
       - EMULATOR_SYSTEM_IMAGE=${ANDROID_IMAGE}
       - ANDROID_PLATFORM_VERSION=${ANDROID_VERSION}
@@ -58,3 +59,4 @@ services:
 
 volumes:
   viber-db:
+  android-data:

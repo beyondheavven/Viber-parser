@@ -25,8 +25,15 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/build/libs/*-all.jar app.jar
+
+COPY apk/com.viber.voip_v20.1.0.0-651146_Android-5.0.apk /apk/viber.apk
+
+COPY src/main/resources/scripts/frida_bridge.py /scripts/frida_bridge.py
+RUN chmod +x /scripts/frida_bridge.py
+
 COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+COPY install_apk.sh /app/install_apk.sh
+RUN chmod +x /app/start.sh /app/install_apk.sh
 
 EXPOSE 8080
 

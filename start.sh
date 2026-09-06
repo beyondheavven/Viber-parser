@@ -16,6 +16,9 @@ done
 echo "The emulator has been loaded."
 adb root
 
+echo "--> Checking/Installing Viber APK..."
+/app/install_apk.sh
+
 echo "--> Installing Frida..."
 curl -L -o /tmp/frida-server https://github.com/frida/frida/releases/download/16.1.4/frida-server-16.1.4-android-x86_64
 adb push /tmp/frida-server /data/local/tmp/frida-server

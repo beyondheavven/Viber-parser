@@ -2,44 +2,44 @@
 import sys
 import json
 import time
-import frida
+import traceback
 
 def main():
-    if len(sys.argv) < 4:
-        print(json.dumps({"success": False, "error": "Usage: bridge.py <host> <port> <package>"}))
-        sys.exit(1)
-
-    host = sys.argv[1]
-    port = sys.argv[2]
-    package_name = sys.argv[3]
-    source = sys.stdin.read()
-
-    messages = []
-
-    def on_message(message, data):
-        messages.append(message)
-
+    result = {"success": False, "messages": [], "error": None}
     try:
+        import frida
+
+        if len(sys.argv) < 4:
+            raise ValueError("usage: frida_bridge.py <host> <port> <package>")
+
+        host = sys.argv[1]
+        port = sys.argv[2]
+        package_name = sys.argv[3]
+
+        script_source = sys.stdin.read()
+        messages = []
+
+        def on_message(message, data):
+            messages.append(message)
+
         device = frida.get_device_manager().add_remote_device(f"{host}:{port}")
+        pid = device.spawn([package_name])
+        session = device.attach(pid)
 
-        try:
-            session = device.attach(package_name)
-        except frida.ProcessNotFoundError:
-            pid = device.spawn([package_name])
-            session = device.attach(pid)
-            device.resume(pid)
-
-        script = session.create_script(source)
+        script = session.create_script(script_source)
         script.on("message", on_message)
         script.load()
 
-        time.sleep(2)
+        device.resume(pid)
+        time.sleep(3)
 
-        print(json.dumps({"success": True, "messages": messages}))
-
+        result["success"] = True
+        result["messages"] = messages
     except Exception as e:
-        print(json.dumps({"success": False, "error": str(e)}))
-        sys.exit(1)
+        result["error"] = str(e)
+        print(traceback.format_exc(), file=sys.stderr)
+
+    print(json.dumps(result))
 
 if __name__ == "__main__":
     main()
