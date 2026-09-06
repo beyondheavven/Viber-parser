@@ -4,31 +4,35 @@ import com.viber.models.CodeRequest
 import com.viber.models.LoginRequest
 import com.viber.routes.docs.describeEnterCode
 import com.viber.routes.docs.describeLogin
+import com.viber.services.AuthService
 import io.github.smiley4.ktoropenapi.post
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
+import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.route
 
 
-fun Route.authRoutes() {
+fun Route.authRoutes(authService: AuthService) {
     route("/auth") {
         post("/phone", describeLogin){
             val request = call.receive<LoginRequest>()
-            val result = enterPhoneNumber(request)
-            call.respond(
-                if(result.success) HttpStatusCode.OK else HttpStatusCode.BadRequest,
-                result
-            )
+            val result = authService.enterPhoneNumber(request)
+            if (result.success){
+                call.respond(HttpStatusCode.OK, result)
+            } else {
+                call.respond(HttpStatusCode.BadRequest, result)
+            }
         }
 
         post("/code", describeEnterCode) {
             val request = call.receive<CodeRequest>()
-            val result = enterCode(request)
-            call.respond(
-                if (result.success) HttpStatusCode.OK else HttpStatusCode.BadRequest,
-                result
-            )
+            val result = authService.enterCode(request)
+            if (result.success){
+                call.respond(HttpStatusCode.OK, result)
+            }else {
+                call.respond(HttpStatusCode.BadRequest, result)
+            }
         }
     }
 }

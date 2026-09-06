@@ -15,9 +15,8 @@ adb:
   connectRetries: "$ADB_CONNECT_RETRIES:30"
 
 frida:
-  serverPath: "$FRIDA_SERVER_PATH:/data/local/tmp/frida-server"
-  version: "$FRIDA_VERSION:16.1.4"
-  deviceName: "$FRIDA_DEVICE_NAME:android-emulator"
+  host: "$FRIDA_HOST:android-emulator"
+  port: "$FRIDA_PORT:27042"
 
 database:
   path: "$VIBER_DB_PATH:/mnt/viber-db/viber_messages"
