@@ -20,4 +20,5 @@ data class ViberStartResponse(
 data class ViberStatusResponse(
     val isRunning: Boolean,
     val pid: Int? = null,
-)
+) {
+}
