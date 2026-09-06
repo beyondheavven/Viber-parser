@@ -9,7 +9,6 @@ services:
     ports:
       - "${EMULATOR_ADB_PORT}:5555"
       - "${EMULATOR_VNC_PORT}:6080"
-      - "${EMULATOR_FRIDA_PORT}:27042"
     volumes:
       - viber-db:${VIBER_EMULATOR_DB_PATH}
       - android-data:/data

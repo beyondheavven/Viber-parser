@@ -15,7 +15,7 @@ adb:
   connectRetries: "$ADB_CONNECT_RETRIES:30"
 
 frida:
-  host: "$FRIDA_HOST:android-emulator"
+  host: "$FRIDA_HOST:127.0.0.1"
   port: "$FRIDA_PORT:27042"
 
 database:
