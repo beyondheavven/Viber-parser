@@ -14,9 +14,8 @@ adb:
   port: "$ADB_PORT:5555"
   connectRetries: "$ADB_CONNECT_RETRIES:30"
 
-frida:
-  host: "$FRIDA_HOST:127.0.0.1"
-  port: "$FRIDA_PORT:27042"
+automation:
+  baseUrl: "$AUTOMATION_URL:http://automation:3000"
 
 database:
   path: "$VIBER_DB_PATH:/mnt/viber-db/viber_messages"
