@@ -1,0 +1,44 @@
+{
+  "name": "viber-bot",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Appium + root-ADB automation for Viber running inside LDPlayer",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start:api": "tsx src/main.ts",
+    "appium": "appium --config appium.config.cjs",
+    "appium:install-drivers": "appium driver install uiautomator2",
+    "doctor": "appium driver doctor uiautomator2",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run tests/unit",
+    "test:watch": "vitest tests/unit"
+  },
+  "dependencies": {
+    "@nestjs/common": "^12.0.1",
+    "@nestjs/core": "^12.0.1",
+    "@nestjs/platform-express": "^12.0.1",
+    "@nestjs/swagger": "^12.0.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "dotenv": "^17.4.2",
+    "fast-xml-parser": "^5.11.1",
+    "frida": "^17.17.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "webdriverio": "^9.31.4"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.13.3",
+    "appium": "^2.19.0",
+    "appium-uiautomator2-driver": "^4.2.9",
+    "frida-compile": "^19.0.5",
+    "frida-java-bridge": "^7.0.13",
+    "tsx": "^4.23.12",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}
