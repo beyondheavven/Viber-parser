@@ -22,6 +22,8 @@ class ConfigUtil(
 
     fun requireText(key: String): String = text(key) ?: throw IllegalArgumentException("Missing required config: $prefix.$key")
 
+    fun requireInt(key: String): Int = int(key) ?: throw IllegalArgumentException("Missing or invalid int config: $prefix.$key")
+
     fun seconds(key: String): Duration? = text(key)?.toLongOrNull()?.let { Duration.ofSeconds(it) }
 
     fun requireSeconds(key: String): Duration = seconds(key) ?: throw IllegalArgumentException("Missing or invalid time config: $prefix.$key")
