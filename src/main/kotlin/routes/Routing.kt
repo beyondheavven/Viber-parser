@@ -5,6 +5,7 @@ import com.viber.clients.FridaClient
 import com.viber.config.AdbSettings
 import com.viber.config.FridaSettings
 import com.viber.services.AuthService
+import com.viber.services.ViberSystemService
 import io.github.smiley4.ktoropenapi.openApi
 import io.github.smiley4.ktorswaggerui.swaggerUI
 import io.ktor.server.application.Application
@@ -21,6 +22,7 @@ fun Application.configureRouting() {
     val fridaClient = FridaClient(fridaSettings)
 
     val authService = AuthService(fridaClient)
+    val viberSystemService = ViberSystemService(adbClient)
 
     routing {
         route("api.json") {
@@ -32,7 +34,7 @@ fun Application.configureRouting() {
         }
 
         route("/api") {
-            viberSystemRoutes()
+            viberSystemRoutes(viberSystemService)
             authRoutes(authService)
         }
     }
