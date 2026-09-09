@@ -59,3 +59,56 @@ data class StopTaskResponse(
 
     val message: String
 )
+
+@Serializable
+data class TaskCollectionResult(
+    val group: String,
+
+    val conversationId: Int,
+
+    val groupId: String,
+
+    val headerTotal: Int? = null,
+
+    val pagesCount: Int,
+
+    val participantsCount: Int,
+
+    val participantsWithPhone: Int,
+
+    val savedJsonPath: String,
+
+    val savedTxtPath: String,
+
+    val savedCsvPath: String
+)
+
+
+@Serializable
+data class TaskDetail(
+    val id: String,
+
+    val groupTarget: String,
+
+    val groupName: String? = null,
+
+    val conversationId: Int? = null,
+
+    val status: String,
+
+    val currentStep: TaskStep? = null,
+
+    val createdAt: String,
+
+    val startedAt: String? = null,
+
+    val completedAt: String? = null,
+
+    val stepHistory: List<TaskStep> = emptyList(),
+
+    val progress: JsonElement? = null,
+
+    val error: String? = null,
+
+    val result: TaskCollectionResult? = null
+)

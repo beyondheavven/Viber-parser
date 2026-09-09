@@ -56,3 +56,14 @@ data class ParticipantModel(
     val lastSeen: String? = null,
 
 )
+
+@Serializable
+data class OnlineStatusItem(
+    val memberId: String,
+
+    val phoneNumber: String? = null,
+
+    val isOnline: Boolean,
+
+    val lastSeen: String? = null
+)
