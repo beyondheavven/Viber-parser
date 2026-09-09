@@ -10,7 +10,6 @@ import {
   Param,
   Post,
 } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { existsSync, readFileSync } from 'node:fs';
 import {
   CollectAcceptedResponseDto,
@@ -28,7 +27,6 @@ import { OnlineStatusService } from '../automation/frida/online-status.service.j
 import { openDevice } from '../context.js';
 import { fetchParticipantsInfo } from '../viber/participants-service.js';
 
-@ApiTags('participants')
 @Controller('api')
 export class ParticipantsController {
   constructor(
@@ -40,16 +38,6 @@ export class ParticipantsController {
 
   @Post('participants/collect')
   @HttpCode(HttpStatus.ACCEPTED)
-  @ApiOperation({ summary: 'Запустить сбор участников группы/сообщества' })
-  @ApiResponse({
-    status: 202,
-    description: 'Задача принята к исполнению',
-    type: CollectAcceptedResponseDto,
-  })
-  @ApiResponse({
-    status: 409,
-    description: 'Эмулятор занят выполнением другой задачи',
-  })
   collectParticipants(
     @Body() dto: CollectParticipantsDto,
   ): CollectAcceptedResponseDto {
@@ -66,7 +54,6 @@ export class ParticipantsController {
       );
     }
 
-    // Launch execution in the background asynchronously
     void this.collectorFlow.execute(task, dto);
 
     return {
@@ -78,14 +65,6 @@ export class ParticipantsController {
   }
 
   @Get('tasks/:id/participants')
-  @ApiOperation({ summary: 'Получить список участников завершенной задачи' })
-  @ApiParam({ name: 'id', description: 'ID задачи' })
-  @ApiResponse({
-    status: 200,
-    description: 'Массив участников',
-    type: [ParticipantDto],
-  })
-  @ApiResponse({ status: 404, description: 'Задача не найдена или результат еще не готов' })
   getTaskParticipants(@Param('id') id: string): ParticipantDto[] {
     const task = this.tasksService.getTask(id);
 
@@ -102,7 +81,7 @@ export class ParticipantsController {
         const parsed = JSON.parse(raw);
         return parsed.participants ?? [];
       } catch {
-        // Fallback to empty array
+
       }
     }
 
@@ -111,14 +90,6 @@ export class ParticipantsController {
 
   @Post('participants/online-status')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Запросить онлайн-статус и дату последней активности для списка участников',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Массив статусов активности участников',
-    type: [OnlineStatusItemDto],
-  })
   async getOnlineStatuses(
     @Body() dto: QueryOnlineStatusDto,
   ): Promise<OnlineStatusItemDto[]> {

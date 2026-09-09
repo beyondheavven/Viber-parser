@@ -1,7 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-import { spawnSync } from 'node:child_process';
 import type { Adb } from '../../device/adb.js';
 import type { ViberConfig } from '../../config/env.js';
 import { restartViberApp } from '../../device/restart-viber.js';
@@ -33,27 +30,16 @@ export class ViberLifecycleService {
 
     this.logger.log('Closing Viber and reopening to flush SQLite WAL...');
     const restart = await restartViberApp(
-      {
-        shell: (command, shellOptions) => adb.shell(command, shellOptions),
-        recover: (timeout) => adb.recover(timeout),
-        runApp: () => {
-          const ldHome = process.env['LD_HOME'] ?? 'C:\\LDPlayer\\LDPlayer9';
-          const ldIndex = process.env['LD_INDEX'] ?? '0';
-          const ldConsolePath = join(ldHome, 'ldconsole.exe');
-          if (!existsSync(ldConsolePath)) return;
-          spawnSync(
-            ldConsolePath,
-            ['runapp', '--index', ldIndex, '--packagename', viberConfig.appPackage],
-            { timeout: 10_000, windowsHide: true },
-          );
+        {
+          shell: (command, shellOptions) => adb.shell(command, shellOptions),
+          recover: (timeout) => adb.recover(timeout),
         },
-      },
-      { appPackage: viberConfig.appPackage },
+        { appPackage: viberConfig.appPackage },
     );
 
     if (!restart.started) {
       this.logger.warn(
-        `Could not confirm Viber relaunched after ${String(restart.attempts)} attempts.`,
+          `Could not confirm Viber relaunched after ${String(restart.attempts)} attempts.`,
       );
       return false;
     }

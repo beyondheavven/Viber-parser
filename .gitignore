@@ -18,5 +18,33 @@ Desktop.ini
 
 *.log
 .env
+.env.bot
 *.env.local
 local.properties
+
+### Node / automation (viber-bot) ###
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+.pnpm-store/
+
+### automation runtime data ###
+data/*.jsonl
+data/rosters/
+data/exports/
+data/*.sqlite
+data/*.db
+*.jwk
+
+### APK / built artifacts ###
+apk/*.apk
+
+### Frida / device dumps ###
+*.frida-server
+frida-server*
