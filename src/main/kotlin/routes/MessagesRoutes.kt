@@ -5,6 +5,7 @@ import com.viber.models.EnableMonitorGroupRequest
 import com.viber.models.StartMonitorRequest
 import com.viber.routes.docs.describeDisableMonitorGroup
 import com.viber.routes.docs.describeEnableMonitorGroup
+import com.viber.routes.docs.describeGetMonitoredGroups
 import com.viber.routes.docs.describeGetMonitorStatus
 import com.viber.routes.docs.describeStartMonitor
 import com.viber.routes.docs.describeStopMonitor
@@ -31,7 +32,11 @@ fun Route.messageRoutes(viberBotClient: ViberBotClient) {
             call.respondText(viberBotClient.getMonitorStatus(), ContentType.Application.Json)
         }
 
-        get("/groups", describeEnableMonitorGroup){
+        get("/groups", describeGetMonitoredGroups){
+            call.respondText(viberBotClient.getMonitoredGroups(), ContentType.Application.Json)
+        }
+
+        post("/groups/{id}/enable", describeEnableMonitorGroup){
             val id = call.parameters["id"]!!.toInt()
             val request = call.receiveNullable<EnableMonitorGroupRequest>() ?: EnableMonitorGroupRequest()
             call.respondText(viberBotClient.enableMonitorGroup(id, request), ContentType.Application.Json)

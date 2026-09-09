@@ -13,6 +13,13 @@ val describeGetAllTasks: RouteConfig.() -> Unit = {
     description = "Возвращает все фоновые задачи automation-сервиса. Можно отфильтровать " +
             "по статусу (initializing, starting, running, stopped, error, ready)."
 
+    request {
+        queryParameter<String>("status") {
+            description = "Фильтр по статусу (initializing, starting, running, stopped, error, ready)"
+            required = false
+        }
+    }
+
     response {
         code(HttpStatusCode.OK) {
             description = "Список задач"
@@ -27,6 +34,13 @@ val describeGetTaskDetail: RouteConfig.() -> Unit = {
     summary = "Получить подробный статус задачи"
     description = "Возвращает статус задачи вместе с историей выполненных шагов и, если " +
             "задача завершена успешно (status = ready), итоговым результатом."
+
+    request {
+        pathParameter<String>("id") {
+            description = "ID задачи"
+            required = true
+        }
+    }
 
     response {
         code(HttpStatusCode.OK) {
@@ -44,6 +58,13 @@ val describeStopTask: RouteConfig.() -> Unit = {
     tags = listOf("Tasks")
     summary = "Остановить выполнение задачи"
     description = "Отправляет сигнал остановки активной задаче. Задача переходит в статус stopped."
+
+    request {
+        pathParameter<String>("id") {
+            description = "ID задачи"
+            required = true
+        }
+    }
 
     response {
         code(HttpStatusCode.OK) {

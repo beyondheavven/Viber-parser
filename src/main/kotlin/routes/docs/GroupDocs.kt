@@ -13,6 +13,13 @@ val describeGetGroups: RouteConfig.() -> Unit = {
     description = "Возвращает беседы из локального снимка БД. По умолчанию только группы и " +
             "сообщества (личные чаты 1-to-1 исключены), передайте all=true чтобы включить их."
 
+    request {
+        queryParameter<Boolean>("all") {
+            description = "Включить личные чаты (1-to-1). По умолчанию false."
+            required = false
+        }
+    }
+
     response {
         code(HttpStatusCode.OK) {
             description = "Список бесед"
@@ -27,6 +34,13 @@ val describeGetGroup: RouteConfig.() -> Unit = {
     summary = "Получить подробную информацию о группе"
     description = "Возвращает данные группы по её ID (row ID беседы) вместе с кратким " +
             "списком активных участников."
+
+    request {
+        pathParameter<Int>("id") {
+            description = "ID беседы (row ID)"
+            required = true
+        }
+    }
 
     response {
         code(HttpStatusCode.OK) {
@@ -45,6 +59,13 @@ val describeGetGroupParticipants: RouteConfig.() -> Unit = {
     summary = "Получить участников группы из БД"
     description = "Возвращает текущий список участников группы, как он сохранён в локальном " +
             "снимке базы данных (без обращения к устройству)."
+
+    request {
+        pathParameter<Int>("id") {
+            description = "ID беседы (row ID)"
+            required = true
+        }
+    }
 
     response {
         code(HttpStatusCode.OK) {

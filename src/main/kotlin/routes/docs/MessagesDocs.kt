@@ -82,6 +82,10 @@ val describeEnableMonitorGroup: RouteConfig.() -> Unit = {
             "сообщения догоняются с сохранённого курсора, если fromLatest не указан явно."
 
     request {
+        pathParameter<Int>("id") {
+            description = "ID беседы (row ID)"
+            required = true
+        }
         body<EnableMonitorGroupRequest> {
             description = "Опционально: пропустить историю (fromLatest)"
             required = false
@@ -104,6 +108,13 @@ val describeDisableMonitorGroup: RouteConfig.() -> Unit = {
     tags = listOf("Messages")
     summary = "Выключить мониторинг группы"
     description = "Выключает мониторинг группы. Курсор сохраняется для следующего включения."
+
+    request {
+        pathParameter<Int>("id") {
+            description = "ID беседы (row ID)"
+            required = true
+        }
+    }
 
     response {
         code(HttpStatusCode.OK) {

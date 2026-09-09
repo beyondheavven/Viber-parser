@@ -40,6 +40,13 @@ val describeGetTaskParticipants: RouteConfig.() -> Unit = {
     summary = "Получить участников завершённой задачи"
     description = "Возвращает список участников, собранных задачей, чей статус ready."
 
+    request {
+        pathParameter<String>("id") {
+            description = "ID задачи сбора участников"
+            required = true
+        }
+    }
+
     response {
         code(HttpStatusCode.OK) {
             description = "Массив участников"

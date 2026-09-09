@@ -211,19 +211,44 @@ export function createFridaRuntime(options: FridaRuntimeOptions): FridaRuntime {
     log(`saved ${String(bytes.length)} bytes to ${localPath}`);
   }
 
-  /** Installs the matching build (download + push + on-device xz) when absent. */
+  /** Installs the matching build (download + local xz decompression + push) when absent. */
   async function installServer(version: string, abi: string): Promise<void> {
     abiToFridaArch(abi); // validate early; throws on an unsupported abi
     const cacheDir = join(process.cwd(), '.frida');
     mkdirSync(cacheDir, { recursive: true });
     const localXz = join(cacheDir, fridaServerAssetName(version, abi));
-    await downloadAsset(version, abi, localXz);
+    const localBin = join(cacheDir, `frida-server-${version}-android-${abiToFridaArch(abi)}`);
 
-    const push = adbRun(['push', localXz, `${REMOTE_SERVER}.xz`]);
+    if (!existsSync(localBin)) {
+      if (!existsSync(localXz)) {
+        await downloadAsset(version, abi, localXz);
+      }
+      log(`Decompressing ${localXz} to ${localBin} using local xz...`);
+      const decompress = spawnSync('xz', ['-d', '-k', '-f', localXz], { windowsHide: true });
+      if (decompress.status !== 0) {
+        // Fallback or retry
+        spawnSync('xz', ['-d', '-f', localXz], { windowsHide: true });
+      }
+      const decompressedFile = localXz.replace(/\.xz$/, '');
+      if (existsSync(decompressedFile) && decompressedFile !== localBin) {
+        try {
+          const { renameSync } = await import('node:fs');
+          renameSync(decompressedFile, localBin);
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    const binaryToPush = existsSync(localBin) ? localBin : localXz.replace(/\.xz$/, '');
+    if (!existsSync(binaryToPush)) {
+      fail(`Failed to decompress frida-server binary locally at ${localBin}`);
+    }
+
+    log(`Pushing ${binaryToPush} to ${REMOTE_SERVER} ...`);
+    const push = adbRun(['push', binaryToPush, REMOTE_SERVER]);
     if (push.status !== 0) fail(`adb push failed: ${push.stderr.trim() || push.stdout.trim()}`);
 
-    const unpack = adbShell('cd /data/local/tmp && rm -f frida-server && xz -d -f frida-server.xz');
-    if (unpack.timedOut) fail('On-device xz decompression timed out.');
     adbShell(`chmod 755 ${REMOTE_SERVER}`);
 
     const pushed = checkServerVersion(version, serverVersionOutput());
