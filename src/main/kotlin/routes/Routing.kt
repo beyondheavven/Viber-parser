@@ -1,7 +1,7 @@
 package com.viber.routes
 
 import com.viber.clients.AdbClient
-import com.viber.clients.AutomationClient
+import com.viber.clients.ViberBotClient
 import com.viber.config.AdbSettings
 import com.viber.config.RabbitMqSettings
 import com.viber.services.AuthService
@@ -19,7 +19,7 @@ fun Application.configureRouting() {
     val rabbitMqSettings = RabbitMqSettings.from(appConfig)
 
     val adbClient = AdbClient(adbSettings)
-    val automationClient = AutomationClient(rabbitMqSettings)
+    val viberBotClient = ViberBotClient(rabbitMqSettings)
 
     val authService = AuthService(adbClient)
     val viberSystemService = ViberSystemService(adbClient)
@@ -36,11 +36,11 @@ fun Application.configureRouting() {
         route("/api") {
             viberSystemRoutes(viberSystemService)
             authRoutes(authService)
-            participantsRoutes(automationClient)
-            groupRoutes(automationClient)
-            tasksRoutes(automationClient)
-            databaseRoutes(automationClient)
-            messageRoutes(automationClient)
+            participantsRoutes(viberBotClient)
+            groupRoutes(viberBotClient)
+            tasksRoutes(viberBotClient)
+            databaseRoutes(viberBotClient)
+            messageRoutes(viberBotClient)
         }
     }
 }

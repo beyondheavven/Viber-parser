@@ -1,6 +1,6 @@
 package com.viber.routes
 
-import com.viber.clients.AutomationClient
+import com.viber.clients.ViberBotClient
 import com.viber.models.CollectParticipantsRequest
 import com.viber.models.QueryOnlineStatusRequest
 import com.viber.routes.docs.describeCollectParticipants
@@ -15,18 +15,18 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.route
 
 
-fun Route.participantsRoutes(automationClient: AutomationClient){
+fun Route.participantsRoutes(viberBotClient: ViberBotClient){
     route("/participants") {
         post("/collect", describeCollectParticipants){
             val request = call.receive<CollectParticipantsRequest>()
-            val result = automationClient.collectParticipants(request)
+            val result = viberBotClient.collectParticipants(request)
             call.respond(HttpStatusCode.Accepted, result)
         }
 
         post("/online-status", describeGetOnlineStatuses){
             val request = call.receive<QueryOnlineStatusRequest>()
             call.respondText(
-                automationClient.getOnlineStatuses(request),
+                viberBotClient.getOnlineStatuses(request),
                 ContentType.Application.Json
             )
         }
