@@ -21,6 +21,7 @@ Desktop.ini
 .env.bot
 *.env.local
 local.properties
+*viber_all.txt
 
 ### Node / automation (viber-bot) ###
 node_modules/
