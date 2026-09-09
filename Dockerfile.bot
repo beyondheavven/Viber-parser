@@ -14,8 +14,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-COPY tsconfig.json ./
-COPY src ./src/
+COPY viber-bot/tsconfig.json ./
+COPY viber-bot/src ./src/
 COPY data ./data/
 
 EXPOSE 3000
