@@ -1,30 +1,30 @@
 import 'reflect-metadata';
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import { Logger } from '@nestjs/common';
 import { AppModule } from './app.module.js';
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  const rmqUrl = process.env['RABBITMQ_URL'] ?? 'amqp://viber:viber_secret@localhost:5672';
+  const queueName = process.env['RABBITMQ_QUEUE'] ?? 'viber_commands_queue';
 
-  app.enableCors({
-    origin: '*',
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+  const app = await NestFactory.createMicroservice<MicroserviceOptions>(AppModule, {
+    transport: Transport.RMQ,
+    options: {
+      urls: [rmqUrl],
+      queue: queueName,
+      queueOptions: {
+        durable: true,
+      },
+      prefetchCount: 1,
+    },
   });
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: true,
-    }),
-  );
-
-  const port = Number.parseInt(process.env['PORT'] ?? '3000', 10);
-  await app.listen(port);
-
-  logger.log(`Server successfully started on http://localhost:${String(port)}`);
+  await app.listen();
+  logger.log(`Viber Bot Microservice started. Listening queue: ${queueName}`);
 }
 
 void bootstrap();
+
