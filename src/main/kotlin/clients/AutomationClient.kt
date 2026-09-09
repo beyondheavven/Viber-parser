@@ -1,6 +1,9 @@
 package com.viber.clients
 
 import com.viber.config.AutomationSettings
+import com.viber.models.CollectParticipantsRequest
+import com.viber.models.QueryOnlineStatusRequest
+import com.viber.models.TaskCreatedResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO

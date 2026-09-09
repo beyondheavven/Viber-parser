@@ -18,5 +18,6 @@ Desktop.ini
 
 *.log
 .env
+.env.automation
 *.env.local
 local.properties
