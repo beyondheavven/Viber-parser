@@ -46,8 +46,8 @@ services:
 
   bot:
     build:
-      context: ./viber-bot
-      dockerfile: viber-bot/Dockerfile.bot
+      context: .
+      dockerfile: Dockerfile.bot
     container_name: viber-bot
     environment:
       - PORT=3000
