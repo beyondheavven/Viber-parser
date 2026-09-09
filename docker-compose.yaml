@@ -44,13 +44,32 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  rabbitmq:
+    image: rabbitmq:3-managment-alpine
+    container_name: viber-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:user}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:pass}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   bot:
     build:
       context: .
       dockerfile: Dockerfile.bot
     container_name: viber-bot
+    restart: unless-stopped
     environment:
-      - PORT=3000
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-viber}:${RABBITMQ_PASS:-viber_secret}@rabbitmq:5672
       - APPIUM_HOST=appium
       - APPIUM_PORT=4723
       - ANDROID_SERIAL=android-emulator:5555
@@ -58,35 +77,32 @@ services:
       - VIBER_PACKAGE=com.viber.voip
       - VIBER_MESSAGES_DB=/data/data/com.viber.voip/databases/viber_messages
     depends_on:
+      rabbitmq:
+        condition: service_healthy
       android-emulator:
         condition: service_healthy
       appium:
         condition: service_started
-    volumes:
-      - viber-bot-data:/app/data
-    restart: unless-stopped
 
   viber-parser-api:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: viber-parser-api
+    restart: unless-stopped
     depends_on:
       - android-emulator
     ports:
-      - "${PORT}:8080"
+      - "${PORT:-8080}:8080"
     environment:
-      PORT: "${PORT}"
-      ADB_HOST: "${ADB_HOST}"
-      ADB_PORT: "${ADB_PORT}"
-      ADB_CONNECT_RETRIES: "${ADB_CONNECT_RETRIES}"
-      AUTOMATION: "${AUTOMATION_URL}"
-      VIBER_DB_PATH: "${VIBER_DB_PATH}"
-      SUPABASE_URL: "${SUPABASE_URL:?SUPABASE_URL not configured}"
-      SUPABASE_SERVICE_KEY: "${SUPABASE_SERVICE_KEY:?SUPABASE_SERVICE_KEY not configured}"
+      - PORT=${PORT}
+      - PORT=8080
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=${RABBITMQ_USER:-viber}
+      - RABBITMQ_PASS=${RABBITMQ_PASS:-viber_secret}
     volumes:
       - viber-db:${VIBER_API_DB_MOUNT}
-    restart: unless-stopped
 
 volumes:
   viber-db:
