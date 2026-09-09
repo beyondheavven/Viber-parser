@@ -1,51 +1,21 @@
-import {
-  Inject,
-  Injectable,
-  Logger,
-  NotFoundException,
-  OnModuleDestroy,
-  OnModuleInit,
-  Optional,
-} from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Observable, Subject } from 'rxjs';
 import { openDevice, type DeviceContext } from '../context.js';
 import { extractPhones, normalizePhoneNumber } from './phone-extractor.util.js';
-import {
-  mergeMediaWithText,
-  normalizeStoredMedia,
-  type MediaMergedMessage,
-} from './message-media.util.js';
+import { mergeMediaWithText, normalizeStoredMedia, type MediaMergedMessage } from './message-media.util.js';
 import { formatMonitoredExport, type MonitorExportFormat } from './monitor-export.util.js';
-import {
-  MessageWatchService,
-  shouldIngestMessageWrite,
-  type MessageDbWrite,
-} from '../automation/frida/message-watch.service.js';
-import type {
-  ExportMonitoredMessagesDto,
-  MonitoredMessageDto,
-  MonitoredMessagesFilterDto,
-  PhoneSource,
-} from './dto/monitored-message.dto.js';
-import type {
-  EnableMonitorGroupDto,
-  MonitorStatusDto,
-  MonitoredGroupDto,
-  StartMonitorDto,
-} from './dto/monitor-control.dto.js';
+import { MessageWatchService, shouldIngestMessageWrite, type MessageDbWrite } from '../automation/frida/message-watch.service.js';
+import type { ExportMonitoredMessagesDto, MonitoredMessageDto, MonitoredMessagesFilterDto, PhoneSource } from './dto/monitored-message.dto.js';
+import type { EnableMonitorGroupDto, MonitorStatusDto, MonitoredGroupDto, StartMonitorDto } from './dto/monitor-control.dto.js';
 import type { Message } from '../viber/repository.js';
 
 const MAX_RING_BUFFER_SIZE = 2000;
 const CATCH_UP_BATCH_SIZE = 200;
-/** Debounce so a photo and its caption that land milliseconds apart are ingested together. */
 const LIVE_INGEST_DELAY_MS = 80;
-/** Safety net while the Frida hook is attached — catch anything the hook missed. */
 const LIVE_CATCHUP_MS = 8_000;
-/** When the live hook is down, poll often enough to feel near real-time. */
 const POLL_WITHOUT_HOOK_MS = 400;
-/** Do not hammer ADB with spawnSync while the emulator is offline — it blocks SSE. */
 const DEVICE_RETRY_MS = 5_000;
 
 interface TrackedGroup {
