@@ -22,25 +22,10 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  const config = new DocumentBuilder()
-    .setTitle('Viber Bot Automation API')
-    .setDescription(
-      'REST API для автоматизированного сбора участников групп и сообществ Viber через Frida и Appium с отслеживанием статусов в реальном времени.',
-    )
-    .setVersion('1.0')
-    .addTag('participants', 'Управление сбором участников')
-    .addTag('tasks', 'Отслеживание и управление жизненным циклом фоновых задач')
-    .addTag('messages', 'Онлайн-мониторинг сообщений в группах')
-    .build();
-
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
-
   const port = Number.parseInt(process.env['PORT'] ?? '3000', 10);
   await app.listen(port);
 
   logger.log(`Server successfully started on http://localhost:${String(port)}`);
-  logger.log(`Swagger documentation available at http://localhost:${String(port)}/api/docs`);
 }
 
 void bootstrap();
