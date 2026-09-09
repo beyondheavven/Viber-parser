@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { DatabaseService } from './database.service.js';
+import { DatabaseController } from './database.controller.js';
 import { AutomationModule } from '../automation/automation.module.js';
 import { CommonModule } from '../common/common.module.js';
 
 @Module({
   imports: [AutomationModule, CommonModule],
+  controllers: [DatabaseController],
   providers: [DatabaseService],
   exports: [DatabaseService],
 })

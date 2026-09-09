@@ -6,9 +6,13 @@ import { ParticipantsModule } from './participants/participants.module.js';
 import { GroupsModule } from './groups/groups.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import { MessagesModule } from './messages/messages.module.js';
+import { RabbitMqModule } from './rabbitmq/rabbitmq.module.js';
+import { AuthModule } from './auth/auth.module.js';
 
 @Module({
   imports: [
+    RabbitMqModule,
+    AuthModule,
     CommonModule,
     AutomationModule,
     TasksModule,

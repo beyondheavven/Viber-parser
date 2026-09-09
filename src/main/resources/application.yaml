@@ -14,14 +14,19 @@ adb:
   port: "$ADB_PORT:5555"
   connectRetries: "$ADB_CONNECT_RETRIES:30"
 
-automation:
-  baseUrl: "$AUTOMATION_URL:http://automation:3000"
-
 database:
   path: "$VIBER_DB_PATH:/mnt/viber-db/viber_messages"
   queryTimeoutSeconds: "$VIBER_DB_QUERY_TIMEOUT_SECONDS:60"
   writeTimeoutSeconds: "$VIBER_DB_WRITE_TIMEOUT_SECONDS:120"
   backupOnWrite: "$VIBER_DB_BACKUP_ON_WRITE:true"
+
+rabbitmq:
+  host: "$RABBITMQ_HOST:localhost"
+  port: "$RABBITMQ_PORT:5672"
+  user: "$RABBITMQ_USER:user"
+  password: "$RABBITMQ_PASS:viber_secret"
+  queue: "$RABBITMQ_QUEUE:viber_commands_queue"
+  timeoutSeconds: "$RABBITMQ_TIMEOUT_SECONDS:60"
 
 supabase:
   url: "$SUPABASE_URL"

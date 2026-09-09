@@ -1,9 +1,9 @@
 package com.viber.routes
 
 import com.viber.clients.AdbClient
-import com.viber.clients.AutomationClient
+import com.viber.clients.ViberBotClient
 import com.viber.config.AdbSettings
-import com.viber.config.AutomationSettings
+import com.viber.config.RabbitMqSettings
 import com.viber.services.AuthService
 import com.viber.services.ViberSystemService
 import io.github.smiley4.ktoropenapi.openApi
@@ -16,12 +16,12 @@ fun Application.configureRouting() {
     val appConfig = environment.config
 
     val adbSettings = AdbSettings.from(appConfig)
-    val automationSettings = AutomationSettings.from(appConfig)
+    val rabbitMqSettings = RabbitMqSettings.from(appConfig)
 
     val adbClient = AdbClient(adbSettings)
-    val automationClient = AutomationClient(automationSettings)
+    val viberBotClient = ViberBotClient(rabbitMqSettings)
 
-    val authService = AuthService(adbClient)
+    val authService = AuthService(viberBotClient)
     val viberSystemService = ViberSystemService(adbClient)
 
     routing {
@@ -36,11 +36,11 @@ fun Application.configureRouting() {
         route("/api") {
             viberSystemRoutes(viberSystemService)
             authRoutes(authService)
-            participantsRoutes(automationClient)
-            groupRoutes(automationClient)
-            tasksRoutes(automationClient)
-            databaseRoutes(automationClient)
-            messageRoutes(automationClient)
+            participantsRoutes(viberBotClient)
+            groupRoutes(viberBotClient)
+            tasksRoutes(viberBotClient)
+            databaseRoutes(viberBotClient)
+            messageRoutes(viberBotClient)
         }
     }
 }

@@ -23,6 +23,7 @@ dependencies {
     implementation(ktorLibs.server.statusPages)
     implementation(ktorLibs.server.callLogging)
     implementation(libs.logback.classic)
+    implementation("com.rabbitmq:amqp-client:5.22.0")
 
     implementation("io.github.smiley4:ktor-openapi:5.7.0")
     implementation("io.github.smiley4:ktor-swagger-ui:5.7.0")
@@ -33,6 +34,8 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:postgrest-kt:3.8.0")
     implementation("io.ktor:ktor-client-cio")
     implementation("io.ktor:ktor-client-content-negotiation")
+
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.10.1")
 
     testImplementation(kotlin("test"))
     testImplementation(ktorLibs.server.testHost)
