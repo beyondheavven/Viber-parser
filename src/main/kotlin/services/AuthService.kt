@@ -1,31 +1,30 @@
 package com.viber.services
 
-import com.viber.clients.AdbClient
+import com.viber.clients.ViberBotClient
 import com.viber.models.CodeRequest
 import com.viber.models.LoginRequest
 import com.viber.models.LoginResponse
 
 class AuthService(
-    private val adbClient: AdbClient,
+    private val viberBotClient: ViberBotClient,
 ) {
-
-    fun enterPhoneNumber(request: LoginRequest): LoginResponse {
+    suspend fun enterPhoneNumber(request: LoginRequest): LoginResponse {
         return try {
-            adbClient.exec("shell input text ${request.phoneNumber}")
-            adbClient.exec("shell input keyevent 66")
-            LoginResponse(true, "Номер отправлен (заглушка ADB)")
+            viberBotClient.enterPhoneNumber(request)
         } catch (e: Exception) {
             LoginResponse(false, "Ошибка: ${e.message}")
         }
     }
 
-    fun enterCode(request: CodeRequest): LoginResponse {
+    suspend fun enterCode(request: CodeRequest): LoginResponse {
         return try {
-            adbClient.exec("shell input text ${request.code}")
-            adbClient.exec("shell input keyevent 66")
-            LoginResponse(true, "Код подтвержден (заглушка ADB)")
+            viberBotClient.enterCode(request)
         } catch (e: Exception) {
             LoginResponse(false, "Ошибка: ${e.message}")
         }
+    }
+
+    suspend fun getAuthStatus(): String {
+        return viberBotClient.getAuthStatus()
     }
 }

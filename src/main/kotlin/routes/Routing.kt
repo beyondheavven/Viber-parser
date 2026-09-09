@@ -21,7 +21,7 @@ fun Application.configureRouting() {
     val adbClient = AdbClient(adbSettings)
     val viberBotClient = ViberBotClient(rabbitMqSettings)
 
-    val authService = AuthService(adbClient)
+    val authService = AuthService(viberBotClient)
     val viberSystemService = ViberSystemService(adbClient)
 
     routing {
