@@ -43,7 +43,7 @@ services:
 
   automation:
     build:
-      context: ./automation
+      context: ./viber-bot
       dockerfile: Dockerfile
     container_name: viber-automation
     environment:
@@ -77,8 +77,7 @@ services:
       ADB_HOST: "${ADB_HOST}"
       ADB_PORT: "${ADB_PORT}"
       ADB_CONNECT_RETRIES: "${ADB_CONNECT_RETRIES}"
-      FRIDA_HOST: "${FRIDA_HOST}"
-      FRIDA_PORT: "${FRIDA_PORT}"
+      AUTOMATION: "${AUTOMATION_URL}"
       VIBER_DB_PATH: "${VIBER_DB_PATH}"
       SUPABASE_URL: "${SUPABASE_URL:?SUPABASE_URL not configured}"
       SUPABASE_SERVICE_KEY: "${SUPABASE_SERVICE_KEY:?SUPABASE_SERVICE_KEY not configured}"
