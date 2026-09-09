@@ -10,6 +10,7 @@ import { MessageWatchService, shouldIngestMessageWrite, type MessageDbWrite } fr
 import type { ExportMonitoredMessagesDto, MonitoredMessageDto, MonitoredMessagesFilterDto, PhoneSource } from './dto/monitored-message.dto.js';
 import type { EnableMonitorGroupDto, MonitorStatusDto, MonitoredGroupDto, StartMonitorDto } from './dto/monitor-control.dto.js';
 import type { Message } from '../viber/repository.js';
+import {RabbitMqPublisher} from "../rabbitmq/rabbitmq-publisher.service.js";
 
 const MAX_RING_BUFFER_SIZE = 2000;
 const CATCH_UP_BATCH_SIZE = 200;
@@ -61,7 +62,12 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
   private readonly exportDir: string;
 
   constructor(
-    @Optional() @Inject(MessageWatchService) private readonly messageWatch?: MessageWatchService,
+    @Optional()
+    @Inject(MessageWatchService)
+    private readonly messageWatch: MessageWatchService | undefined,
+
+    private readonly publisher: RabbitMqPublisher,
+
   ) {
     this.dataDir = process.env['MONITOR_DATA_DIR'] ?? join(process.cwd(), 'data');
     this.storePath = join(this.dataDir, 'monitored-messages.jsonl');
@@ -98,10 +104,6 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     return this.deviceContextPromise;
   }
 
-  /**
-   * Starts background polling. Existing per-group cursors are kept so an
-   * emulator restart still catches messages that arrived while it was down.
-   */
   async start(dto: StartMonitorDto = {}): Promise<MonitorStatusDto> {
     if (dto.pollIntervalMs !== undefined && dto.pollIntervalMs >= 500) {
       this.pollIntervalMs = dto.pollIntervalMs;
@@ -191,9 +193,6 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     return this.listGroups();
   }
 
-  /**
-   * Test-friendly registry update that does not touch the emulator.
-   */
   enableTrackedGroup(
     conversationId: number,
     options: {
@@ -432,6 +431,8 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     } catch (err) {
       this.logger.warn(`Failed to append message to ${this.storePath}: ${String(err)}`);
     }
+
+    this.publisher.publishMessage(dto)
 
     this.messageSubject.next(dto);
   }
