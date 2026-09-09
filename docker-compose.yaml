@@ -45,15 +45,15 @@ services:
       - "host.docker.internal:host-gateway"
 
   rabbitmq:
-    image: rabbitmq:3-managment-alpine
+    image: rabbitmq:3-management-alpine
     container_name: viber-rabbitmq
     restart: unless-stopped
     ports:
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:user}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:pass}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-viber}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-viber_secret}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -91,20 +91,29 @@ services:
     container_name: viber-parser-api
     restart: unless-stopped
     depends_on:
-      - android-emulator
+      android-emulator:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     ports:
       - "${PORT:-8080}:8080"
     environment:
-      - PORT=${PORT}
       - PORT=8080
+      - ADB_HOST=${ADB_HOST:-android-emulator}
+      - ADB_PORT=${ADB_PORT:-5555}
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
       - RABBITMQ_USER=${RABBITMQ_USER:-viber}
       - RABBITMQ_PASS=${RABBITMQ_PASS:-viber_secret}
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:-}
     volumes:
       - viber-db:${VIBER_API_DB_MOUNT}
+      - ./apk:/apk:ro
 
 volumes:
   viber-db:
   android-data:
   viber-bot-data:
+  rabbitmq_data:
+

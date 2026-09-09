@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { loadViberConfig } from './config/env.js';
 import { Adb, AdbError, probeTcp } from './device/adb.js';
 import { LdPlayer } from './device/ldplayer.js';
@@ -23,11 +24,11 @@ export async function openDevice(options: { ensureUp?: boolean } = {}): Promise<
   const ld = new LdPlayer();
   const adb = new Adb();
 
-  if (options.ensureUp === false) {
+  if (options.ensureUp === false || !ld.isAvailable()) {
     const reachable = await probeTcp(adb.serial);
     if (!reachable) {
       throw new AdbError(
-        `Could not connect to ${adb.serial}. Is the LDPlayer instance running with ADB debugging enabled?`,
+        `Could not connect to ${adb.serial}. Is the Android emulator running with ADB debugging enabled?`,
         ['connect', adb.serial],
         '',
         '',

@@ -70,11 +70,19 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 export class LdPlayer {
   constructor(private readonly config: LdPlayerConfig = loadLdPlayerConfig()) {}
 
+  get home(): string {
+    return this.config.home;
+  }
+
+  isAvailable(): boolean {
+    return existsSync(this.consolePath);
+  }
+
   get index(): number {
     return this.config.index;
   }
 
-  private get consolePath(): string {
+  get consolePath(): string {
     return join(this.config.home, 'ldconsole.exe');
   }
 

@@ -111,7 +111,8 @@ export class Adb {
     args: readonly string[],
     options: { allowFailure?: boolean; timeout?: number } = {},
   ): string {
-    if (!existsSync(this.config.bin)) {
+    const isPath = this.config.bin.includes('/') || this.config.bin.includes('\\');
+    if (isPath && !existsSync(this.config.bin)) {
       throw new AdbError(
         `adb not found at ${this.config.bin}. Set ADB_BIN or ANDROID_HOME in .env.`,
         args,

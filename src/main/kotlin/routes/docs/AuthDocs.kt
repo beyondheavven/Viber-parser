@@ -8,10 +8,12 @@ import io.github.smiley4.ktoropenapi.config.RouteConfig
 import io.ktor.http.HttpStatusCode
 
 val describeLogin: RouteConfig.() -> Unit = {
-    description = "Вводит номер телефона в экран регистрации Viber через Frida."
+    operationId = "Login"
+    tags = listOf("Authentication")
+    description = "Выбирает страну из списка (по имени, напр. Belarus), вводит номер телефона и автоматически запрашивает звонок (Call me)."
     request {
         body<LoginRequest> {
-            description = "Данные для ввода номера"
+            description = "Данные для ввода номера: phoneNumber (напр. '336433350' или '+375336433350'), countryName (напр. 'Belarus') или countryCode ('BY')"
             required = true
         }
     }
@@ -28,16 +30,18 @@ val describeLogin: RouteConfig.() -> Unit = {
 }
 
 val describeEnterCode: RouteConfig.() -> Unit = {
-    description = "Вводит SMS-код для подтверждения номера."
+    operationId = "Enter Code"
+    tags = listOf("Authentication")
+    description = "Вводит код активации (последние 4 цифры входящего проверочного звонка или SMS)."
     request {
         body<CodeRequest> {
-            description = "Код из SMS"
+            description = "Последние 4 цифры звонившего номера (код активации)"
             required = true
         }
     }
     response {
         code(HttpStatusCode.OK) {
-            description = "Код введён"
+            description = "Код введён, авторизация завершена"
             body<LoginResponse>()
         }
         code(HttpStatusCode.BadRequest) {

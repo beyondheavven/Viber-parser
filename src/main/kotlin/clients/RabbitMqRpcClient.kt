@@ -112,29 +112,33 @@ class RabbitMqRpcClient(
         val dataJsonElement: JsonElement = when (data) {
             null -> JsonNull
             is JsonElement -> data
-            is String -> json.parseToJsonElement(data)
-            is Number, is Boolean -> json.parseToJsonElement(data.toString())
-            is Map<*, *> -> {
-                val stringifiedMap = data.entries.associate { it.key.toString() to it.value?.toString() }
-                json.encodeToJsonElement(kotlinx.serialization.serializer(), stringifiedMap)
-            }
-            else -> {
+            is String -> {
                 try {
-                    json.encodeToString(data)
-                        .let { json.parseToJsonElement(it) }
+                    json.parseToJsonElement(data)
                 } catch (_: Exception) {
-                    json.parseToJsonElement(json.encodeToString(data.toString()))
+                    kotlinx.serialization.json.JsonPrimitive(data)
                 }
             }
+            is Number -> kotlinx.serialization.json.JsonPrimitive(data)
+            is Boolean -> kotlinx.serialization.json.JsonPrimitive(data)
+            is Map<*, *> -> {
+                val entries = data.entries.associate {
+                    it.key.toString() to (it.value?.let { v -> kotlinx.serialization.json.JsonPrimitive(v.toString()) } ?: JsonNull)
+                }
+                kotlinx.serialization.json.JsonObject(entries)
+            }
+            else -> kotlinx.serialization.json.JsonPrimitive(data.toString())
         }
 
-        val requestObj = mapOf(
-            "pattern" to pattern,
-            "data" to dataJsonElement,
-            "id" to id
+        val requestObj = kotlinx.serialization.json.JsonObject(
+            mapOf(
+                "pattern" to kotlinx.serialization.json.JsonPrimitive(pattern),
+                "data" to dataJsonElement,
+                "id" to kotlinx.serialization.json.JsonPrimitive(id)
+            )
         )
 
-        return json.encodeToString(requestObj)
+        return json.encodeToString(kotlinx.serialization.json.JsonObject.serializer(), requestObj)
     }
 
     private fun extractNestJsResponse(rawResponse: String): String {

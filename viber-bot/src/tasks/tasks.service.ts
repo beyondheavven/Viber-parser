@@ -17,7 +17,8 @@ export class TasksService {
   constructor(
       @Inject(DeviceMutexService)
       private readonly deviceMutex: DeviceMutexService,
-      private readonly publisher : RabbitMqPublisher) {}
+      @Inject(RabbitMqPublisher)
+      private readonly publisher: RabbitMqPublisher) {}
 
   createTask(groupTarget: string): TaskEntity {
     const id = `task_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;

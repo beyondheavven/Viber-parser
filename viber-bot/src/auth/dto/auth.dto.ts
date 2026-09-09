@@ -1,5 +1,7 @@
 export interface LoginPhoneDto {
   phoneNumber: string;
+  countryName?: string;
+  countryCode?: string;
 }
 
 export interface ConfirmCodeDto {

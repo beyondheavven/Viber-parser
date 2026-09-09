@@ -16,11 +16,8 @@ RUN npm ci
 
 COPY viber-bot/tsconfig.json ./
 COPY viber-bot/src ./src/
-COPY data ./data/
+RUN mkdir -p data
 
-EXPOSE 3000
-
-ENV PORT=3000
 ENV NODE_ENV=production
 
 CMD ["npm", "run", "start:api"]

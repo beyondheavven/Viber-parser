@@ -1,7 +1,6 @@
 package com.viber.models
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class TaskSummary(
@@ -34,7 +33,7 @@ data class TaskStep(
 
     val durationMs: Int? = null,
 
-    val progress: JsonElement? = null
+    val progress: Map<String, String>? = null
 )
 
 
@@ -106,7 +105,7 @@ data class TaskDetail(
 
     val stepHistory: List<TaskStep> = emptyList(),
 
-    val progress: JsonElement? = null,
+    val progress: Map<String, String>? = null,
 
     val error: String? = null,
 

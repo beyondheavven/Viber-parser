@@ -1,8 +1,11 @@
 #!/bin/sh
 set -e
 
+ADB_HOST="${ADB_HOST:-android-emulator}"
+ADB_PORT="${ADB_PORT:-5555}"
+
 echo "--> Connecting to ADB device: ${ADB_HOST}:${ADB_PORT}"
-until adb connect "${ADB_HOST}:${ADB_PORT}" | grep -q "connected"; do
+until adb connect "${ADB_HOST}:${ADB_PORT}" 2>&1 | grep -E "connected|already connected"; do
   echo "Waiting for emulator to accept adb connection..."
   sleep 3
 done

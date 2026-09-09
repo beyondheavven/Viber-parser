@@ -22,11 +22,11 @@ RUN apt-get update && \
 
 COPY --from=build /app/build/libs/*-all.jar app.jar
 
-COPY apk/viber.apk /apk/viber.apk
+RUN mkdir -p /apk
 
 COPY start.sh /app/start.sh
 COPY install_apk.sh /app/install_apk.sh
-RUN chmod +x /app/start.sh /app/install_apk.sh
+RUN sed -i 's/\r$//' /app/start.sh /app/install_apk.sh && chmod +x /app/start.sh /app/install_apk.sh
 
 EXPOSE 8080
 

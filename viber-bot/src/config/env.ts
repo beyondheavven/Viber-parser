@@ -102,10 +102,15 @@ const DEFAULT_LD_HOME = join('C:', 'LDPlayer', 'LDPlayer9');
 function defaultAdbBin(): string {
   const home = optional('ANDROID_HOME') ?? optional('ANDROID_SDK_ROOT');
   if (home !== undefined) {
-    const candidate = join(home, 'platform-tools', 'adb.exe');
+    const exe = process.platform === 'win32' ? 'adb.exe' : 'adb';
+    const candidate = join(home, 'platform-tools', exe);
     if (existsSync(candidate)) return candidate;
   }
-  return join(str('LD_HOME', DEFAULT_LD_HOME), 'adb.exe');
+  if (process.platform === 'win32') {
+    const ldAdb = join(str('LD_HOME', DEFAULT_LD_HOME), 'adb.exe');
+    if (existsSync(ldAdb)) return ldAdb;
+  }
+  return 'adb';
 }
 
 export function loadLdPlayerConfig(): LdPlayerConfig {
