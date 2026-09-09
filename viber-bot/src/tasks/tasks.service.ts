@@ -6,17 +6,34 @@ import {
   TaskSummaryDto,
 } from './dto/task-response.dto.js';
 import { DeviceMutexService } from '../common/mutex/device-mutex.service.js';
+import {RabbitMqPublisher} from "../rabbitmq/rabbitmq-publisher.service.js";
 
 @Injectable()
 export class TasksService {
   private readonly logger = new Logger(TasksService.name);
+
   private readonly tasks = new Map<string, TaskEntity>();
 
-  constructor(@Inject(DeviceMutexService) private readonly deviceMutex: DeviceMutexService) {}
+  constructor(
+      @Inject(DeviceMutexService)
+      private readonly deviceMutex: DeviceMutexService,
+      private readonly publisher : RabbitMqPublisher) {}
 
   createTask(groupTarget: string): TaskEntity {
     const id = `task_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const task = new TaskEntity(id, groupTarget);
+    task.events$.subscribe({
+      next: (event) => this.publisher.publishTaskEvent(event),
+      error: (err) => this.logger.error(`Ошибка в потоке событий задачи ${id}: ${String(err)}`),
+    });
+
+    this.publisher.publishTaskEvent({
+      taskId: task.id,
+      status: task.status,
+      step: task.currentStep ?? undefined,
+      timestamp: task.createdAt.toISOString(),
+    });
+
     this.tasks.set(id, task);
     this.logger.log(`Created task ${id} for group "${groupTarget}"`);
     return task;

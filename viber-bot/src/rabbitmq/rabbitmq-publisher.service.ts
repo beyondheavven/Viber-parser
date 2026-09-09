@@ -1,6 +1,7 @@
 import {Inject, Injectable, Logger} from "@nestjs/common";
 import {ClientProxy} from "@nestjs/microservices";
 import {MonitoredMessageDto} from "../messages/dto/monitored-message.dto.js";
+import {TaskEvent} from "../tasks/entities/task.entity.js";
 
 @Injectable()
 export class RabbitMqPublisher {
@@ -18,11 +19,11 @@ export class RabbitMqPublisher {
         }
     }
 
-    publishTaskProgress(payload: { taskId: string; status: string; progress?: number }): void {
+    publishTaskEvent(event: TaskEvent): void {
         try {
-            this.client.emit('viber.task.progress', payload);
+            this.client.emit('viber.task.event', event);
         } catch (err) {
-            this.logger.error(`Не удалось отправить статус задачи в RabbitMQ: ${String(err)}`);
+            this.logger.error(`Не удалось отправить событие задачи ${event.taskId} в RabbitMQ: ${String(err)}`);
         }
     }
 }
