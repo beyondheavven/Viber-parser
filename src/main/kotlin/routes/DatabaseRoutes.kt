@@ -1,0 +1,31 @@
+package com.viber.routes
+
+import com.viber.clients.AutomationClient
+import com.viber.models.DecodeRequest
+import com.viber.routes.docs.describeDecodeParticipants
+import com.viber.routes.docs.describeGetDatabaseStats
+import com.viber.routes.docs.describeSyncDatabase
+import io.github.smiley4.ktoropenapi.get
+import io.github.smiley4.ktoropenapi.post
+import io.ktor.http.ContentType
+import io.ktor.server.request.receiveNullable
+import io.ktor.server.response.respondText
+import io.ktor.server.routing.Route
+import io.ktor.server.routing.route
+
+fun Route.databaseRoutes(automationClient: AutomationClient) {
+    route("/database") {
+        post("/sync", describeSyncDatabase){
+            call.respondText(automationClient.syncDatabase(), ContentType.Application.Json)
+        }
+
+        get("/stats", describeGetDatabaseStats){
+            call.respondText(automationClient.getDatabaseStats(), ContentType.Application.Json)
+        }
+
+        post("/decode", describeDecodeParticipants){
+            val request = call.receiveNullable<DecodeRequest>() ?: DecodeRequest()
+            call.respondText(automationClient.decodeParticipants(request = request), ContentType.Application.Json)
+        }
+    }
+}

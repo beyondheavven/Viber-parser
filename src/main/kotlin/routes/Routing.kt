@@ -36,7 +36,10 @@ fun Application.configureRouting() {
         route("/api") {
             viberSystemRoutes(viberSystemService)
             authRoutes(authService)
-            proxyRoutes(automationClient)
+            participantsRoutes(automationClient)
+            groupRoutes(automationClient)
+            tasksRoutes(automationClient)
+            databaseRoutes(automationClient)
         }
     }
 }
