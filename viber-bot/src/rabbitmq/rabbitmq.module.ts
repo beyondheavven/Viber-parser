@@ -1,5 +1,8 @@
-import { Module } from '@nestjs/common';
+import {Global, Module} from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
+import {RabbitMqPublisher} from "./rabbitmq-publisher.service.js";
+
+@Global()
 @Module({
     imports: [
         ClientsModule.register([
@@ -16,6 +19,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
             },
         ]),
     ],
-    exports: [ClientsModule],
+    providers: [RabbitMqPublisher],
+    exports: [RabbitMqPublisher],
 })
 export class RabbitMqModule {}
