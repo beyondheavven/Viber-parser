@@ -7,10 +7,9 @@ import com.viber.models.EnableMonitorGroupRequest
 import com.viber.models.QueryOnlineStatusRequest
 import com.viber.models.StartMonitorRequest
 import com.viber.models.TaskCreatedResponse
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-class AutomationClient(
+class ViberBotClient(
     private val rpcClient: RabbitMqRpcClient
 ) {
     constructor(settings: RabbitMqSettings) : this(RabbitMqRpcClient(settings))

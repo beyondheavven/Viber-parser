@@ -1,6 +1,6 @@
 package com.viber.routes
 
-import com.viber.clients.AutomationClient
+import com.viber.clients.ViberBotClient
 import com.viber.routes.docs.describeGetAllTasks
 import com.viber.routes.docs.describeGetTaskDetail
 import com.viber.routes.docs.describeGetTaskParticipants
@@ -13,26 +13,26 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.route
 
 
-fun Route.tasksRoutes(automationClient: AutomationClient) {
+fun Route.tasksRoutes(viberBotClient: ViberBotClient) {
     route("/tasks"){
         get("", describeGetAllTasks){
             val status = call.request.queryParameters["status"]
-            call.respondText(automationClient.getTasks(status), ContentType.Application.Json)
+            call.respondText(viberBotClient.getTasks(status), ContentType.Application.Json)
         }
 
         get("/{id}", describeGetTaskDetail) {
             val id = call.parameters["id"]!!
-            call.respondText(automationClient.getTask(id), ContentType.Application.Json)
+            call.respondText(viberBotClient.getTask(id), ContentType.Application.Json)
         }
 
         get("/{id}/participants", describeGetTaskParticipants) {
             val id = call.parameters["id"]!!
-            call.respondText(automationClient.getTaskParticipants(id), ContentType.Application.Json)
+            call.respondText(viberBotClient.getTaskParticipants(id), ContentType.Application.Json)
         }
 
         post("/{id}/stop", describeStopTask){
             val id = call.parameters["id"]!!
-            call.respondText(automationClient.stopTask(id), ContentType.Application.Json)
+            call.respondText(viberBotClient.stopTask(id), ContentType.Application.Json)
         }
     }
 
