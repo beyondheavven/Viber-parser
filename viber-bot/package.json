@@ -19,7 +19,9 @@
   "dependencies": {
     "@nestjs/common": "^12.0.1",
     "@nestjs/core": "^12.0.1",
-    "@nestjs/platform-express": "^12.0.1",
+    "@nestjs/microservices": "^12.0.1",
+    "amqp-connection-manager": "^5.0.0",
+    "amqplib": "^2.0.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "dotenv": "^17.4.2",
@@ -30,7 +32,7 @@
     "webdriverio": "^9.31.4"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6",
+    "@types/amqplib": "^0.10.8",
     "@types/node": "^24.13.3",
     "appium": "^2.19.0",
     "appium-uiautomator2-driver": "^4.2.9",
