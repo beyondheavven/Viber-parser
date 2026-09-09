@@ -40,6 +40,7 @@ fun Application.configureRouting() {
             groupRoutes(automationClient)
             tasksRoutes(automationClient)
             databaseRoutes(automationClient)
+            messageRoutes(automationClient)
         }
     }
 }
