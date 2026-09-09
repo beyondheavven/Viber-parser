@@ -6,7 +6,11 @@ import com.viber.models.DecodeRequest
 import com.viber.models.EnableMonitorGroupRequest
 import com.viber.models.QueryOnlineStatusRequest
 import com.viber.models.StartMonitorRequest
+import com.viber.models.CodeRequest
+import com.viber.models.LoginRequest
+import com.viber.models.LoginResponse
 import com.viber.models.TaskCreatedResponse
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 class ViberBotClient(
@@ -98,5 +102,19 @@ class ViberBotClient(
 
     suspend fun getMonitoredMessages(queryParams: Map<String, String>): String {
         return rpcClient.call("viber.messages.get_monitored", queryParams)
+    }
+
+    suspend fun enterPhoneNumber(request: LoginRequest): LoginResponse {
+        val raw = rpcClient.call("viber.auth.phone", json.encodeToString(request))
+        return json.decodeFromString(raw)
+    }
+
+    suspend fun enterCode(request: CodeRequest): LoginResponse {
+        val raw = rpcClient.call("viber.auth.code", json.encodeToString(request))
+        return json.decodeFromString(raw)
+    }
+
+    suspend fun getAuthStatus(): String {
+        return rpcClient.call("viber.auth.status")
     }
 }
