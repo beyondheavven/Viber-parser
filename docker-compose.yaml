@@ -33,19 +33,22 @@ services:
   appium:
     image: appium/appium:latest
     container_name: viber-appium
+    ports:
+      - "4723:4723"
     environment:
       - RELAXED_SECURITY=true
     depends_on:
       android-emulator:
         condition: service_healthy
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
-
-  automation:
+  bot:
     build:
       context: ./viber-bot
-      dockerfile: Dockerfile
-    container_name: viber-automation
+      dockerfile: viber-bot/Dockerfile.bot
+    container_name: viber-bot
     environment:
       - PORT=3000
       - APPIUM_HOST=appium
@@ -60,7 +63,7 @@ services:
       appium:
         condition: service_started
     volumes:
-      - viber-automation-data:/app/data
+      - viber-bot-data:/app/data
     restart: unless-stopped
 
   viber-parser-api:
@@ -88,4 +91,4 @@ services:
 volumes:
   viber-db:
   android-data:
-  viber-automation-data:
+  viber-bot-data:
