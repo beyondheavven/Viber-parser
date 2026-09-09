@@ -1,127 +1,103 @@
 package com.viber.clients
 
-import com.viber.config.AutomationSettings
+import com.viber.config.RabbitMqSettings
 import com.viber.models.CollectParticipantsRequest
 import com.viber.models.DecodeRequest
 import com.viber.models.EnableMonitorGroupRequest
 import com.viber.models.QueryOnlineStatusRequest
 import com.viber.models.StartMonitorRequest
 import com.viber.models.TaskCreatedResponse
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.post
-import io.ktor.client.request.get
-import io.ktor.client.request.parameter
-import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 class AutomationClient(
-    private val settings: AutomationSettings
+    private val rpcClient: RabbitMqRpcClient
 ) {
-    private val client = HttpClient(CIO) {
-        install(ContentNegotiation) { json() }
+    constructor(settings: RabbitMqSettings) : this(RabbitMqRpcClient(settings))
+
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
     }
 
     suspend fun collectParticipants(request: CollectParticipantsRequest): TaskCreatedResponse {
-        return client.post("${settings.baseUrl}/api/participants/collect") {
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }.body()
+        val raw = rpcClient.call("viber.participants.collect", json.encodeToString(request))
+        return json.decodeFromString(raw)
     }
 
     suspend fun getTaskParticipants(taskId: String): String {
-        return client.get("${settings.baseUrl}/api/tasks/$taskId/participants").bodyAsText()
+        return rpcClient.call("viber.participants.get_task_participants", mapOf("id" to taskId))
     }
 
     suspend fun getOnlineStatuses(request: QueryOnlineStatusRequest): String {
-        return client.post("${settings.baseUrl}/api/participants/online-status") {
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }.bodyAsText()
+        return rpcClient.call("viber.participants.online_status", json.encodeToString(request))
     }
 
     suspend fun getTasks(status: String? = null): String {
-        return client.get("${settings.baseUrl}/api/tasks") {
-            if (status != null) parameter("status", status)
-        }.bodyAsText()
+        val payload = if (status != null) mapOf("status" to status) else emptyMap<String, String>()
+        return rpcClient.call("viber.tasks.get_all", payload)
     }
 
     suspend fun getTask(taskId: String): String {
-        return client.get("${settings.baseUrl}/api/tasks/$taskId").bodyAsText()
+        return rpcClient.call("viber.tasks.get_by_id", mapOf("id" to taskId))
     }
 
     suspend fun stopTask(taskId: String): String {
-        return client.post("${settings.baseUrl}/api/tasks/$taskId/stop").bodyAsText()
+        return rpcClient.call("viber.tasks.stop", mapOf("id" to taskId))
     }
 
     suspend fun getGroups(includeAll: Boolean = false): String {
-        return client.get("${settings.baseUrl}/api/groups") {
-            parameter("all", includeAll)
-        }.bodyAsText()
+        return rpcClient.call("viber.groups.get_all", mapOf("all" to includeAll))
     }
 
     suspend fun getGroup(id: Int): String {
-        return client.get("${settings.baseUrl}/api/groups/$id").bodyAsText()
+        return rpcClient.call("viber.groups.get_by_id", mapOf("id" to id))
     }
 
     suspend fun getGroupParticipants(id: Int): String {
-        return client.get("${settings.baseUrl}/api/groups/$id/participants").bodyAsText()
+        return rpcClient.call("viber.groups.get_participants", mapOf("id" to id))
     }
 
     suspend fun syncDatabase(): String {
-        return client.post("${settings.baseUrl}/api/database/sync").bodyAsText()
+        return rpcClient.call("viber.database.sync")
     }
 
     suspend fun getDatabaseStats(): String {
-        return client.get("${settings.baseUrl}/api/database/stats").bodyAsText()
+        return rpcClient.call("viber.database.stats")
     }
 
     suspend fun decodeParticipants(request: DecodeRequest): String {
-        return client.post("${settings.baseUrl}/api/database/decode") {
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }.bodyAsText()
+        return rpcClient.call("viber.database.decode", json.encodeToString(request))
     }
 
     suspend fun startMonitor(request: StartMonitorRequest): String {
-        return client.post("${settings.baseUrl}/api/messages/monitor/start") {
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }.bodyAsText()
+        return rpcClient.call("viber.messages.monitor.start", json.encodeToString(request))
     }
 
     suspend fun stopMonitor(): String {
-        return client.post("${settings.baseUrl}/api/messages/monitor/stop").bodyAsText()
+        return rpcClient.call("viber.messages.monitor.stop")
     }
 
     suspend fun getMonitorStatus(): String {
-        return client.get("${settings.baseUrl}/api/messages/monitor/status").bodyAsText()
+        return rpcClient.call("viber.messages.monitor.status")
     }
 
     suspend fun getMonitoredGroups(): String {
-        return client.get("${settings.baseUrl}/api/messages/monitor/groups").bodyAsText()
+        return rpcClient.call("viber.messages.monitor.groups")
     }
 
     suspend fun enableMonitorGroup(id: Int, request: EnableMonitorGroupRequest): String {
-        return client.post("${settings.baseUrl}/api/messages/monitor/groups/$id/enable") {
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }.bodyAsText()
+        return rpcClient.call(
+            "viber.messages.monitor.enable_group",
+            mapOf("id" to id, "dto" to json.encodeToString(request))
+        )
     }
 
     suspend fun disableMonitorGroup(id: Int): String {
-        return client.post("${settings.baseUrl}/api/messages/monitor/groups/$id/disable").bodyAsText()
+        return rpcClient.call("viber.messages.monitor.disable_group", mapOf("id" to id))
     }
 
     suspend fun getMonitoredMessages(queryParams: Map<String, String>): String {
-        return client.get("${settings.baseUrl}/api/messages/monitored") {
-            queryParams.forEach { (key, value) -> parameter(key, value) }
-        }.bodyAsText()
+        return rpcClient.call("viber.messages.get_monitored", queryParams)
     }
-
 }
