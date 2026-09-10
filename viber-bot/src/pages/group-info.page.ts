@@ -9,8 +9,8 @@ import {
   type XmlNode,
 } from './page-source.js';
 import {
-  PARTICIPANTS_SECTION_TITLES,
-  SHOW_ALL_PARTICIPANTS_TEXTS,
+  PARTICIPANTS_SECTION_REGEX,
+  SHOW_ALL_PARTICIPANTS_REGEX,
   selectors,
 } from './selectors.js';
 
@@ -30,15 +30,11 @@ function normalise(text: string | undefined): string {
 }
 
 function isShowAllLabel(text: string): boolean {
-  const value = text.toLocaleLowerCase('ru');
-  return SHOW_ALL_PARTICIPANTS_TEXTS.some((label) =>
-    value.startsWith(label.toLocaleLowerCase('ru')),
-  );
+  return SHOW_ALL_PARTICIPANTS_REGEX.test(text);
 }
 
 function isParticipantsTitle(text: string): boolean {
-  const value = text.toLocaleLowerCase('ru');
-  return PARTICIPANTS_SECTION_TITLES.some((prefix) => value.startsWith(prefix));
+  return PARTICIPANTS_SECTION_REGEX.test(text);
 }
 
 /**
@@ -78,7 +74,7 @@ export function scanInfoPanelSource(xml: string): PanelScan {
       }
     }
 
-    if (showAll === null && isShowAllLabel(text)) {
+    if (showAll === null && (isShowAllLabel(text) || resourceId === selectors.groupInfo.sectionTitle)) {
       showAll = parseBounds(node.bounds);
     }
   }
@@ -206,7 +202,7 @@ export class GroupInfoPage extends BasePage {
         ? 'the info panel was not on screen'
         : `panel bounds ${JSON.stringify(scan.panel)}`;
     throw new Error(
-      `"${SHOW_ALL_PARTICIPANTS_TEXTS[0]}" did not appear after scrolling the info panel ` +
+      `"Show all" button did not appear after scrolling the info panel ` +
         `(${where}; sections seen: ${sectionTitles.length > 0 ? sectionTitles.join(' | ') : 'none'}).`,
     );
   }

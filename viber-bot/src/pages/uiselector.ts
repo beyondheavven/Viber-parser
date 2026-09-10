@@ -31,6 +31,10 @@ export function byIdAndText(resourceId: string, text: string): string {
   return `android=new UiSelector().resourceId(${quote(resourceId)}).text(${quote(text)})`;
 }
 
+export function byIdAndTextContains(resourceId: string, part: string): string {
+  return `android=new UiSelector().resourceId(${quote(resourceId)}).textContains(${quote(part)})`;
+}
+
 /** Scrolls the first scrollable container until an element with `text` shows. */
 export function scrollToText(text: string): string {
   return (
