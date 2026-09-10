@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class LoginRequest(
-    val phoneNumber: String,
+    val phoneNumber: String? = null,
     val countryName: String? = null,
     val countryCode: String? = null
 )

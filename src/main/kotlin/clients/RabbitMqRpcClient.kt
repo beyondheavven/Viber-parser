@@ -20,9 +20,13 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
 
+class MicroserviceException(
+    val statusCode: io.ktor.http.HttpStatusCode,
+    override val message: String
+) : RuntimeException(message)
+
 class RabbitMqRpcClient(
     private val settings: RabbitMqSettings,
-
 ) : Closeable {
 
     private val logger = LoggerFactory.getLogger(RabbitMqRpcClient::class.java)
@@ -148,7 +152,12 @@ class RabbitMqRpcClient(
         if (errElement != null && errElement !is JsonNull) {
             val errorMsg = errElement.toString()
             logger.error("Error returned from bot: $errorMsg")
-            throw RuntimeException("Microservice error: $errorMsg")
+            if (errElement is kotlinx.serialization.json.JsonObject) {
+                val statusCodeInt = (errElement["statusCode"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: 500
+                val messageStr = (errElement["message"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: errorMsg
+                throw MicroserviceException(io.ktor.http.HttpStatusCode.fromValue(statusCodeInt), messageStr)
+            }
+            throw MicroserviceException(io.ktor.http.HttpStatusCode.InternalServerError, errorMsg)
         }
 
         val responseElement = root["response"] ?: return "{}"

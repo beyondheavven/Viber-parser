@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { Logger } from '@nestjs/common';
 import { AppModule } from './app.module.js';
+import { AllExceptionsFilter } from './common/filters/rpc-exception.filter.js';
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
@@ -21,6 +22,8 @@ async function bootstrap(): Promise<void> {
       prefetchCount: 1,
     },
   });
+
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   await app.listen();
   logger.log(`Viber Bot Microservice started. Listening queue: ${queueName}`);

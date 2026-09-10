@@ -13,8 +13,8 @@ val describeLogin: RouteConfig.() -> Unit = {
     description = "Выбирает страну из списка (по имени, напр. Belarus), вводит номер телефона и автоматически запрашивает звонок (Call me)."
     request {
         body<LoginRequest> {
-            description = "Данные для ввода номера: phoneNumber (напр. '336433350' или '+375336433350'), countryName (напр. 'Belarus') или countryCode ('BY')"
-            required = true
+            description = "Данные для ввода номера: phoneNumber (напр. '+1234567890'), countryName (напр. 'Belarus') или countryCode ('BY'). Опционально, если заданы в переменных окружения VIBER_DEFAULT_PHONE и VIBER_DEFAULT_COUNTRY."
+            required = false
         }
     }
     response {

@@ -1,5 +1,5 @@
 export interface LoginPhoneDto {
-  phoneNumber: string;
+  phoneNumber?: string;
   countryName?: string;
   countryCode?: string;
 }

@@ -8,6 +8,7 @@ import com.viber.services.AuthService
 import io.github.smiley4.ktoropenapi.post
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
+import io.ktor.server.request.receiveNullable
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.route
@@ -16,7 +17,7 @@ import io.ktor.server.routing.route
 fun Route.authRoutes(authService: AuthService) {
     route("/auth") {
         post("/phone", describeLogin){
-            val request = call.receive<LoginRequest>()
+            val request = call.receiveNullable<LoginRequest>() ?: LoginRequest()
             val result = authService.enterPhoneNumber(request)
             if (result.success){
                 call.respond(HttpStatusCode.OK, result)

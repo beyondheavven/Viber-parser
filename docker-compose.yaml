@@ -37,6 +37,8 @@ services:
       - "4723:4723"
     environment:
       - RELAXED_SECURITY=true
+      - REMOTE_ADB=true
+      - ANDROID_DEVICES=android-emulator:5555
     depends_on:
       android-emulator:
         condition: service_healthy
@@ -69,13 +71,15 @@ services:
     container_name: viber-bot
     restart: unless-stopped
     environment:
-      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-viber}:${RABBITMQ_PASS:-viber_secret}@rabbitmq:5672
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-viber}:${RABBITMQ_PASS:-viber_secret}@rabbitmq:5672?heartbeat=60
       - APPIUM_HOST=appium
       - APPIUM_PORT=4723
       - ANDROID_SERIAL=android-emulator:5555
       - ADB_BIN=adb
       - VIBER_PACKAGE=com.viber.voip
       - VIBER_MESSAGES_DB=/data/data/com.viber.voip/databases/viber_messages
+      - VIBER_DEFAULT_PHONE=${VIBER_DEFAULT_PHONE:-}
+      - VIBER_DEFAULT_COUNTRY=${VIBER_DEFAULT_COUNTRY:-}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -107,6 +111,8 @@ services:
       - RABBITMQ_PASS=${RABBITMQ_PASS:-viber_secret}
       - SUPABASE_URL=${SUPABASE_URL:-}
       - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:-}
+      - VIBER_DEFAULT_PHONE=${VIBER_DEFAULT_PHONE:-}
+      - VIBER_DEFAULT_COUNTRY=${VIBER_DEFAULT_COUNTRY:-}
     volumes:
       - viber-db:${VIBER_API_DB_MOUNT}
       - ./apk:/apk:ro

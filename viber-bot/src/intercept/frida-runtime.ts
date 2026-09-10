@@ -224,10 +224,17 @@ export function createFridaRuntime(options: FridaRuntimeOptions): FridaRuntime {
         await downloadAsset(version, abi, localXz);
       }
       log(`Decompressing ${localXz} to ${localBin} using local xz...`);
-      const decompress = spawnSync('xz', ['-d', '-k', '-f', localXz], { windowsHide: true });
-      if (decompress.status !== 0) {
-        // Fallback or retry
-        spawnSync('xz', ['-d', '-f', localXz], { windowsHide: true });
+      const { execFile } = await import('node:child_process');
+      const { promisify } = await import('node:util');
+      const execFileAsync = promisify(execFile);
+      try {
+        await execFileAsync('xz', ['-d', '-k', '-f', localXz], { windowsHide: true });
+      } catch {
+        try {
+          await execFileAsync('xz', ['-d', '-f', localXz], { windowsHide: true });
+        } catch (err) {
+          log(`Warning: xz error: ${String(err)}`);
+        }
       }
       const decompressedFile = localXz.replace(/\.xz$/, '');
       if (existsSync(decompressedFile) && decompressedFile !== localBin) {
