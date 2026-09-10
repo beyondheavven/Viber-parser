@@ -6,6 +6,12 @@ import { MessagesMonitorService } from '../../src/messages/messages-monitor.serv
 import { formatMonitoredExport } from '../../src/messages/monitor-export.util.js';
 import type { Message } from '../../src/viber/repository.js';
 import type { MonitoredMessageDto } from '../../src/messages/dto/monitored-message.dto.js';
+import type { RabbitMqPublisher } from '../../src/rabbitmq/rabbitmq-publisher.service.js';
+
+/** The monitor publishes every captured message; these tests read its files. */
+function silentPublisher(): RabbitMqPublisher {
+  return { publishTaskEvent: () => undefined, publish: () => undefined } as unknown as RabbitMqPublisher;
+}
 
 describe('MessagesMonitorService', () => {
   const dirs: string[] = [];
@@ -21,7 +27,7 @@ describe('MessagesMonitorService', () => {
     const dir = mkdtempSync(join(tmpdir(), 'viber-monitor-'));
     dirs.push(dir);
     process.env['MONITOR_DATA_DIR'] = dir;
-    return new MessagesMonitorService();
+    return new MessagesMonitorService(undefined, silentPublisher());
   };
 
   const createMockMessage = (overrides: Partial<Message> = {}): Message => ({
@@ -160,7 +166,7 @@ describe('MessagesMonitorService', () => {
         'utf8',
       );
       process.env['MONITOR_DATA_DIR'] = dir;
-      const monitor = new MessagesMonitorService();
+      const monitor = new MessagesMonitorService(undefined, silentPublisher());
       const [loaded] = monitor.getMonitoredMessages({ limit: 10 });
       expect(loaded?.hasMedia).toBe(true);
       expect(loaded?.body).toBeNull();
@@ -196,7 +202,7 @@ describe('MessagesMonitorService', () => {
       dirs.push(dir);
       process.env['MONITOR_DATA_DIR'] = dir;
 
-      const first = new MessagesMonitorService();
+      const first = new MessagesMonitorService(undefined, silentPublisher());
       first.enableTrackedGroup(26, { name: 'AVTOTRAL', currentLastMessageId: 1542 });
       first.stop();
 
@@ -205,7 +211,7 @@ describe('MessagesMonitorService', () => {
       };
       expect(raw.groups[0]?.lastMessageId).toBe(1542);
 
-      const second = new MessagesMonitorService();
+      const second = new MessagesMonitorService(undefined, silentPublisher());
       const group = second.getGroups().find((item) => item.conversationId === 26);
       expect(group).toMatchObject({ enabled: true, lastMessageId: 1542, name: 'AVTOTRAL' });
       second.stop();

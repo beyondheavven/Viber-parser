@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { TasksService } from '../../src/tasks/tasks.service.js';
 import { DeviceMutexService } from '../../src/common/mutex/device-mutex.service.js';
+import type { RabbitMqPublisher } from '../../src/rabbitmq/rabbitmq-publisher.service.js';
+
+/** The service publishes every task transition; these tests only assert state. */
+function silentPublisher(): RabbitMqPublisher {
+  return { publishTaskEvent: () => undefined } as unknown as RabbitMqPublisher;
+}
 
 describe('TasksService & TaskEntity', () => {
   it('transitions through states correctly from initializing to ready', () => {
     const mutex = new DeviceMutexService();
-    const service = new TasksService(mutex);
+    const service = new TasksService(mutex, silentPublisher());
 
     const task = service.createTask('26');
     expect(task.status).toBe('initializing');
@@ -34,7 +40,7 @@ describe('TasksService & TaskEntity', () => {
 
   it('handles task cancellation via stopTask', () => {
     const mutex = new DeviceMutexService();
-    const service = new TasksService(mutex);
+    const service = new TasksService(mutex, silentPublisher());
 
     const task = service.createTask('26');
     mutex.tryLock(task.id);
@@ -53,7 +59,7 @@ describe('TasksService & TaskEntity', () => {
 
   it('handles task failure via fail', () => {
     const mutex = new DeviceMutexService();
-    const service = new TasksService(mutex);
+    const service = new TasksService(mutex, silentPublisher());
 
     const task = service.createTask('26');
     task.setStep('attaching_frida', 'Подключение');

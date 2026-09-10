@@ -75,11 +75,16 @@ export class ViberAuthService {
       await this.clickContinueButton(adb);
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      // 8. Confirm dialog "Is this your phone number?" if present
-      await this.confirmNumberDialog(adb);
-      await new Promise((resolve) => setTimeout(resolve, 3500));
+      // 8. Permission explanation modal dialog ("Viber will ask you for permission...")
+      // Button: continue_btn bounds [209,445][273,467] -> (241, 456)
+      await this.handlePermissionExplanationDialog(adb);
+      await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      // 9. Click "Call me" button
+      // 9. Android System permission dialogs ("ALLOW" at 160, 369)
+      await this.handleSystemPermissionDialogs(adb);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // 10. Activation screen: click "Call me" button (call_me_button at 161, 539)
       const clickedCall = await this.clickCallMeButton(adb);
       if (clickedCall) {
         this.logger.log('Successfully requested verification call ("Call me").');
@@ -103,28 +108,26 @@ export class ViberAuthService {
   private async selectCountry(adb: any, countryName: string): Promise<boolean> {
     try {
       this.logger.log(`Selecting country "${countryName}" from dropdown...`);
-      // registration_country_btn center is around (200, 270)
-      adb.shell('input tap 200 270');
+      // registration_country_btn bounds [24,250][296,289] -> center (160, 270)
+      adb.shell('input tap 160 270');
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       let dump = this.getTopDump(adb);
       if (!dump.includes('SelectCountryActivity')) {
-        // Retry click slightly adjusted
-        adb.shell('input tap 160 270');
+        adb.shell('input tap 200 270');
         await new Promise((resolve) => setTimeout(resolve, 1500));
         dump = this.getTopDump(adb);
       }
 
       if (dump.includes('SelectCountryActivity')) {
-        // Tap search input at (188, 52)
+        // Search input at (188, 52)
         adb.shell('input tap 188 52');
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        // Type country name into search box
         adb.shell(`input text "${countryName}"`);
         await new Promise((resolve) => setTimeout(resolve, 1200));
 
-        // Tap first result in list at (160, 109)
+        // First item in list at (160, 109)
         adb.shell('input tap 160 109');
         await new Promise((resolve) => setTimeout(resolve, 1500));
         this.logger.log(`Country "${countryName}" chosen from search list.`);
@@ -151,8 +154,8 @@ export class ViberAuthService {
       }
 
       this.logger.log(`Typing phone digits: ${clean} into phone field...`);
-      // Tap phone field registration_phone_field at (203, 311)
-      adb.shell('input tap 203 311');
+      // registration_phone_field bounds [111,317][296,354] -> center (203, 335)
+      adb.shell('input tap 203 335');
       await new Promise((resolve) => setTimeout(resolve, 300));
 
       // Clear existing input
@@ -169,53 +172,101 @@ export class ViberAuthService {
 
   private async clickContinueButton(adb: any): Promise<void> {
     try {
-      this.logger.log('Tapping Continue button at (160, 401)...');
+      this.logger.log('Tapping Continue button (btn_continue) at (160, 401)...');
       adb.shell('input tap 160 401');
     } catch (err) {
       this.logger.warn(`Error clicking continue button: ${String(err)}`);
     }
   }
 
-  private async confirmNumberDialog(adb: any): Promise<void> {
+  private async handlePermissionExplanationDialog(adb: any): Promise<void> {
     try {
       const dump = this.getTopDump(adb);
-      if (dump.includes('button1') || dump.includes('AlertDialog') || dump.includes('Dialog') || dump.includes('parentPanel')) {
-        this.logger.log('Detected confirmation dialog ("Is this your phone number?"), clicking positive button...');
-        const btn1Match = dump.match(/android:id\/button1[^\n]*?(\d+),(\d+)-(\d+),(\d+)/);
-        if (btn1Match) {
-          const cx = Math.round((parseInt(btn1Match[1], 10) + parseInt(btn1Match[3], 10)) / 2);
-          const cy = Math.round((parseInt(btn1Match[2], 10) + parseInt(btn1Match[4], 10)) / 2);
-          adb.shell(`input tap ${cx} ${cy}`);
+      if (dump.includes('continue_btn') || dump.includes('call logs') || dump.includes('parentPanel')) {
+        this.logger.log('Detected permission explanation dialog, clicking continue_btn at (241, 456)...');
+        adb.shell('input tap 241 456');
+      }
+    } catch (err) {
+      this.logger.warn(`Error in handlePermissionExplanationDialog: ${String(err)}`);
+    }
+  }
+
+  private async handleSystemPermissionDialogs(adb: any): Promise<void> {
+    try {
+      for (let i = 0; i < 4; i++) {
+        const dump = this.getTopDump(adb);
+        if (dump.includes('permission_allow_button') || dump.includes('permissioncontroller') || dump.includes('ALLOW')) {
+          this.logger.log(`Accepting system permission [attempt ${i + 1}] at (160, 369)...`);
+          adb.shell('input tap 160 369');
+          await new Promise((resolve) => setTimeout(resolve, 1200));
         } else {
-          adb.shell('input tap 240 360');
+          break;
         }
       }
     } catch (err) {
-      this.logger.warn(`Error confirming dialog: ${String(err)}`);
+      this.logger.warn(`Error in handleSystemPermissionDialogs: ${String(err)}`);
     }
   }
 
   private async clickCallMeButton(adb: any): Promise<boolean> {
     try {
       const dump = this.getTopDump(adb);
-      this.logger.log('Looking for "Call me" button on verification screen...');
+      this.logger.log('Looking for "Call me" button on activation screen...');
 
-      const callMatch = dump.match(/id\/[^ \n]*(?:call|phone)[^ \n]*[^\n]*?(\d+),(\d+)-(\d+),(\d+)/i) ||
-                        dump.match(/(\d+),(\d+)-(\d+),(\d+)[^\n]*(?:Call|Звонок|Позвонить)/i);
-
-      if (callMatch) {
-        const cx = Math.round((parseInt(callMatch[1], 10) + parseInt(callMatch[3], 10)) / 2);
-        const cy = Math.round((parseInt(callMatch[2], 10) + parseInt(callMatch[4], 10)) / 2);
-        this.logger.log(`Tapping Call me button at (${cx}, ${cy})`);
-        adb.shell(`input tap ${cx} ${cy}`);
+      // call_me_button bounds [12,517][310,561] -> center (161, 539)
+      if (dump.includes('call_me_button') || dump.includes('Call me') || dump.includes('almost there')) {
+        this.logger.log('Tapping "Call me" button at (161, 539)...');
+        adb.shell('input tap 161 539');
         return true;
       }
 
-      adb.shell('input tap 160 480');
+      adb.shell('input tap 161 539');
       return true;
     } catch (e) {
-      this.logger.warn(`Failed to auto-click "Call me": ${String(e)}`);
+      this.logger.warn(`Failed to click "Call me": ${String(e)}`);
       return false;
+    }
+  }
+
+  async enterCode(dto: ConfirmCodeDto): Promise<AuthResponseDto> {
+    try {
+      this.logger.log(`Entering activation digits: ${dto.code}`);
+      const { adb } = await openDevice({ ensureUp: false });
+
+      const digits = dto.code.replace(/\D/g, '');
+      if (digits.length === 0) {
+        throw new Error('Код активации должен содержать цифры');
+      }
+
+      for (const char of digits) {
+        adb.shell(`input text ${char}`);
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+      adb.shell('input keyevent 66');
+
+      this.logger.log('Waiting for code validation and Profile screen...');
+      await new Promise((resolve) => setTimeout(resolve, 3500));
+
+      // Profile screen: continueButtonView bounds [249,310][305,366] -> center (277, 338)
+      const dump = this.getTopDump(adb);
+      if (dump.includes('continueButtonView') || dump.includes('nameInputHolder') || dump.includes('userNameTextInput')) {
+        this.logger.log('Detected Profile screen, clicking continueButtonView at (277, 338)...');
+        adb.shell('input tap 277 338');
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+
+      return {
+        success: true,
+        message: 'Код подтверждения успешно введен, экран профиля подтвержден',
+        step: 'AUTHORIZED',
+      };
+    } catch (error) {
+      this.logger.error(`Error entering verification code: ${String(error)}`);
+      return {
+        success: false,
+        message: `Ошибка ввода кода: ${String(error)}`,
+        step: 'ERROR',
+      };
     }
   }
 
