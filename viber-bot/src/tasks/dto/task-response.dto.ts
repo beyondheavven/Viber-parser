@@ -1,71 +1,62 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { FlowStep, TaskStatus, TaskStepInfo } from '../entities/task.entity.js';
 import { TaskCollectionResultDto } from '../../participants/dto/participant-response.dto.js';
 
 export class TaskStepDto {
-  @ApiProperty({ type: String, description: 'Идентификатор шага', example: 'paging_participants' })
+  /** Идентификатор шага. */
   step!: FlowStep;
 
-  @ApiProperty({ type: String, description: 'Описание выполняемого шага', example: 'Сбор участников через Frida' })
+  /** Описание выполняемого шага. */
   description!: string;
 
-  @ApiProperty({ type: String, description: 'Время начала шага (ISO 8601)' })
+  /** Время начала шага (ISO 8601). */
   startedAt!: string;
 
-  @ApiPropertyOptional({ type: Number, description: 'Длительность шага в мс' })
+  /** Длительность шага в мс. */
   durationMs?: number | undefined;
 
-  @ApiPropertyOptional({ type: Object, description: 'Детали прогресса шага' })
+  /** Детали прогресса шага. */
   progress?: Record<string, unknown> | undefined;
 }
 
 export class TaskSummaryDto {
-  @ApiProperty({ type: String, description: 'Уникальный ID задачи', example: 'task_1725547890123' })
+  /** Уникальный ID задачи. */
   id!: string;
 
-  @ApiProperty({ type: String, description: 'Имя или ID целевой группы', example: '26' })
+  /** Имя или ID целевой группы. */
   groupTarget!: string;
 
-  @ApiPropertyOptional({ type: String, description: 'Название группы', example: 'АVTOTRAL🚨' })
+  /** Название группы. */
   groupName?: string | undefined;
 
-  @ApiPropertyOptional({ type: Number, description: 'Числовой ID беседы', example: 26 })
+  /** Числовой ID беседы. */
   conversationId?: number | undefined;
 
-  @ApiProperty({
-    type: String,
-    description: 'Статус задачи: initializing, starting, running, stopped, error, ready',
-    example: 'running',
-    enum: ['initializing', 'starting', 'running', 'stopped', 'error', 'ready'],
-  })
+  /** Статус задачи: initializing, starting, running, stopped, error, ready. */
   status!: TaskStatus;
 
-  @ApiPropertyOptional({ type: () => TaskStepDto, description: 'Текущий выполняемый шаг' })
+  /** Текущий выполняемый шаг. */
   currentStep?: TaskStepDto | null | undefined;
 
-  @ApiProperty({ type: String, description: 'Дата создания задачи' })
+  /** Дата создания задачи. */
   createdAt!: string;
 
-  @ApiPropertyOptional({ type: String, description: 'Дата запуска' })
+  /** Дата запуска. */
   startedAt?: string | undefined;
 
-  @ApiPropertyOptional({ type: String, description: 'Дата завершения' })
+  /** Дата завершения. */
   completedAt?: string | undefined;
 }
 
 export class TaskDetailDto extends TaskSummaryDto {
-  @ApiProperty({ description: 'История выполненных шагов с таймингами', type: () => [TaskStepDto] })
+  /** История выполненных шагов с таймингами. */
   stepHistory!: TaskStepInfo[];
 
-  @ApiPropertyOptional({ type: Object, description: 'Текущий объект прогресса' })
+  /** Текущий объект прогресса. */
   progress?: Record<string, unknown> | null | undefined;
 
-  @ApiPropertyOptional({ type: String, description: 'Текст ошибки, если статус error' })
+  /** Текст ошибки, если статус error. */
   error?: string | null | undefined;
 
-  @ApiPropertyOptional({
-    type: () => TaskCollectionResultDto,
-    description: 'Итоговый результат задачи сбора участников, если статус ready',
-  })
+  /** Итоговый результат задачи сбора участников, если статус ready. */
   result?: TaskCollectionResultDto | Record<string, unknown> | null | undefined;
 }

@@ -1,5 +1,11 @@
 import { BasePage } from './base.page.js';
-import { XMLParser } from 'fast-xml-parser';
+import {
+  collectDescendants,
+  findDescendant,
+  parseBounds,
+  parseHierarchy,
+  type XmlNode,
+} from './page-source.js';
 import { ParticipantNotFoundError, ParticipantUnreachableError } from './errors.js';
 import {
   MESSAGE_OPTION_PREFIX,
@@ -23,67 +29,11 @@ export interface RosterViewport {
   totalCount: number | null;
 }
 
-interface XmlNode {
-  node?: XmlNode | XmlNode[];
-  text?: string;
-  'resource-id'?: string;
-  bounds?: string;
-}
-
-const xmlParser = new XMLParser({
-  ignoreAttributes: false,
-  attributeNamePrefix: '',
-  parseAttributeValue: false,
-});
-
 export const ROSTER_SCROLL_PERCENT = 0.75;
-
-function childNodes(node: XmlNode): XmlNode[] {
-  const children: XmlNode[] = [];
-  for (const value of Object.values(node)) {
-    if (typeof value === 'object' && value !== null) {
-      if (Array.isArray(value)) {
-        for (const item of value) {
-          if (typeof item === 'object' && item !== null) children.push(item as XmlNode);
-        }
-      } else {
-        children.push(value as XmlNode);
-      }
-    }
-  }
-  return children;
-}
-
-function findDescendant(node: XmlNode, resourceId: string): XmlNode | undefined {
-  if (node['resource-id'] === resourceId) return node;
-  for (const child of childNodes(node)) {
-    const match = findDescendant(child, resourceId);
-    if (match !== undefined) return match;
-  }
-  return undefined;
-}
-
-function collectDescendants(node: XmlNode, resourceId: string, target: XmlNode[]): void {
-  if (node['resource-id'] === resourceId) target.push(node);
-  for (const child of childNodes(node)) collectDescendants(child, resourceId, target);
-}
-
-function parseBounds(value: string | undefined): RosterViewport['list'] | null {
-  const match = /^\[(-?\d+),(-?\d+)]\[(-?\d+),(-?\d+)]$/.exec(value ?? '');
-  if (match === null) return null;
-  return {
-    left: Number.parseInt(match[1] ?? '', 10),
-    top: Number.parseInt(match[2] ?? '', 10),
-    right: Number.parseInt(match[3] ?? '', 10),
-    bottom: Number.parseInt(match[4] ?? '', 10),
-  };
-}
 
 /** Parses one Appium hierarchy snapshot into roster rows without per-row roundtrips. */
 export function parseRosterPageSource(xml: string): RosterViewport {
-  const document = xmlParser.parse(xml) as { hierarchy?: XmlNode };
-  const root = document.hierarchy;
-  if (root === undefined) throw new Error('Appium page source has no hierarchy root.');
+  const root = parseHierarchy(xml);
 
   const listNode = findDescendant(root, selectors.participants.list);
   const list = parseBounds(listNode?.bounds);
@@ -145,15 +95,18 @@ export function parseRosterPageSource(xml: string): RosterViewport {
  * that a participant tap opens.
  */
 export class ParticipantsPage extends BasePage {
+  /**
+   * Waits on a row's `itemLayout`, not on its `name`: `name` is also what the
+   * info panel labels its participant previews with, and `recycler_view`
+   * belongs to a dozen other screens — either would report this list as loaded
+   * while Viber is still showing something else.
+   */
   async waitUntilLoaded(): Promise<void> {
-    await this.waitFor(selectors.participants.rowName);
+    await this.waitFor(selectors.participants.row);
   }
 
   async isLoaded(timeout = 2_000): Promise<boolean> {
-    return (
-      (await this.isPresent(selectors.participants.list, timeout)) ||
-      (await this.isPresent(selectors.participants.rowName, timeout))
-    );
+    return this.isPresent(selectors.participants.row, timeout);
   }
 
   /** Display names currently rendered in the list. */

@@ -48,6 +48,20 @@ export const selectors = {
    */
   groupInfo: {
     fragment: id('conversation_info_fragment'),
+    /**
+     * The panel's own RecyclerView. Scrolling has to be aimed at this id: in
+     * the landscape layout the conversation's message list is on screen at the
+     * same time and is also scrollable, so an unscoped scroll moves the wrong
+     * view.
+     */
+    list: id('conversationInfo'),
+    /** Section title in a chat-info header row, e.g. "УЧАСТНИКИ (1 632)". */
+    sectionTitle: id('startText'),
+    /** Trailing action of a chat-info header row, e.g. "Показать всех". */
+    sectionAction: id('endText'),
+    /** Older chat-info header row, same two halves under different ids. */
+    legacySectionTitle: id('tx_start_text'),
+    legacySectionAction: id('tx_end_text'),
     /** Participant preview rows inside the info panel. */
     participantName: id('name'),
     participantRole: id('groupRole'),
@@ -72,8 +86,29 @@ export const selectors = {
   },
 } as const;
 
-/** Label text of the "show all participants" button in the info panel. */
-export const SHOW_ALL_PARTICIPANTS_TEXT = 'Показать всех';
+/**
+ * Label of the "show all participants" action in the info panel — Viber's
+ * `string/show_all`, in every language this account may be running in. The
+ * device locale is not pinned, so all of them are matched.
+ */
+export const SHOW_ALL_PARTICIPANTS_TEXTS = [
+  'Показать всех',
+  'Показати всіх',
+  'Паказаць усё',
+  'Show all',
+] as const;
+
+/**
+ * Prefix of the participants section title — Viber's `string/members` and
+ * `string/members_count` ("УЧАСТНИКИ (%s)"). Used to find the right section
+ * header when the action label itself is not matched.
+ */
+export const PARTICIPANTS_SECTION_TITLES = [
+  'участник',
+  'учасник',
+  'удзельнік',
+  'member',
+] as const;
 
 /** Prefix of the "message this participant" dialog option. */
 export const MESSAGE_OPTION_PREFIX = 'Сообщение ';

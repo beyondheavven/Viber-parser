@@ -1,20 +1,126 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { BasePage } from './base.page.js';
-import { SHOW_ALL_PARTICIPANTS_TEXT, selectors } from './selectors.js';
-import { byText } from './uiselector.js';
+import {
+  centerOf,
+  collectAll,
+  parseBounds,
+  parseHierarchy,
+  type Bounds,
+  type XmlNode,
+} from './page-source.js';
+import {
+  PARTICIPANTS_SECTION_TITLES,
+  SHOW_ALL_PARTICIPANTS_TEXTS,
+  selectors,
+} from './selectors.js';
+
+export interface PanelScan {
+  /** Bounds of the info panel's own RecyclerView, when it is on screen. */
+  panel: Bounds | null;
+  /** The "show all participants" action, when it is currently rendered. */
+  showAll: Bounds | null;
+  /** Trailing action of the participants section header, matched by its title. */
+  participantsAction: Bounds | null;
+  /** Section titles rendered right now — the evidence in the failure message. */
+  sectionTitles: string[];
+}
+
+function normalise(text: string | undefined): string {
+  return (text ?? '').replace(/\s+/gu, ' ').trim();
+}
+
+function isShowAllLabel(text: string): boolean {
+  const value = text.toLocaleLowerCase('ru');
+  return SHOW_ALL_PARTICIPANTS_TEXTS.some((label) =>
+    value.startsWith(label.toLocaleLowerCase('ru')),
+  );
+}
+
+function isParticipantsTitle(text: string): boolean {
+  const value = text.toLocaleLowerCase('ru');
+  return PARTICIPANTS_SECTION_TITLES.some((prefix) => value.startsWith(prefix));
+}
+
+/**
+ * Reads one info-panel hierarchy snapshot: where the panel is, whether the
+ * "show all participants" action is currently bound, and which sections are
+ * rendered — the last of these being what a failure has to report.
+ */
+export function scanInfoPanelSource(xml: string): PanelScan {
+  const nodes: XmlNode[] = [];
+  collectAll(parseHierarchy(xml), nodes);
+
+  const panelNode = nodes.find((node) => node['resource-id'] === selectors.groupInfo.list);
+  const panel = parseBounds(panelNode?.bounds);
+
+  const titleIds = new Set<string>([
+    selectors.groupInfo.sectionTitle,
+    selectors.groupInfo.legacySectionTitle,
+  ]);
+  const actionIds = new Set<string>([
+    selectors.groupInfo.sectionAction,
+    selectors.groupInfo.legacySectionAction,
+  ]);
+
+  const sectionTitles: string[] = [];
+  let showAll: Bounds | null = null;
+  let participantsAction: Bounds | null = null;
+
+  for (const [index, node] of nodes.entries()) {
+    const resourceId = node['resource-id'];
+    const text = normalise(node.text);
+    if (text === '') continue;
+
+    if (resourceId !== undefined && titleIds.has(resourceId)) {
+      sectionTitles.push(text);
+      if (participantsAction === null && isParticipantsTitle(text)) {
+        participantsAction = actionNextTo(nodes, index, actionIds);
+      }
+    }
+
+    if (showAll === null && isShowAllLabel(text)) {
+      showAll = parseBounds(node.bounds);
+    }
+  }
+
+  return { panel, showAll, participantsAction, sectionTitles };
+}
+
+/**
+ * A header's action node follows its title in the hierarchy, so the next
+ * action node is the one belonging to that section — matching by id alone
+ * would just as happily pick up another section's trailing action.
+ */
+function actionNextTo(nodes: XmlNode[], titleIndex: number, actionIds: Set<string>): Bounds | null {
+  const limit = Math.min(titleIndex + 5, nodes.length);
+  for (let index = titleIndex + 1; index < limit; index += 1) {
+    const node = nodes[index];
+    if (node === undefined) continue;
+    const resourceId = node['resource-id'];
+    if (resourceId !== undefined && actionIds.has(resourceId) && normalise(node.text) !== '') {
+      return parseBounds(node.bounds);
+    }
+  }
+  return null;
+}
 
 /**
  * The group info panel.
  *
  * On LDPlayer's landscape (tablet) layout the info opens as a panel on the
- * right half of the conversation screen rather than as its own activity, and
- * the panel is not exposed as a scrollable node, so its "show all" button is
- * reached by swiping the right half rather than with `UiScrollable`.
+ * right half of the conversation screen rather than as its own activity. The
+ * conversation's message list stays on screen beside it and is scrollable too,
+ * so every scroll here is aimed at the panel's own RecyclerView
+ * (`conversationInfo`) rather than at "the first scrollable view".
  */
 export class GroupInfoPage extends BasePage {
-  /** How far in from the left the info panel sits (fraction of screen width). */
+  /**
+   * The participants section sits below the panel's settings rows, so reaching
+   * it takes a fair number of scrolls on a long info panel.
+   */
+  private static readonly MAX_PANEL_SCROLLS = 20;
+  /** Fallback panel position when `conversationInfo` cannot be located. */
   private static readonly PANEL_X_FRACTION = 0.72;
-  private static readonly MAX_PANEL_SWIPES = 8;
 
   /**
    * Opens the info panel by tapping the toolbar title.
@@ -70,38 +176,94 @@ export class GroupInfoPage extends BasePage {
   }
 
   /**
-   * Opens the full participants list via the "show all" button, swiping the
-   * info panel up until the button is on screen.
+   * Opens the full participants list via the "show all" action, scrolling the
+   * info panel until it is rendered.
+   *
+   * The action lives in a RecyclerView, so it enters the hierarchy only once it
+   * has been scrolled close enough to be bound — waiting for it without
+   * scrolling finds nothing however long the wait.
    */
   async openAllParticipants(): Promise<void> {
-    for (let swipe = 0; swipe < GroupInfoPage.MAX_PANEL_SWIPES; swipe += 1) {
-      if (await this.isPresent(byText(SHOW_ALL_PARTICIPANTS_TEXT), 600)) {
-        await this.tap(byText(SHOW_ALL_PARTICIPANTS_TEXT));
-        return;
+    let scan = await this.scanPanel();
+    let sectionTitles = scan.sectionTitles;
+
+    for (let scroll = 0; scroll <= GroupInfoPage.MAX_PANEL_SCROLLS; scroll += 1) {
+      const target = scan.showAll ?? scan.participantsAction;
+      if (target !== null) {
+        await this.tapBounds(target);
+        if (await this.participantsListOpened()) return;
+        // The tap landed on a row that was still settling; carry on scanning.
       }
-      await this.swipePanelUp();
+
+      const moved = await this.scrollPanel(scan.panel);
+      scan = await this.scanPanel();
+      if (scan.sectionTitles.length > 0) sectionTitles = scan.sectionTitles;
+      if (!moved && scan.showAll === null && scan.participantsAction === null) break;
     }
-    throw new Error(`"${SHOW_ALL_PARTICIPANTS_TEXT}" did not appear after scrolling the info panel.`);
+
+    const where =
+      scan.panel === null
+        ? 'the info panel was not on screen'
+        : `panel bounds ${JSON.stringify(scan.panel)}`;
+    throw new Error(
+      `"${SHOW_ALL_PARTICIPANTS_TEXTS[0]}" did not appear after scrolling the info panel ` +
+        `(${where}; sections seen: ${sectionTitles.length > 0 ? sectionTitles.join(' | ') : 'none'}).`,
+    );
   }
 
-  private async swipePanelUp(): Promise<void> {
+  /** One hierarchy snapshot answers every question this screen needs. */
+  private async scanPanel(): Promise<PanelScan> {
+    return scanInfoPanelSource(await this.driver.getPageSource());
+  }
+
+  private async tapBounds(bounds: Bounds): Promise<void> {
+    const { x, y } = centerOf(bounds);
+    await this.driver.execute('mobile: clickGesture', { x, y });
+    await this.driver.pause(600);
+  }
+
+  /**
+   * `itemLayout` belongs to `participants_list_item` and to nothing else in
+   * the app, so it tells the full list apart from the panel's preview rows —
+   * which the panel draws with the same `name` id the list rows use.
+   */
+  private async participantsListOpened(): Promise<boolean> {
+    return this.isPresent(selectors.participants.row, 2_500);
+  }
+
+  /**
+   * Scrolls the info panel down by most of its height and reports whether it
+   * actually moved, so a panel already at its end ends the scan instead of
+   * burning through the remaining attempts.
+   */
+  private async scrollPanel(panel: Bounds | null): Promise<boolean> {
+    const area = panel ?? (await this.fallbackPanelArea());
+    // `mobile: scrollGesture` answers with UiAutomator's canScrollMore.
+    const canScrollMore = (await this.driver.execute('mobile: scrollGesture', {
+      left: area.left,
+      top: area.top,
+      width: area.right - area.left,
+      height: area.bottom - area.top,
+      direction: 'down',
+      percent: 0.8,
+      speed: 1_600,
+    })) as unknown as boolean;
+    await this.driver.pause(500);
+    return canScrollMore !== false;
+  }
+
+  /**
+   * Where to scroll when `conversationInfo` is not in the hierarchy: a column
+   * on the right of the screen, which is where the panel sits in the landscape
+   * layout.
+   */
+  private async fallbackPanelArea(): Promise<Bounds> {
     const { width, height } = await this.driver.getWindowSize();
-    const x = Math.round(width * GroupInfoPage.PANEL_X_FRACTION);
-    await this.driver.performActions([
-      {
-        type: 'pointer',
-        id: 'finger1',
-        parameters: { pointerType: 'touch' },
-        actions: [
-          { type: 'pointerMove', duration: 0, x, y: Math.round(height * 0.72) },
-          { type: 'pointerDown', button: 0 },
-          { type: 'pause', duration: 80 },
-          { type: 'pointerMove', duration: 350, x, y: Math.round(height * 0.28) },
-          { type: 'pointerUp', button: 0 },
-        ],
-      },
-    ]);
-    await this.driver.releaseActions();
-    await this.driver.pause(800);
+    return {
+      left: Math.round(width * (GroupInfoPage.PANEL_X_FRACTION - 0.2)),
+      top: Math.round(height * 0.2),
+      right: Math.min(width - 1, Math.round(width * 0.98)),
+      bottom: Math.round(height * 0.85),
+    };
   }
 }

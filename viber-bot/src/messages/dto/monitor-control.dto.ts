@@ -1,142 +1,73 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsNumber, IsOptional } from 'class-validator';
 
 export class EnableMonitorGroupDto {
-  @ApiPropertyOptional({
-    type: Boolean,
-    description:
-      'true — начать с текущего последнего сообщения (пропустить историю). false — подтянуть все сообщения с сохранённого курсора или с начала. По умолчанию true только при первом включении группы.',
-    example: false,
-  })
+  /** true — начать с текущего последнего сообщения (пропустить историю). false — подтянуть все сообщения с сохранённого курсора или с начала. По умолчанию true только при первом включении группы. */
   @IsOptional()
   @IsBoolean()
   fromLatest?: boolean;
 }
 
 export class MonitoredGroupDto {
-  @ApiProperty({ type: Number, example: 26 })
   conversationId!: number;
 
-  @ApiPropertyOptional({ type: String, example: 'АVTOTRAL🚨' })
   name!: string | null;
 
-  @ApiProperty({ type: Boolean, example: true })
   enabled!: boolean;
 
-  @ApiProperty({
-    type: Number,
-    description: 'Последний обработанный ID сообщения в этой группе. После рестарта эмулятора опрос продолжается отсюда.',
-    example: 1542,
-  })
+  /** Последний обработанный ID сообщения в этой группе. После рестарта эмулятора опрос продолжается отсюда. */
   lastMessageId!: number;
 }
 
 export class StartMonitorDto {
-  @ApiPropertyOptional({
-    type: Number,
-    description: 'Включить мониторинг этой группы и запустить опрос',
-    example: 26,
-  })
+  /** Включить мониторинг этой группы и запустить опрос. */
   @IsOptional()
   @IsNumber()
   conversationId?: number;
 
-  @ApiPropertyOptional({
-    type: Number,
-    description: 'Интервал опроса базы данных в миллисекундах (по умолчанию 2500 мс)',
-    default: 2500,
-    example: 2500,
-  })
+  /** Интервал опроса базы данных в миллисекундах (по умолчанию 2500 мс). */
   @IsOptional()
   @IsNumber()
   pollIntervalMs?: number = 2500;
 
-  @ApiPropertyOptional({
-    type: Boolean,
-    description:
-      'Для conversationId: true — пропустить историю этой группы. false — догнать с сохранённого курсора. Если группа уже мониторилась, по умолчанию курсор не сбрасывается.',
-  })
+  /** Для conversationId: true — пропустить историю этой группы. false — догнать с сохранённого курсора. Если группа уже мониторилась, по умолчанию курсор не сбрасывается. */
   @IsOptional()
   @IsBoolean()
   fromLatest?: boolean;
 
-  @ApiPropertyOptional({
-    type: Number,
-    description: 'Начать обработку с конкретного ID сообщения (например, 0 для всей истории)',
-    example: 0,
-  })
+  /** Начать обработку с конкретного ID сообщения (например, 0 для всей истории). */
   @IsOptional()
   @IsNumber()
   startFromId?: number | undefined;
 }
 
 export class MonitorStatusDto {
-  @ApiProperty({
-    type: Boolean,
-    description: 'Активен ли сейчас фоновый мониторинг сообщений',
-    example: true,
-  })
+  /** Активен ли сейчас фоновый мониторинг сообщений. */
   isRunning!: boolean;
 
-  @ApiPropertyOptional({
-    type: Number,
-    description: 'Устарело: используйте groups. Заполнено, если включена ровно одна группа.',
-    example: 26,
-  })
+  /** Устарело: используйте groups. Заполнено, если включена ровно одна группа. */
   conversationId?: number | null;
 
-  @ApiProperty({
-    type: () => [MonitoredGroupDto],
-    description: 'Группы, для которых мониторинг включён или выключен, с курсором catch-up',
-  })
+  /** Группы, для которых мониторинг включён или выключен, с курсором catch-up. */
   groups!: MonitoredGroupDto[];
 
-  @ApiProperty({
-    type: Boolean,
-    description: 'Frida-перехват записи в SQLite: сообщение обрабатывается сразу при сохранении в Viber',
-    example: true,
-  })
+  /** Frida-перехват записи в SQLite: сообщение обрабатывается сразу при сохранении в Viber. */
   liveWatch!: boolean;
 
-  @ApiProperty({
-    type: Number,
-    description: 'Интервал страховочного опроса в миллисекундах (при liveWatch основной путь — мгновенный хук)',
-    example: 2500,
-  })
+  /** Интервал страховочного опроса в миллисекундах (при liveWatch основной путь — мгновенный хук). */
   pollIntervalMs!: number;
 
-  @ApiPropertyOptional({
-    type: String,
-    description: 'Время последнего цикла опроса (ISO 8601)',
-    example: '2026-09-05T16:14:00.000Z',
-  })
+  /** Время последнего цикла опроса (ISO 8601). */
   lastPollAt?: string | null;
 
-  @ApiProperty({
-    type: Number,
-    description: 'Последний обработанный ID сообщения в базе SQLite',
-    example: 1542,
-  })
+  /** Последний обработанный ID сообщения в базе SQLite. */
   lastProcessedMessageId!: number;
 
-  @ApiProperty({
-    type: Number,
-    description: 'Всего обработано сообщений за текущую сессию',
-    example: 48,
-  })
+  /** Всего обработано сообщений за текущую сессию. */
   processedMessagesCount!: number;
 
-  @ApiProperty({
-    type: Number,
-    description: 'Количество сообщений, где номер телефона был извлечен из текста',
-    example: 32,
-  })
+  /** Количество сообщений, где номер телефона был извлечен из текста. */
   phonesFromTextCount!: number;
 
-  @ApiProperty({
-    type: Number,
-    description: 'Количество сообщений, где номер телефона был подтянут из профиля базы Viber',
-    example: 9,
-  })
+  /** Количество сообщений, где номер телефона был подтянут из профиля базы Viber. */
   phonesFromViberCount!: number;
 }
