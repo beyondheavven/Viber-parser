@@ -80,6 +80,11 @@ services:
       - VIBER_MESSAGES_DB=/data/data/com.viber.voip/databases/viber_messages
       - VIBER_DEFAULT_PHONE=${VIBER_DEFAULT_PHONE:-}
       - VIBER_DEFAULT_COUNTRY=${VIBER_DEFAULT_COUNTRY:-}
+    volumes:
+      # Collected rosters and monitored messages are written here, and
+      # /api/tasks/{id}/participants reads the list back out of the saved file —
+      # without this the results die with the container.
+      - viber-bot-data:/app/data
     depends_on:
       rabbitmq:
         condition: service_healthy

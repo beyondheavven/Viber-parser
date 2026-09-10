@@ -74,7 +74,7 @@ export function scanInfoPanelSource(xml: string): PanelScan {
       }
     }
 
-    if (showAll === null && (isShowAllLabel(text) || resourceId === selectors.groupInfo.sectionTitle)) {
+    if (showAll === null && isShowAllLabel(text)) {
       showAll = parseBounds(node.bounds);
     }
   }

@@ -17,6 +17,15 @@
  */
 
 export interface PgPage {
+  /**
+   * Which group the page belongs to. The Frida hook is passive and sees every
+   * General Query reply the app receives, including ones Viber issues for
+   * other conversations on its own, so the caller has to check this before
+   * treating a page as an answer to its own request.
+   */
+  groupId: string | null;
+  /** The reply's status code; anything but 0 is an error, not a roster page. */
+  result: number | null;
   /** The offset this page starts at. */
   sindex: number;
   /** The server's page size for this reply. */
@@ -60,8 +69,16 @@ export function parsePgPage(json: string): PgPage | null {
   if (sindex === null) return null;
   const count = group.members.length;
   const size = asInt(group.size) ?? count;
+  const groupId = typeof group.id === 'string' ? group.id : asInt(group.id)?.toString() ?? null;
 
-  return { sindex, size, last: group.last === true, count };
+  return {
+    groupId,
+    result: asInt(parsed.result),
+    sindex,
+    size,
+    last: group.last === true,
+    count,
+  };
 }
 
 /**
@@ -72,4 +89,20 @@ export function parsePgPage(json: string): PgPage | null {
 export function nextSindex(page: PgPage): number {
   const step = page.size > 0 ? page.size : page.count;
   return page.sindex + Math.max(step, 1);
+}
+
+/**
+ * Whether a page is an answer to a request this run made.
+ *
+ * The hook is passive, so replies arrive for conversations nobody here asked
+ * about — and a stray page carrying `last: true` would otherwise end the walk
+ * as if the whole roster had been read.
+ */
+export function pageAnswers(
+  page: PgPage,
+  groupId: string,
+  requestedOffsets: ReadonlySet<number>,
+): boolean {
+  if (page.groupId !== null && page.groupId !== groupId) return false;
+  return requestedOffsets.has(page.sindex);
 }

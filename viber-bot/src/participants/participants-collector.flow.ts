@@ -44,6 +44,21 @@ export class ParticipantsCollectorFlow {
   ) {}
 
   /**
+   * Rows currently linked to the conversation in the live database — the
+   * number that shows whether the stream actually landed in SQLite.
+   */
+  private countLinkedParticipants(context: DeviceContext, conversationId: number): number {
+    try {
+      return context.db.count(
+        `select count(*) from participants where conversation_id = ${String(conversationId)}`,
+      );
+    } catch (err) {
+      this.logger.warn(`Could not count linked participants: ${String(err)}`);
+      return -1;
+    }
+  }
+
+  /**
    * Orchestrates the complete participant collection flow with real-time state tracking and AbortSignal support.
    */
   async execute(
@@ -120,8 +135,15 @@ export class ParticipantsCollectorFlow {
           return;
         }
 
-        // Wait for controller query readiness
-        await fridaAgent.waitForQueryReady(10_000, signal);
+        // Wait for controller query readiness. A walk started before the
+        // agent's hooks are live gets no reply to its first request and can
+        // only end on the idle timeout.
+        if (!(await fridaAgent.waitForQueryReady(10_000, signal))) {
+          throw new Error(
+            'Frida-агент не сообщил о готовности контроллера запросов за 10 секунд. ' +
+              'Пагинация не запускалась.',
+          );
+        }
 
         // 4. Frida active stream pagination
         task.setStep('paging_participants', 'Сбор страниц участников через Frida без прокрутки экрана', {
@@ -141,6 +163,7 @@ export class ParticipantsCollectorFlow {
                 currentOffset: p.currentOffset,
                 pageSize: p.pageSize,
                 lastPage: p.lastPage,
+                streamTotal: p.headerTotal,
               });
             },
           },
@@ -149,9 +172,29 @@ export class ParticipantsCollectorFlow {
         await fridaAgent.cleanup();
       }
 
+      const pagingSummary =
+        `страниц ${String(pagingResult.pagesCount)}, участников ${String(pagingResult.collectedMembers)}` +
+        (pagingResult.expectedTotal === null
+          ? ' (последняя страница не пришла)'
+          : ` из ${String(pagingResult.expectedTotal)}`) +
+        (pagingResult.ignoredPages > 0
+          ? `, отброшено чужих ответов ${String(pagingResult.ignoredPages)}`
+          : '') +
+        (pagingResult.queryErrors.length > 0
+          ? `, ошибки агента: ${pagingResult.queryErrors.join('; ')}`
+          : '');
+      this.logger.log(`Paging finished — ${pagingSummary}.`);
+      task.updateProgress({
+        pagesCount: pagingResult.pagesCount,
+        streamMembers: pagingResult.collectedMembers,
+        streamTotal: pagingResult.expectedTotal ?? pagingResult.headerTotal,
+        ignoredPages: pagingResult.ignoredPages,
+      });
+
       if (!dto.allowPartial && !pagingResult.lastReached) {
         throw new Error(
-          `Пагинация не завершилась (последняя страница не достигнута). Получено страниц: ${String(pagingResult.pagesCount)}. Для сохранения неполного списка передайте allowPartial: true.`,
+          `Пагинация не завершилась: ${pagingSummary}. ` +
+            'Для сохранения неполного списка передайте allowPartial: true.',
         );
       }
 
@@ -163,6 +206,10 @@ export class ParticipantsCollectorFlow {
       // 4. Initial live DB update
       task.setStep('syncing_live_db', 'Запись полученных участников и связей в рабочую базу данных эмулятора');
       const streamMembers = parsePgRoster(pagingResult.rawPageJsons);
+      this.logger.log(
+        `Parsed ${String(streamMembers.length)} members from ${String(pagingResult.pagesCount)} pages.`,
+      );
+      task.updateProgress({ parsedMembers: streamMembers.length });
 
       this.participantSync.applyInitialSync(
         streamMembers,
@@ -170,6 +217,10 @@ export class ParticipantsCollectorFlow {
         context.db,
         viberConfig.appPackage,
       );
+
+      const linkedAfterSync = this.countLinkedParticipants(context, conversationId);
+      this.logger.log(`Live DB holds ${String(linkedAfterSync)} participants after the initial sync.`);
+      task.updateProgress({ linkedAfterSync });
 
       if (signal.aborted) {
         task.stop();
@@ -233,6 +284,8 @@ export class ParticipantsCollectorFlow {
       task.setStep('exporting_results', 'Формирование отчёта и экспорт в TXT и JSON файлы');
       context.db.refresh();
       const rawParticipants = context.viber.participants(conversationId);
+      this.logger.log(`Read back ${String(rawParticipants.length)} participants from the snapshot.`);
+      task.updateProgress({ readBack: rawParticipants.length });
 
       // Supplement any names from stream members if needed
       const streamMap = new Map<string, string>();
@@ -258,6 +311,13 @@ export class ParticipantsCollectorFlow {
 
       // Deduplicate participants in memory by memberId and normalized phone number
       const participants = deduplicateParticipants(rawParticipants);
+      if (participants.length !== rawParticipants.length) {
+        this.logger.log(
+          `Dedup merged ${String(rawParticipants.length - participants.length)} of ` +
+            `${String(rawParticipants.length)} rows.`,
+        );
+      }
+      task.updateProgress({ afterDedup: participants.length });
       // Safeguard self account
       const selfParticipant = participants.find(
         (p) => p.id === 1 || (p.number !== null && p.number.includes('48794034881')),
