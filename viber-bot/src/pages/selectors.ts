@@ -13,6 +13,79 @@ const PACKAGE = 'com.viber.voip';
 const id = (name: string): string => `${PACKAGE}:id/${name}`;
 
 export const selectors = {
+  /**
+   * The welcome splash Viber opens on before an account is activated.
+   * Captured from `.splash.SplashActivity`.
+   */
+  splash: {
+    root: id('root_container'),
+    /** "Start now" — the only control on the screen. */
+    startButton: id('okBtn'),
+  },
+
+  /**
+   * Phone-number entry, `.registration.RegistrationActivity`.
+   *
+   * The screen scrolls under the soft keyboard, so the same controls sit at
+   * different coordinates depending on whether it is up — every tap here has
+   * to be resolved from the element, never from a fixed point.
+   */
+  registration: {
+    title: id('title'),
+    /** Opens the country picker; its text is "<flag>  <Country>". */
+    countryButton: id('registration_country_btn'),
+    /** Country calling code, editable on its own (e.g. "375"). */
+    codeField: id('registration_code_field'),
+    phoneField: id('registration_phone_field'),
+    continueButton: id('btn_continue'),
+  },
+
+  /** Country picker, `.registration.SelectCountryActivity`. */
+  selectCountry: {
+    searchInput: id('search_src_text'),
+    searchClear: id('search_close_btn'),
+    list: id('list'),
+    /** A row's label, "<flag>  <Country> (+<code>)". The row itself has no id. */
+    rowName: id('name'),
+  },
+
+  /**
+   * Viber's own explanation shown before it requests contacts and call-log
+   * access. A custom dialog inside RegistrationActivity, not a system one.
+   */
+  permissionRationale: {
+    panel: id('custom'),
+    text: id('text'),
+    continueButton: id('continue_btn'),
+  },
+
+  /** Android's runtime permission dialog, `GrantPermissionsActivity`. */
+  systemPermission: {
+    dialog: 'com.android.permissioncontroller:id/grant_dialog',
+    message: 'com.android.permissioncontroller:id/permission_message',
+    allowButton: 'com.android.permissioncontroller:id/permission_allow_button',
+    denyButton: 'com.android.permissioncontroller:id/permission_deny_button',
+  },
+
+  /** The spinner Viber shows while it checks the submitted number. */
+  verifying: {
+    progress: id('progress'),
+    message: id('message'),
+  },
+
+  /**
+   * AlertDialog Viber raises when it refuses to activate the number
+   * ("Activation failed" / HELP / CLOSE).
+   */
+  alert: {
+    title: 'android:id/alertTitle',
+    message: 'android:id/message',
+    /** Right-hand button — CLOSE on the activation-failed dialog. */
+    positiveButton: 'android:id/button1',
+    /** Left-hand button — HELP on the activation-failed dialog. */
+    negativeButton: 'android:id/button2',
+  },
+
   /** Conversation list — the screen Viber opens on. */
   chatList: {
     root: id('messages_list'),
@@ -87,28 +160,15 @@ export const selectors = {
 } as const;
 
 /**
- * Label of the "show all participants" action in the info panel — Viber's
- * `string/show_all`, in every language this account may be running in. The
- * device locale is not pinned, so all of them are matched.
+ * Regex matching the "show all participants" action in the info panel in
+ * various languages. Matches case-insensitively.
  */
-export const SHOW_ALL_PARTICIPANTS_TEXTS = [
-  'Показать всех',
-  'Показати всіх',
-  'Паказаць усё',
-  'Show all',
-] as const;
+export const SHOW_ALL_PARTICIPANTS_REGEX = /show all|показать всех|показати всіх|паказаць усё/i;
 
 /**
- * Prefix of the participants section title — Viber's `string/members` and
- * `string/members_count` ("УЧАСТНИКИ (%s)"). Used to find the right section
- * header when the action label itself is not matched.
+ * Regex matching the prefix of the participants section title in various languages.
  */
-export const PARTICIPANTS_SECTION_TITLES = [
-  'участник',
-  'учасник',
-  'удзельнік',
-  'member',
-] as const;
+export const PARTICIPANTS_SECTION_REGEX = /участник|учасник|удзельнік|member/i;
 
 /** Prefix of the "message this participant" dialog option. */
 export const MESSAGE_OPTION_PREFIX = 'Сообщение ';

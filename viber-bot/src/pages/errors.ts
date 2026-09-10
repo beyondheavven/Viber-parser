@@ -13,3 +13,14 @@ export class ParticipantNotFoundError extends Error {
     this.name = 'ParticipantNotFoundError';
   }
 }
+
+/**
+ * Raised when Viber refuses to activate the number and answers with its
+ * "Activation failed" dialog instead of sending a code.
+ */
+export class ActivationRejectedError extends Error {
+  constructor(readonly title: string, readonly detail: string) {
+    super(detail ? `${title}: ${detail}` : title);
+    this.name = 'ActivationRejectedError';
+  }
+}

@@ -10,6 +10,7 @@
   "scripts": {
     "start:api": "tsx src/main.ts",
     "appium": "appium --config appium.config.cjs",
+    "record:auth": "node record-auth.mjs",
     "appium:install-drivers": "appium driver install uiautomator2",
     "doctor": "appium driver doctor uiautomator2",
     "typecheck": "tsc --noEmit",
