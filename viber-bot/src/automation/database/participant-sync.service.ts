@@ -73,14 +73,20 @@ export class ParticipantSyncService {
       const enc = m.emid.trim().replace(/'/g, "''");
       nameStatements.push(
         `UPDATE participants_info SET viber_name = '${name}', display_name = '${name}', contact_name = '${name}' ` +
-          `WHERE encrypted_member_id = '${enc}' AND _id != 1 AND participant_type != 0;`,
+          `WHERE encrypted_member_id = '${enc}' AND _id != 1 AND coalesce(participant_type, 1) != 0;`,
       );
     }
 
+    // Every clause below keys on `member_id`, so it must first be a real id.
+    // Without this guard each row carrying an empty or placeholder member_id
+    // counts as the same person, and the deletes below collapse all of them
+    // into one row — irreversibly, in the live database.
+    const REAL_MEMBER_ID = "member_id IS NOT NULL AND length(member_id) > 0";
+
     const dedupStatements = [
-      `UPDATE participants SET participant_info_id = (SELECT min(pi2._id) FROM participants_info pi2 WHERE pi2.member_id = (SELECT pi3.member_id FROM participants_info pi3 WHERE pi3._id = participants.participant_info_id)) WHERE participant_info_id IN (SELECT _id FROM participants_info pi WHERE _id > (SELECT min(_id) FROM participants_info pi_min WHERE pi_min.member_id = pi.member_id));`,
+      `UPDATE participants SET participant_info_id = (SELECT min(pi2._id) FROM participants_info pi2 WHERE pi2.member_id = (SELECT pi3.member_id FROM participants_info pi3 WHERE pi3._id = participants.participant_info_id)) WHERE participant_info_id IN (SELECT _id FROM participants_info pi WHERE pi.${REAL_MEMBER_ID} AND _id > (SELECT min(_id) FROM participants_info pi_min WHERE pi_min.member_id = pi.member_id));`,
       `DELETE FROM participants WHERE _id NOT IN (SELECT min(_id) FROM participants GROUP BY conversation_id, participant_info_id);`,
-      `DELETE FROM participants_info WHERE _id IN (SELECT pi._id FROM participants_info pi WHERE pi._id > (SELECT min(pi_min._id) FROM participants_info pi_min WHERE pi_min.member_id = pi.member_id) AND pi._id != 1);`,
+      `DELETE FROM participants_info WHERE _id IN (SELECT pi._id FROM participants_info pi WHERE pi.${REAL_MEMBER_ID} AND pi._id > (SELECT min(pi_min._id) FROM participants_info pi_min WHERE pi_min.member_id = pi.member_id) AND pi._id != 1);`,
       `UPDATE participants_info SET contact_name = coalesce(display_name, viber_name) WHERE _id != 1 AND (contact_name IS NULL OR length(contact_name) = 0) AND coalesce(display_name, viber_name) IS NOT NULL;`,
       `UPDATE participants_info SET contact_name = 'Milena', display_name = 'Milena', viber_name = 'Milena', participant_type = 0 WHERE _id = 1;`,
       `UPDATE participants SET active = 0, alias_name = 'Milena' WHERE participant_info_id = 1 AND conversation_id = ${String(conversationId)};`,

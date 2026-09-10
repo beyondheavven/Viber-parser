@@ -159,7 +159,7 @@ describe('participants-service', () => {
       expect(sql).toContain(", 1, 0, 'O''Connor', 'O''Connor', 'O''Connor'"); // safe_contact = 0, contact_name = display_name = viber_name
       expect(sql).toContain('UPDATE participants_info SET member_id =');
       expect(sql).toContain("contact_name = 'O''Connor'");
-      expect(sql).toContain('AND _id != 1 AND participant_type != 0;');
+      expect(sql).toContain('AND _id != 1 AND coalesce(participant_type, 1) != 0;');
       expect(sql).toContain('INSERT INTO participants (conversation_id, participant_info_id, active, group_role, group_role_local)');
       expect(sql).toContain('SELECT 26, pi._id, 1, 2, 2'); // role = 2 for admin
     });

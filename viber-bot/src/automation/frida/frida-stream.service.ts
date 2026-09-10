@@ -1,24 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MessageType, type Message, type Script, type Session } from 'frida';
 import { createFridaRuntime } from '../../intercept/frida-runtime.js';
-import { nextSindex, parsePgPage, type PgPage } from '../../intercept/pg-paging.js';
+import { PgWalk } from '../../intercept/pg-walk.js';
+import type { PgWalkProgress, PgWalkSummary } from '../../intercept/pg-walk.js';
 import { loadAdbConfig, loadViberConfig } from '../../config/env.js';
 import type { Adb } from '../../device/adb.js';
 
-const SINDEX_CAP = 200_000;
 const DEFAULT_IDLE_TIMEOUT_MS = 15_000;
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export interface StreamProgress {
-  pagesCount: number;
-  currentOffset: number;
-  pageSize: number;
-  lastPage: boolean;
-  headerTotal: number | null;
-}
+export type StreamProgress = PgWalkProgress;
 
 export interface FridaPagingOptions {
   idleTimeoutMs?: number | undefined;
@@ -26,12 +20,7 @@ export interface FridaPagingOptions {
   onProgress?: ((progress: StreamProgress) => void) | undefined;
 }
 
-export interface FridaPagingResult {
-  rawPageJsons: string[];
-  pagesCount: number;
-  lastReached: boolean;
-  headerTotal: number | null;
-}
+export type FridaPagingResult = PgWalkSummary;
 
 export interface ActiveFridaAgent {
   waitForQueryReady(timeoutMs?: number, signal?: AbortSignal): Promise<boolean>;
@@ -95,6 +84,7 @@ export class FridaStreamService {
 
     const rawPageJsons: string[] = [];
     let drivePaging: ((json: string) => void) | null = null;
+    let driveQueryError: ((message: string) => void) | null = null;
     let queryReady = false;
 
     script.message.connect((message: Message) => {
@@ -103,6 +93,12 @@ export class FridaStreamService {
 
       if (payload['event'] === 'query-ready') {
         queryReady = true;
+      } else if (payload['event'] === 'query-error') {
+        // The agent falls back to another call path after reporting this, so it
+        // is not fatal on its own — but it explains a walk that then stalls.
+        const detail = typeof payload['message'] === 'string' ? payload['message'] : 'unknown';
+        this.logger.warn(`Frida agent reported a query error: ${detail}`);
+        driveQueryError?.(detail);
       } else if (payload['event'] === 'pg-reply') {
         const json = typeof payload['json'] === 'string' ? payload['json'] : null;
         if (json !== null) {
@@ -129,91 +125,67 @@ export class FridaStreamService {
       runPaging: async (conversationId, groupId, options = {}) => {
         const idleTimeoutMs = options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
         const pagingSignal = options.signal ?? signal;
+        const logger = this.logger;
 
         return new Promise<FridaPagingResult>((resolve, reject) => {
-          const requested = new Set<number>();
-          let passDone = false;
-          let paginationCompleted = false;
-          let headerTotal: number | null = null;
-          let pagesCount = 0;
           let lastActivity = Date.now();
 
+          const walk = new PgWalk(groupId, {
+            request: (sindex) => {
+              lastActivity = Date.now();
+              script.post({ type: 'query', a0: conversationId, a1: sindex, groupId });
+            },
+            onProgress: options.onProgress,
+            onWarning: (message) => logger.warn(message),
+          });
+
           const onAbort = (): void => {
-            passDone = true;
-            clearInterval(watchdog);
+            cleanup();
             reject(new Error('Paging aborted by signal.'));
           };
 
-          if (pagingSignal?.aborted) {
-            onAbort();
-            return;
-          }
-
-          pagingSignal?.addEventListener('abort', onAbort, { once: true });
-
           const cleanup = (): void => {
             clearInterval(watchdog);
+            drivePaging = null;
+            driveQueryError = null;
             pagingSignal?.removeEventListener('abort', onAbort);
           };
 
-          const request = (sindex: number): void => {
-            if (passDone || requested.has(sindex) || sindex > SINDEX_CAP) return;
-            requested.add(sindex);
-            lastActivity = Date.now();
-            script.post({ type: 'query', a0: conversationId, a1: sindex, groupId });
+          const finish = (): void => {
+            const summary = walk.summary();
+            cleanup();
+            resolve(summary);
           };
 
+          if (pagingSignal?.aborted) {
+            reject(new Error('Paging aborted by signal.'));
+            return;
+          }
+          pagingSignal?.addEventListener('abort', onAbort, { once: true });
+
+          driveQueryError = (message) => walk.noteQueryError(message);
+
           drivePaging = (json: string) => {
-            if (passDone) return;
-            const page = parsePgPage(json);
-            if (page === null) return;
-
+            // A discarded reply must not refresh the idle timer, or a chatty
+            // app could mask a stalled walk indefinitely.
+            const outcome = walk.offer(json);
+            if (outcome === 'ignored') return;
             lastActivity = Date.now();
-            pagesCount += 1;
-            headerTotal = Math.max(headerTotal ?? 0, page.sindex + page.count);
-            options.onProgress?.({
-              pagesCount,
-              currentOffset: page.sindex,
-              pageSize: page.size,
-              lastPage: page.last,
-              headerTotal: page.sindex + page.count,
-            });
-
-            if (page.last) {
-              paginationCompleted = true;
-              passDone = true;
-              cleanup();
-              resolve({
-                rawPageJsons,
-                pagesCount,
-                lastReached: paginationCompleted,
-                headerTotal,
-              });
-              return;
-            }
-
-            request(nextSindex(page));
+            if (outcome === 'complete') finish();
           };
 
           const watchdog = setInterval(() => {
-            if (passDone) {
+            if (walk.isDone) {
               cleanup();
               return;
             }
             if (Date.now() - lastActivity > idleTimeoutMs) {
-              passDone = true;
-              cleanup();
-              resolve({
-                rawPageJsons,
-                pagesCount,
-                lastReached: paginationCompleted,
-                headerTotal,
-              });
+              logger.warn(`Paging went quiet for ${String(idleTimeoutMs)}ms; ending the walk.`);
+              finish();
             }
           }, 500);
 
-          // Start paging from 0
-          request(0);
+          walk.start();
         });
       },
 

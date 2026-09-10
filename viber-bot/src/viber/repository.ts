@@ -293,8 +293,16 @@ export class ViberRepository {
     return this.db.count('select ifnull(max(_id), 0) from messages;');
   }
 
+  /**
+   * Members of one conversation.
+   *
+   * The join is a LEFT JOIN for the same reason the message query uses one: an
+   * inner join silently drops rows whose `participants_info` was pruned, and a
+   * roster that quietly loses members is worse than one carrying a nameless
+   * entry that shows something went wrong.
+   */
   participants(conversationId: number): Participant[] {
-    const sql = `select ${selectList(PARTICIPANT_COLUMNS, PARTICIPANT_EXPRS)} from participants p join participants_info pi on pi._id = p.participant_info_id where p.conversation_id = ${String(conversationId)} order by p.group_role asc, pi._id asc;`;
+    const sql = `select ${selectList(PARTICIPANT_COLUMNS, PARTICIPANT_EXPRS)} from participants p left join participants_info pi on pi._id = p.participant_info_id where p.conversation_id = ${String(conversationId)} order by p.group_role asc, pi._id asc;`;
     return this.db.query(sql, PARTICIPANT_COLUMNS).map(toParticipant);
   }
 }
@@ -326,7 +334,10 @@ export function normalizePhone(phone: string | null | undefined): string | null 
     return null;
   }
   const digits = clean.replace(/\D/g, '');
-  return digits.length >= 7 ? digits : clean;
+  // Anything shorter than a real subscriber number is a placeholder, not an
+  // identity. Returning it would make every member carrying the same
+  // placeholder dedup into a single person.
+  return digits.length >= 7 ? digits : null;
 }
 
 /**

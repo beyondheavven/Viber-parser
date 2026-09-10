@@ -261,7 +261,7 @@ export function generateRosterInsertSql(
       `UPDATE participants_info SET member_id = '${escapedMid}', participant_type = 1, safe_contact = 0, ` +
         nameUpdate +
         `number = CASE WHEN number LIKE 'em:%' THEN NULL ELSE number END ` +
-        `WHERE (encrypted_member_id = '${escapedEnc}' OR member_id = '${escapedMid}') AND _id != 1 AND participant_type != 0;`,
+        `WHERE (encrypted_member_id = '${escapedEnc}' OR member_id = '${escapedMid}') AND _id != 1 AND coalesce(participant_type, 1) != 0;`,
     );
 
     // 3. Link into participants table for this conversation_id if not exists (never linking self)
@@ -269,7 +269,7 @@ export function generateRosterInsertSql(
       `INSERT INTO participants (conversation_id, participant_info_id, active, group_role, group_role_local) ` +
         `SELECT ${String(conversationId)}, pi._id, 1, ${String(role)}, ${String(role)} ` +
         `FROM participants_info pi WHERE (pi.encrypted_member_id = '${escapedEnc}' OR pi.member_id = '${escapedMid}') ` +
-        `AND pi._id != 1 AND pi.participant_type != 0 ` +
+        `AND pi._id != 1 AND coalesce(pi.participant_type, 1) != 0 ` +
         `AND NOT EXISTS (SELECT 1 FROM participants p WHERE p.conversation_id = ${String(conversationId)} AND p.participant_info_id = pi._id);`,
     );
   }
