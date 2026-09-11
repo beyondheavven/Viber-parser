@@ -8,6 +8,7 @@ import { DatabaseModule } from './database/database.module.js';
 import { MessagesModule } from './messages/messages.module.js';
 import { RabbitMqModule } from './rabbitmq/rabbitmq.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { BroadcastModule } from './broadcast/broadcast.module.js';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { AuthModule } from './auth/auth.module.js';
     GroupsModule,
     DatabaseModule,
     MessagesModule,
+    BroadcastModule,
   ],
 })
 export class AppModule {}

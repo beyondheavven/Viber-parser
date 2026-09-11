@@ -2,6 +2,8 @@ package com.viber.clients
 
 import com.viber.config.RabbitMqSettings
 import com.viber.models.CollectParticipantsRequest
+import com.viber.models.CreateCampaignRequest
+import com.viber.models.UpdateCampaignRequest
 import com.viber.models.DecodeRequest
 import com.viber.models.EnableMonitorGroupRequest
 import com.viber.models.QueryOnlineStatusRequest
@@ -10,8 +12,12 @@ import com.viber.models.CodeRequest
 import com.viber.models.LoginRequest
 import com.viber.models.LoginResponse
 import com.viber.models.TaskCreatedResponse
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.put
 
 class ViberBotClient(
     private val rpcClient: RabbitMqRpcClient
@@ -21,6 +27,12 @@ class ViberBotClient(
     private val json = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
+    }
+
+    private val sparseJson = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = false
+        explicitNulls = false
     }
 
     suspend fun collectParticipants(request: CollectParticipantsRequest): TaskCreatedResponse {
@@ -117,4 +129,53 @@ class ViberBotClient(
     suspend fun getAuthStatus(): String {
         return rpcClient.call("viber.auth.status")
     }
+
+
+    suspend fun getBroadcastStatus(): String {
+        return rpcClient.call("viber.broadcast.status")
+    }
+
+    suspend fun getBroadcastHistory(conversationId: Int? = null, campaignId: String? = null, limit: Int? = null): String {
+        val payload = buildJsonObject {
+            conversationId?.let { put("conversationId", it) }
+            campaignId?.let { put("campaignId", it) }
+            limit?.let { put("limit", it) }
+        }
+        return rpcClient.call("viber.broadcast.history", payload)
+    }
+
+    suspend fun getBroadcastLastSends(): String {
+        return rpcClient.call("viber.broadcast.history.last")
+    }
+
+    suspend fun listCampaigns(): String {
+        return rpcClient.call("viber.broadcast.campaigns.list")
+    }
+
+    suspend fun getCampaign(id: String): String {
+        return rpcClient.call("viber.broadcast.campaigns.get", mapOf("id" to id))
+    }
+
+    suspend fun createCampaign(request: CreateCampaignRequest): String {
+        return rpcClient.call("viber.broadcast.campaigns.create", sparseJson.encodeToString(request))
+    }
+
+    suspend fun updateCampaign(id: String, request: UpdateCampaignRequest): String {
+        val changes = sparseJson.encodeToJsonElement(request) as JsonObject
+        val payload = JsonObject(changes + ("id" to JsonPrimitive(id)))
+        return rpcClient.call("viber.broadcast.campaigns.update", payload)
+    }
+
+    suspend fun deleteCampaign(id: String): String {
+        return rpcClient.call("viber.broadcast.campaigns.delete", mapOf("id" to id))
+    }
+
+    suspend fun startCampaign(id: String): String {
+        return rpcClient.call("viber.broadcast.campaigns.start", mapOf("id" to id))
+    }
+
+    suspend fun stopCampaign(id: String): String {
+        return rpcClient.call("viber.broadcast.campaigns.stop", mapOf("id" to id))
+    }
+
 }
