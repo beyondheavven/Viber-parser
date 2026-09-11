@@ -26,7 +26,8 @@ RUN mkdir -p /apk
 
 COPY start.sh /app/start.sh
 COPY install_apk.sh /app/install_apk.sh
-RUN sed -i 's/\r$//' /app/start.sh /app/install_apk.sh && chmod +x /app/start.sh /app/install_apk.sh
+COPY fix_gapps.sh /app/fix_gapps.sh
+RUN sed -i 's/\r$//' /app/start.sh /app/install_apk.sh /app/fix_gapps.sh && chmod +x /app/start.sh /app/install_apk.sh /app/fix_gapps.sh
 
 EXPOSE 8080
 

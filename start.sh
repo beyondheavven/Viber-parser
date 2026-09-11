@@ -19,6 +19,15 @@ done
 echo "The emulator has been loaded."
 adb root
 
+echo "--> Enabling radios (the emulator image leaves airplane mode on)..."
+adb shell settings put global airplane_mode_on 0
+adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false >/dev/null 2>&1 || true
+adb shell svc data enable || true
+adb shell svc wifi enable || true
+
+echo "--> Checking Google Play services..."
+/app/fix_gapps.sh
+
 echo "--> Checking/Installing Viber APK..."
 /app/install_apk.sh
 

@@ -41,6 +41,7 @@ fun Application.configureRouting() {
             tasksRoutes(viberBotClient)
             databaseRoutes(viberBotClient)
             messageRoutes(viberBotClient)
+            broadcastRoutes(viberBotClient)
         }
     }
 }

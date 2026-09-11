@@ -1,4 +1,4 @@
-import { BasePage } from './base.page.js';
+import { BasePage, resolveLocator } from './base.page.js';
 import { selectors } from './selectors.js';
 
 /** An open Viber conversation. */
@@ -68,6 +68,38 @@ export class ChatPage extends BasePage {
       await this.driver.releaseActions();
       await this.driver.pause(600);
     }
+  }
+
+  /**
+   * Types into the composer, replacing whatever was there.
+   *
+   * The composer only materialises once the conversation is open, and Viber
+   * keeps a draft per chat — clearing first stops a leftover draft from being
+   * prepended to the text.
+   */
+  async typeMessage(text: string): Promise<void> {
+    const composer = await this.waitFor(selectors.chat.composerInput);
+    await composer.click();
+    await composer.clearValue();
+    await composer.setValue(text);
+  }
+
+  /**
+   * Taps send and waits for the composer to empty, which is what tells us the
+   * message actually left rather than the tap missing a button that only
+   * appears once there is text to send.
+   */
+  async send(timeout = 10_000): Promise<void> {
+    await this.tap(selectors.chat.sendButton);
+
+    const deadline = Date.now() + timeout;
+    while (Date.now() < deadline) {
+      const composer = await this.driver.$(resolveLocator(selectors.chat.composerInput));
+      if (!(await composer.isExisting())) return;
+      if ((await composer.getText()).trim() === '') return;
+      await this.driver.pause(250);
+    }
+    throw new Error('The composer still holds text after tapping send.');
   }
 
   /** Opens the group info screen by tapping the toolbar title. */
