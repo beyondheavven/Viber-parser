@@ -4,7 +4,7 @@ WORKDIR /app
 COPY gradlew ./
 COPY gradle ./gradle
 COPY build.gradle.kts settings.gradle.kts gradle.properties* ./
-RUN chmod +x gradlew
+RUN sed -i 's/\r$//' gradlew && chmod +x gradlew
 
 COPY src ./src
 COPY gradle/libs.versions.toml ./gradle/libs.versions.toml
