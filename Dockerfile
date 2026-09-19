@@ -1,15 +1,29 @@
-FROM gradle:8.10-jdk21 AS build
+# syntax=docker/dockerfile:1.7
+FROM eclipse-temurin:21-jdk-jammy AS build
 WORKDIR /app
+
+# Pinned so the cache mount below always lands on the same directory: without
+# it Gradle picks $HOME/.gradle, which differs between base images and silently
+# turns the cache into a no-op.
+ENV GRADLE_USER_HOME=/cache/gradle
 
 COPY gradlew ./
 COPY gradle ./gradle
 COPY build.gradle.kts settings.gradle.kts gradle.properties* ./
-RUN chmod +x gradlew
+RUN sed -i 's/\r$//' gradlew && chmod +x gradlew
+
+# Resolve dependencies before src is copied. The cache mount already survives
+# across builds; this extra layer keeps an *unchanged* dependency set from even
+# re-running Gradle's resolution when only src moved.
+RUN --mount=type=cache,target=/cache/gradle \
+    ./gradlew --no-daemon --build-cache dependencies
 
 COPY src ./src
-COPY gradle/libs.versions.toml ./gradle/libs.versions.toml
 
-RUN ./gradlew buildFatJar --no-daemon
+# GRADLE_USER_HOME holds the wrapper distribution, the Maven module cache and
+# the Gradle build cache, so a src-only change recompiles and reuses the rest.
+RUN --mount=type=cache,target=/cache/gradle \
+    ./gradlew --no-daemon --build-cache buildFatJar
 
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app

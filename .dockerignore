@@ -1,0 +1,9 @@
+.git
+.gradle
+.idea
+build
+viber-bot/node_modules
+*.log
+apk
+.env
+.env.bot
