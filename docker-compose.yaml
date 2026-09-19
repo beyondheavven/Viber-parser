@@ -1,4 +1,21 @@
 services:
+  # Docker Desktop (WSL2) boots its VM without the KVM module loaded, so
+  # /dev/kvm is missing and the x86_64 emulator dies with
+  # "x86_64 emulation currently requires hardware acceleration!".
+  # Nested virtualisation itself is available (nestedVirtualization=true in
+  # %USERPROFILE%\.wslconfig) — only the module is never auto-loaded, and it is
+  # lost again on every `wsl --shutdown`. Loading it from here keeps
+  # `docker compose up` self-contained instead of a manual step people forget.
+  kvm-init:
+    image: alpine:3
+    container_name: viber-kvm-init
+    privileged: true
+    pid: host
+    restart: "no"
+    command: >
+      nsenter -t 1 -m -u -i -n -p --
+      sh -c "modprobe kvm_amd 2>/dev/null || modprobe kvm_intel 2>/dev/null || true; ls -l /dev/kvm"
+
   android-emulator:
     image: shmayro/dockerify-android:latest
     container_name: android-emulator
@@ -10,12 +27,14 @@ services:
       - "${EMULATOR_ADB_PORT}:5555"
       - "${EMULATOR_VNC_PORT}:6080"
     volumes:
-      - viber-db:${VIBER_EMULATOR_DB_PATH}
       - android-data:/data
     environment:
       - ANDROID_PLATFORM_VERSION=${ANDROID_VERSION}
       - GAPPS_SETUP=${GAPPS_SETUP:-true}
       - ROOT_SETUP=${ROOT_SETUP:-true}
+    depends_on:
+      kvm-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   scrcpy-web:
@@ -117,11 +136,9 @@ services:
       - VIBER_DEFAULT_PHONE=${VIBER_DEFAULT_PHONE:-}
       - VIBER_DEFAULT_COUNTRY=${VIBER_DEFAULT_COUNTRY:-}
     volumes:
-      - viber-db:${VIBER_API_DB_MOUNT}
       - ./apk:/apk:ro
 
 volumes:
-  viber-db:
   android-data:
   viber-bot-data:
   rabbitmq_data:

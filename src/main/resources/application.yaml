@@ -3,6 +3,7 @@ ktor:
     port: "$PORT:8080"
   application:
     modules:
+      - com.viber.plugins.StatusPagesKt.configureStatusPages
       - com.viber.routes.RoutingKt.configureRouting
       - com.viber.plugins.MonitoringKt.configureMonitoring
       - com.viber.plugins.SerializationKt.configureSerialization
@@ -14,12 +15,6 @@ adb:
   port: "$ADB_PORT:5555"
   connectRetries: "$ADB_CONNECT_RETRIES:30"
 
-database:
-  path: "$VIBER_DB_PATH:/mnt/viber-db/viber_messages"
-  queryTimeoutSeconds: "$VIBER_DB_QUERY_TIMEOUT_SECONDS:60"
-  writeTimeoutSeconds: "$VIBER_DB_WRITE_TIMEOUT_SECONDS:120"
-  backupOnWrite: "$VIBER_DB_BACKUP_ON_WRITE:true"
-
 rabbitmq:
   host: "$RABBITMQ_HOST:localhost"
   port: "$RABBITMQ_PORT:5672"
@@ -29,5 +24,5 @@ rabbitmq:
   timeoutSeconds: "$RABBITMQ_TIMEOUT_SECONDS:60"
 
 supabase:
-  url: "$SUPABASE_URL"
-  key: "$SUPABASE_SERVICE_KEY"
+  url: "$SUPABASE_URL:"
+  key: "$SUPABASE_SERVICE_KEY:"
