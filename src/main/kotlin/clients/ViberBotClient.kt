@@ -21,7 +21,7 @@ import kotlinx.serialization.json.put
 
 class ViberBotClient(
     private val rpcClient: RabbitMqRpcClient
-) {
+) : RosterClient {
     constructor(settings: RabbitMqSettings) : this(RabbitMqRpcClient(settings))
 
     private val json = Json {
@@ -40,7 +40,7 @@ class ViberBotClient(
         return json.decodeFromString(raw)
     }
 
-    suspend fun getTaskParticipants(taskId: String): String {
+    override suspend fun getTaskParticipants(taskId: String): String {
         return rpcClient.call("viber.participants.get_task_participants", mapOf("id" to taskId))
     }
 
@@ -53,7 +53,7 @@ class ViberBotClient(
         return rpcClient.call("viber.tasks.get_all", payload)
     }
 
-    suspend fun getTask(taskId: String): String {
+    override suspend fun getTask(taskId: String): String {
         return rpcClient.call("viber.tasks.get_by_id", mapOf("id" to taskId))
     }
 
@@ -65,11 +65,11 @@ class ViberBotClient(
         return rpcClient.call("viber.groups.get_all", mapOf("all" to includeAll))
     }
 
-    suspend fun getGroup(id: Int): String {
+    override suspend fun getGroup(id: Int): String {
         return rpcClient.call("viber.groups.get_by_id", mapOf("id" to id))
     }
 
-    suspend fun getGroupParticipants(id: Int): String {
+    override suspend fun getGroupParticipants(id: Int): String {
         return rpcClient.call("viber.groups.get_participants", mapOf("id" to id))
     }
 

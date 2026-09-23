@@ -159,6 +159,15 @@ Ktor API принимает внешние HTTP-запросы и делегир
 | `GET` | `/api/database/stats` | `viber.database.stats` | Статистика по сообщениям, контактам и беседам |
 | `POST` | `/api/database/decode` | `viber.database.decode` | Декодирование `encrypted_member_id` участников |
 
+### База пользователей в Supabase
+Ktor API пишет напрямую в Supabase (service key), бот в этом не участвует. Схема лежит в `supabase/migrations/`: `viber_users` (один человек — одна строка, ключ `member_id` или телефон), `viber_groups` и связи `viber_group_members` с ролью и флагом активности.
+
+| Метод | HTTP Эндпоинт | Описание |
+|---|---|---|
+| `POST` | `/api/users/sync/group/{id}` | Выгрузить участников группы из снимка SQLite в Supabase |
+| `POST` | `/api/users/sync/task/{id}` | Выгрузить результат завершённой задачи сбора (со статусом онлайн) |
+| `GET` | `/api/users` | Постраничное чтение базы пользователей с фильтром по номеру и имени |
+
 ### Мониторинг входящих сообщений
 | Метод | HTTP Эндпоинт | Паттерн RabbitMQ | Описание |
 |---|---|---|---|

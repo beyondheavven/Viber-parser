@@ -5,7 +5,9 @@ import com.viber.clients.ViberBotClient
 import com.viber.config.AdbSettings
 import com.viber.config.RabbitMqSettings
 import com.viber.services.AuthService
+import com.viber.services.UsersSyncService
 import com.viber.services.ViberSystemService
+import com.viber.supabase.supabaseClient
 import io.github.smiley4.ktoropenapi.openApi
 import io.github.smiley4.ktorswaggerui.swaggerUI
 import io.ktor.server.application.Application
@@ -23,6 +25,7 @@ fun Application.configureRouting() {
 
     val authService = AuthService(viberBotClient)
     val viberSystemService = ViberSystemService(adbClient)
+    val usersSyncService = UsersSyncService(viberBotClient) { supabaseClient }
 
     routing {
         route("api.json") {
@@ -42,6 +45,7 @@ fun Application.configureRouting() {
             databaseRoutes(viberBotClient)
             messageRoutes(viberBotClient)
             broadcastRoutes(viberBotClient)
+            usersRoutes(usersSyncService)
         }
     }
 }
