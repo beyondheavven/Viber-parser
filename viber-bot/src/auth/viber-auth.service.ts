@@ -10,11 +10,7 @@ import type {
   LoginPhoneDto,
 } from './dto/auth.dto.js';
 
-/**
- * Viber keeps the calling code in its own field, so the subscriber digits must
- * not repeat it — "+375 33 643-33-50" with code 375 has to be typed as
- * "336433350", not "375336433350".
- */
+
 function stripCountryCode(phone: string, callingCode: string): string {
   const digits = phone.replace(/\D/gu, '');
   if (callingCode && digits.startsWith(callingCode) && digits.length > callingCode.length) {

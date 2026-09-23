@@ -22,20 +22,17 @@ dependencies {
     implementation(ktorLibs.server.contentNegotiation)
     implementation(ktorLibs.server.statusPages)
     implementation(ktorLibs.server.callLogging)
+    implementation(ktorLibs.client.cio)
+    implementation(ktorLibs.client.contentNegotiation)
+
     implementation(libs.logback.classic)
-    implementation("com.rabbitmq:amqp-client:5.22.0")
-
-    implementation("io.github.smiley4:ktor-openapi:5.7.0")
-    implementation("io.github.smiley4:ktor-swagger-ui:5.7.0")
-
-    implementation("org.slf4j:slf4j-api:2.0.13")
-    implementation("ch.qos.logback:logback-classic:1.5.6")
-
-    implementation("io.github.jan-tennert.supabase:postgrest-kt:3.8.0")
-    implementation("io.ktor:ktor-client-cio")
-    implementation("io.ktor:ktor-client-content-negotiation")
-
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.10.1")
+    implementation(libs.rabbitmq.client)
+    implementation(libs.ktor.openapi)
+    implementation(libs.ktor.swagger.ui)
+    implementation(libs.slf4j.api)
+    implementation(libs.supabase.postgrest)
+    implementation(libs.kotlinx.coroutines.jdk8)
+    implementation(libs.koin.ktor)
 
     testImplementation(kotlin("test"))
     testImplementation(ktorLibs.server.testHost)

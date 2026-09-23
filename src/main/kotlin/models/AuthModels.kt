@@ -22,9 +22,3 @@ data class LoginResponse(
 data class CodeRequest(
     val code: String
 )
-
-@Serializable
-data class ErrorResponse(
-    val error: String,
-    val message: String,
-)
