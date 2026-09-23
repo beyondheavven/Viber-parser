@@ -10,10 +10,7 @@ class SupabaseClientTest {
 
     @Test
     fun `leaves the client unset when supabase is not configured`() {
-        // Ломается, если env SUPABASE_* заданы в окружении прогона — это ожидаемо.
         testApplication {
-            // Поднимает приложение так же, как EngineMain: модули берутся из application.yaml,
-            // а в нём supabase.url и supabase.key по умолчанию пустые.
             configure()
 
             startApplication()
@@ -37,8 +34,6 @@ class SupabaseClientTest {
             assertNotNull(supabaseClient)
         }
 
-        // Приложение остановлено к этому моменту — ApplicationStopping уже отработал
-        // и обнулил клиент.
         assertNull(supabaseClient)
     }
 }

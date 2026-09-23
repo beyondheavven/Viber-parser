@@ -20,6 +20,7 @@ fun Route.participantsRoutes(viberBotClient: ViberBotClient){
         post("/collect", describeCollectParticipants){
             val request = call.receive<CollectParticipantsRequest>()
             val result = viberBotClient.collectParticipants(request)
+
             call.respond(HttpStatusCode.Accepted, result)
         }
 
