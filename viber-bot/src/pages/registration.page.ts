@@ -17,7 +17,7 @@ export type RegistrationScreen =
 
 /**
  * Viber's account activation screens, captured from `com.viber.voip` 20.1 on
- * the dockerised Android 11 emulator (320x640).
+ * the dockerised Android 11 emulator (1280x720, LDPlayer-style tablet preset).
  *
  * Every control is addressed by its resource id. The phone screen scrolls
  * under the soft keyboard — `btn_continue` was observed at y=401 with the
@@ -171,6 +171,17 @@ export class RegistrationPage extends BasePage {
     if (await this.isPresent(selectors.alert.positiveButton, 2_000)) {
       await this.tap(selectors.alert.positiveButton);
     }
+  }
+
+  /**
+   * Skips the "Your name" profile screen that follows an accepted code, when
+   * it is shown. Resolved from the element rather than a fixed point, so it
+   * survives a change of screen resolution.
+   */
+  async skipProfile(timeout = 6_000): Promise<boolean> {
+    if (!(await this.isPresent(selectors.profile.continueButton, timeout))) return false;
+    await this.tap(selectors.profile.continueButton);
+    return true;
   }
 
   /** True once Viber is past activation and showing the conversation list. */

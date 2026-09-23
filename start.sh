@@ -19,11 +19,23 @@ done
 echo "The emulator has been loaded."
 adb root
 
-echo "--> Enabling radios (the emulator image leaves airplane mode on)..."
+# Radios and screen are primarily handled by emulator/first-boot.sh (mounted
+# over the image's script, which would otherwise re-enable airplane mode and a
+# 15s screen-off timeout on every boot). Re-asserted here as a fallback for a
+# stack that runs the stock image.
+echo "--> Enabling radios..."
 adb shell settings put global airplane_mode_on 0
 adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false >/dev/null 2>&1 || true
 adb shell svc data enable || true
 adb shell svc wifi enable || true
+
+echo "--> Keeping the screen on..."
+# A sleeping display swallows every blind `input tap` / `input text` the bot
+# sends over adb, and Appium only wakes it when a session starts.
+adb shell settings put system screen_off_timeout 2147483647
+adb shell settings put global stay_on_while_plugged_in 7
+adb shell svc power stayon true || true
+adb shell input keyevent KEYCODE_WAKEUP || true
 
 echo "--> Checking Google Play services..."
 /app/fix_gapps.sh

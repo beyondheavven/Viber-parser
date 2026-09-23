@@ -70,6 +70,8 @@ cp .env.example .env
 cp .env.bot.example .env.bot
 ```
 
+Экран и память эмулятора задаются в `.env`: `EMULATOR_SCREEN_RESOLUTION` (по умолчанию `1280x720`, планшетный пресет LDPlayer), `EMULATOR_SCREEN_DENSITY` (`240`) и `EMULATOR_RAM_SIZE` (`4096` МБ). Версия Android в образе одна (Android 11) и не настраивается.
+
 ### 2. Запуск всего стека
 ```bash
 docker compose up --build -d

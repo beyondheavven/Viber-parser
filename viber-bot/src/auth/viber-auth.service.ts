@@ -23,10 +23,6 @@ function stripCountryCode(phone: string, callingCode: string): string {
 export class ViberAuthService {
   private readonly logger = new Logger(ViberAuthService.name);
 
-  private getTopDump(adb: any): string {
-    return adb.shell('dumpsys activity top', { allowFailure: true }) ?? '';
-  }
-
   /**
    * Drives Viber from its welcome splash to a submitted phone number.
    *
@@ -127,19 +123,19 @@ export class ViberAuthService {
       adb.shell('input keyevent 66');
 
       this.logger.log('Waiting for code validation and Profile screen...');
-      await new Promise((resolve) => setTimeout(resolve, 3500));
 
-      // Profile screen: continueButtonView bounds [249,310][305,366] -> center (277, 338)
-      const dump = this.getTopDump(adb);
-      if (dump.includes('continueButtonView') || dump.includes('nameInputHolder') || dump.includes('userNameTextInput')) {
-        this.logger.log('Detected Profile screen, clicking continueButtonView at (277, 338)...');
-        adb.shell('input tap 277 338');
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-      }
-
-      // The activation and profile screens have not been captured yet, so this
-      // step still types blind — but it must not report success on faith.
-      const authorized = await this.isConversationListUp();
+      // The activation screen itself has not been captured yet, so the digits
+      // are typed blind — but what follows is checked on screen, never on faith.
+      const authorized = await withViberSession(async (driver) => {
+        const page = new RegistrationPage(driver);
+        if (await page.skipProfile()) {
+          this.logger.log('Profile screen detected, skipped with its Continue button.');
+        }
+        return page.isActivated(8_000);
+      }).catch((error: unknown) => {
+        this.logger.warn(`Could not inspect the screen after the code: ${String(error)}`);
+        return false;
+      });
       return authorized
         ? {
             success: true,
@@ -160,17 +156,6 @@ export class ViberAuthService {
         message: `Ошибка ввода кода: ${String(error)}`,
         step: 'ERROR',
       };
-    }
-  }
-
-  /** Cheap post-condition: activation is only done once the chat list is up. */
-  private async isConversationListUp(): Promise<boolean> {
-    try {
-      return await withViberSession(async (driver) =>
-        new RegistrationPage(driver).isActivated(8_000),
-      );
-    } catch {
-      return false;
     }
   }
 
