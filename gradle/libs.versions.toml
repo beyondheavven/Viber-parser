@@ -16,7 +16,7 @@ ktor-swagger-ui = { module = "io.github.smiley4:ktor-swagger-ui", version.ref = 
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j"}
 supabase-postgrest = { module = "io.github.jan-tennert.supabase:postgrest-kt", version.ref = "supabase"}
 kotlinx-coroutines-jdk8 = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-jdk8", version.ref = "coroutines"}
-koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
+koin-ktor = { module = "io.insert-koin:koin-ktor", version.ref = "koin" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

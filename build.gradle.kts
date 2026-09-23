@@ -32,7 +32,7 @@ dependencies {
     implementation(libs.slf4j.api)
     implementation(libs.supabase.postgrest)
     implementation(libs.kotlinx.coroutines.jdk8)
-    implementation(libs.koin.core)
+    implementation(libs.koin.ktor)
 
     testImplementation(kotlin("test"))
     testImplementation(ktorLibs.server.testHost)
