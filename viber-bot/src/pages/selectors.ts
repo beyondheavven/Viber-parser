@@ -86,6 +86,16 @@ export const selectors = {
     negativeButton: 'android:id/button2',
   },
 
+  /**
+   * "Your name" profile screen Viber shows once the activation code has been
+   * accepted. Ids seen in `dumpsys activity top` on Viber 20.1.
+   */
+  profile: {
+    nameInput: id('userNameTextInput'),
+    nameInputHolder: id('nameInputHolder'),
+    continueButton: id('continueButtonView'),
+  },
+
   /** Conversation list — the screen Viber opens on. */
   chatList: {
     root: id('messages_list'),
