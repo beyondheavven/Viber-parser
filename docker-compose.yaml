@@ -1,11 +1,4 @@
 services:
-  # Docker Desktop (WSL2) boots its VM without the KVM module loaded, so
-  # /dev/kvm is missing and the x86_64 emulator dies with
-  # "x86_64 emulation currently requires hardware acceleration!".
-  # Nested virtualisation itself is available (nestedVirtualization=true in
-  # %USERPROFILE%\.wslconfig) — only the module is never auto-loaded, and it is
-  # lost again on every `wsl --shutdown`. Loading it from here keeps
-  # `docker compose up` self-contained instead of a manual step people forget.
   kvm-init:
     image: alpine:3
     container_name: viber-kvm-init
