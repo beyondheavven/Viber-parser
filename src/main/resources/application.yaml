@@ -3,7 +3,8 @@ ktor:
     port: "$PORT:8080"
   application:
     modules:
-      - com.viber.plugins.StatusPagesKt.configureStatusPages
+      - com.viber.plugins.KoinKt.configureDI
+      - com.viber.plugins.ExceptionHandlerKt.configureException
       - com.viber.routes.RoutingKt.configureRouting
       - com.viber.plugins.MonitoringKt.configureMonitoring
       - com.viber.plugins.SerializationKt.configureSerialization
