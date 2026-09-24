@@ -69,6 +69,7 @@ describe('scanInfoPanelSource', () => {
       showAll: null,
       participantsAction: null,
       sectionTitles: [],
+      signature: '',
     });
   });
 });

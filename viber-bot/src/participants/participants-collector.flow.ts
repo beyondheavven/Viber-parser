@@ -6,7 +6,13 @@ import { loadViberConfig } from '../config/env.js';
 import { parsePgRoster } from '../intercept/parse-pg-roster.js';
 import { extractEmKey } from '../viber/em-key.js';
 import { formatParticipantCsv, formatParticipantTable } from '../viber/format.js';
-import { deduplicateParticipants, resolveGroupExact, type Participant } from '../viber/repository.js';
+import {
+  deduplicateParticipants,
+  describeGroups,
+  resolveGroupExact,
+  resolveGroupLoosely,
+  type Participant,
+} from '../viber/repository.js';
 import { DeviceMutexService } from '../common/mutex/device-mutex.service.js';
 import { FridaStreamService } from '../automation/frida/frida-stream.service.js';
 import { ViberNavigationService } from '../automation/navigation/viber-navigation.service.js';
@@ -80,14 +86,29 @@ export class ParticipantsCollectorFlow {
       const context = customDeviceContext ?? (await openDevice());
 
       const groupTarget = dto.group;
-      const group =
-        resolveGroupExact(context.viber.groups(), groupTarget) ??
-        context.viber.findGroup(groupTarget);
+      const groups = context.viber.groups();
+      let group = resolveGroupExact(groups, groupTarget) ?? context.viber.findGroup(groupTarget);
 
       if (!group) {
-        throw new Error(
-          `Группа "${groupTarget.trim()}" не найдена в базе данных. Проверьте имя или ID беседы.`,
-        );
+        // Titles carry emoji and Cyrillic look-alikes ("АVTOTRAL🚨"), which the
+        // exact and substring lookups above cannot see through.
+        const loose = resolveGroupLoosely(groups, groupTarget);
+        group = loose.group;
+        if (group) {
+          this.logger.warn(
+            `Group "${groupTarget}" matched loosely to ${String(group.id)} "${group.name ?? ''}".`,
+          );
+        } else {
+          const hint =
+            loose.candidates.length > 1
+              ? `Похожие группы: ${describeGroups(loose.candidates)}. Укажите ID.`
+              : groups.length > 0
+                ? `Доступные группы: ${describeGroups(groups)}.`
+                : 'В базе Viber нет ни одной группы — проверьте, что аккаунт авторизован и снимок БД обновлён.';
+          throw new Error(
+            `Группа "${groupTarget.trim()}" не найдена в базе данных. ${hint}`,
+          );
+        }
       }
 
       if (group.name === null) {

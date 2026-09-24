@@ -86,6 +86,7 @@ export class TasksService {
       createdAt: task.createdAt.toISOString(),
       startedAt: task.startedAt?.toISOString(),
       completedAt: task.completedAt?.toISOString(),
+      error: task.error,
     };
   }
 
@@ -94,7 +95,6 @@ export class TasksService {
       ...this.toSummaryDto(task),
       stepHistory: task.stepHistory,
       progress: task.progress,
-      error: task.error,
       result: task.result,
     };
   }

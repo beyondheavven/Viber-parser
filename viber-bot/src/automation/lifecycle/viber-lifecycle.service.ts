@@ -16,9 +16,6 @@ export interface NumberSyncStatus {
 export class ViberLifecycleService {
   private readonly logger = new Logger(ViberLifecycleService.name);
 
-  /**
-   * Reopens Viber app safely via ADB and host LDPlayer console.
-   */
   async restartApp(
     adb: Adb,
     viberConfig: ViberConfig,
@@ -85,7 +82,11 @@ export class ViberLifecycleService {
         )
         .trim();
 
-      const current = Number.parseInt(countStr.replace(/[^\d]/g, ''), 10);
+      // `PRAGMA busy_timeout=…` echoes its value on a line of its own ("10000"),
+      // so only the last line is the count. Joining every digit turned 1587
+      // into 100001587.
+      const lastLine = countStr.split('\n').map((line) => line.trim()).filter(Boolean).pop() ?? '';
+      const current = Number.parseInt(lastLine.replace(/[^\d]/g, ''), 10);
       if (Number.isFinite(current)) {
         onPoll?.({ syncedCount: current, stable: stableStreak >= 2 });
 

@@ -64,8 +64,10 @@ export function parseRosterPageSource(xml: string): RosterViewport {
   const countNodes: XmlNode[] = [];
   collectDescendants(root, 'com.viber.voip:id/text', countNodes);
   let totalCount: number | null = null;
+  // Thousands are grouped by locale: "1 615" / "1 615" in Russian, "1,615" in
+  // English, "1.615" in German. Every separator is stripped before parsing.
   for (const node of countNodes) {
-    const match = /\(([\d\s\u00a0\u202f]+)\)/u.exec(node.text ?? '');
+    const match = /\(([\d\s\u00a0\u202f,.']+)\)/u.exec(node.text ?? '');
     if (match === null) continue;
     const parsed = Number.parseInt((match[1] ?? '').replace(/[^\d]/gu, ''), 10);
     if (Number.isInteger(parsed) && parsed > 0) {
@@ -76,9 +78,9 @@ export function parseRosterPageSource(xml: string): RosterViewport {
 
   if (totalCount === null) {
     for (const node of countNodes) {
-      const match = /(\d+)/u.exec(node.text ?? '');
+      const match = /(\d[\d\s  ,.']*)/u.exec(node.text ?? '');
       if (match !== null) {
-        const parsed = Number.parseInt(match[1] ?? '', 10);
+        const parsed = Number.parseInt((match[1] ?? '').replace(/[^\d]/gu, ''), 10);
         if (Number.isInteger(parsed) && parsed > 0) {
           totalCount = parsed;
           break;
