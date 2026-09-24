@@ -104,7 +104,5 @@ export function pageAnswers(
   requestedOffsets: ReadonlySet<number>,
 ): boolean {
   if (page.groupId !== null && page.groupId !== groupId) return false;
-  // If the page belongs to the target group, accept it even if triggered by UI scroll
-  if (page.groupId !== null && page.groupId === groupId) return true;
   return requestedOffsets.has(page.sindex);
 }

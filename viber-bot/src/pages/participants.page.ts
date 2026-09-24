@@ -13,7 +13,17 @@ import {
   PRIVATE_MESSAGES_BLOCKED_TEXT,
   selectors,
 } from './selectors.js';
-import { byId, byText, byTextContains, byTextStartsWith, scrollToText } from './uiselector.js';
+import {
+  byId,
+  byIdWithin,
+  byText,
+  byTextContains,
+  byTextStartsWith,
+  scrollToText,
+} from './uiselector.js';
+
+/** A participant row of the full-screen list, never of the info panel preview. */
+export const FULL_LIST_ROW = byIdWithin(selectors.participants.list, selectors.participants.row);
 
 export interface VisibleParticipantRow {
   name: string;
@@ -38,22 +48,20 @@ export function parseRosterPageSource(xml: string): RosterViewport {
   const allNodes: XmlNode[] = [];
   collectAll(root, allNodes);
 
-  let listNode = findDescendant(root, selectors.participants.list);
-  if (listNode === undefined) {
-    listNode = allNodes.find(
-      (n) =>
-        n['resource-id']?.endsWith(':id/recycler_view') ||
-        n['resource-id']?.endsWith(':id/list') ||
-        n['resource-id']?.includes('recycler') ||
-        n['class']?.includes('RecyclerView') ||
-        n['class']?.includes('ListView'),
+  // Strict on purpose. A fallback to "any RecyclerView" also matches the chat's
+  // `conversation_recycler_view` and the info panel, and then the roster is
+  // silently read off the wrong screen instead of failing where it went wrong.
+  const listNode = findDescendant(root, selectors.participants.list);
+  const list = parseBounds(listNode?.bounds);
+  if (listNode === undefined || list === null) {
+    throw new Error(
+      'The full participants list is not on screen (no recycler_view). ' +
+        'Navigation probably stopped on the group info panel.',
     );
   }
 
-  const list = parseBounds(listNode?.bounds) ?? { left: 0, top: 0, right: 1280, bottom: 720 };
-
   const rowNodes: XmlNode[] = [];
-  collectDescendants(listNode ?? root, selectors.participants.row, rowNodes);
+  collectDescendants(listNode, selectors.participants.row, rowNodes);
   const rows: VisibleParticipantRow[] = [];
   for (const rowNode of rowNodes) {
     const bounds = parseBounds(rowNode.bounds);
@@ -113,17 +121,20 @@ export function parseRosterPageSource(xml: string): RosterViewport {
  */
 export class ParticipantsPage extends BasePage {
   /**
-   * Waits on a row's `itemLayout`, not on its `name`: `name` is also what the
-   * info panel labels its participant previews with, and `recycler_view`
-   * belongs to a dozen other screens — either would report this list as loaded
-   * while Viber is still showing something else.
+   * Waits on a row (`itemLayout`) inside the list's own `recycler_view`.
+   *
+   * Neither id is enough alone. `recycler_view` belongs to a dozen other
+   * screens, and at 1280x720 the group info panel draws its participant
+   * previews with `itemLayout` too — checking the row id by itself reported
+   * the full list as open while the panel was still on screen, so "Show all"
+   * was never tapped and the paging controller was never created.
    */
   async waitUntilLoaded(): Promise<void> {
-    await this.waitFor(selectors.participants.row);
+    await this.waitFor(FULL_LIST_ROW);
   }
 
   async isLoaded(timeout = 2_000): Promise<boolean> {
-    return this.isPresent(selectors.participants.row, timeout);
+    return this.isPresent(FULL_LIST_ROW, timeout);
   }
 
   /** Display names currently rendered in the list. */

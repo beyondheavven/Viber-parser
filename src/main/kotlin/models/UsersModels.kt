@@ -33,7 +33,6 @@ data class ViberUserRow(
     val updatedAt: String? = null,
 )
 
-/** Row of `public.viber_groups` in Supabase. */
 @Serializable
 data class ViberGroupRow(
     val id: Long? = null,
@@ -59,7 +58,6 @@ data class ViberGroupRow(
     val updatedAt: String? = null,
 )
 
-/** Row of `public.viber_group_members` in Supabase. */
 @Serializable
 data class ViberGroupMemberRow(
     @SerialName("group_id")
@@ -70,13 +68,16 @@ data class ViberGroupMemberRow(
 
     val role: Int? = null,
 
-    val active: Boolean = true,
+    // No default: with one, the Supabase client omits `active` for rows equal to
+    // it, and PostgREST then fills the omitted cells with null in a bulk upsert,
+    // which the NOT NULL column rejects. Always sending it keeps the payload
+    // rectangular.
+    val active: Boolean,
 
     @SerialName("synced_at")
     val syncedAt: String,
 )
 
-/** What a sync of one group into Supabase did. */
 @Serializable
 data class UsersSyncResult(
     val success: Boolean,
@@ -89,22 +90,17 @@ data class UsersSyncResult(
 
     val groupId: String? = null,
 
-    /** Participants received from the bot, before filtering. */
     val received: Int,
 
-    /** Rows written to `viber_users` (inserted or updated). */
     val usersUpserted: Int,
 
-    /** Participants skipped: the account itself, duplicates, or no member id and no phone. */
     val skipped: Int,
 
-    /** Members of the group marked inactive because the sync no longer lists them. */
     val deactivated: Int,
 
     val syncedAt: String,
 )
 
-/** A group the bulk upload could not sync; the others are still uploaded. */
 @Serializable
 data class UsersSyncFailure(
     val conversationId: Int,
@@ -114,33 +110,66 @@ data class UsersSyncFailure(
     val error: String,
 )
 
-/** What uploading every group on the device into Supabase did. */
 @Serializable
 data class UsersSyncAllResult(
-    /** True when every group was uploaded. */
     val success: Boolean,
 
     val message: String,
 
-    /** Groups found on the device. */
     val groupsTotal: Int,
 
-    /** Per-group results, in the order they were uploaded. */
     val groups: List<UsersSyncResult>,
 
-    /** Groups that failed, with the reason. */
     val failed: List<UsersSyncFailure>,
 
-    /** Sum of rows written across groups; one person in two groups counts twice. */
     val usersUpserted: Int,
 
-    /** Distinct people in `viber_users` after the upload. */
     val usersInDatabase: Int? = null,
 
     val syncedAt: String,
 )
 
-/** Page of users read back from Supabase. */
+@Serializable
+data class GroupSyncStatus(
+    val groupKey: String,
+
+    val conversationId: Int? = null,
+
+    val name: String? = null,
+
+    val participantCount: Int,
+
+    val activeMembers: Int? = null,
+
+    val inactiveMembers: Int? = null,
+
+    val lastSyncedAt: String? = null,
+)
+
+@Serializable
+data class UsersSyncStatus(
+    val configured: Boolean,
+
+    val reachable: Boolean,
+
+    val message: String,
+
+    val usersTotal: Int? = null,
+
+    /** Rows in `viber_groups`. */
+    val groupsTotal: Int? = null,
+
+    /** Rows in `viber_group_members`, active and inactive. */
+    val membersTotal: Int? = null,
+
+    /** Most recent `last_synced_at` among the groups returned. */
+    val lastSyncedAt: String? = null,
+
+    val groups: List<GroupSyncStatus> = emptyList(),
+
+    val checkedAt: String,
+)
+
 @Serializable
 data class UsersPage(
     val total: Int? = null,

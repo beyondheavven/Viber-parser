@@ -3,6 +3,7 @@ package com.viber.routes.docs
 import com.viber.models.UsersPage
 import com.viber.models.UsersSyncAllResult
 import com.viber.models.UsersSyncResult
+import com.viber.models.UsersSyncStatus
 import io.github.smiley4.ktoropenapi.config.RouteConfig
 import io.ktor.http.HttpStatusCode
 
@@ -39,6 +40,31 @@ val describeListUsers: RouteConfig.() -> Unit = {
         }
         code(HttpStatusCode.InternalServerError) {
             description = "Supabase не настроен (SUPABASE_URL / SUPABASE_SERVICE_KEY)"
+        }
+    }
+}
+
+val describeUsersSyncStatus: RouteConfig.() -> Unit = {
+    operationId = "usersSyncStatus"
+    tags = listOf("Users")
+    summary = "Проверить, записались ли данные в Supabase"
+    description = "Только чтение. Показывает, настроен ли Supabase и отвечает ли он, сколько строк " +
+            "в viber_users, viber_groups и viber_group_members, и по каждой группе: сколько " +
+            "пользователей записала последняя синхронизация, сколько участников активно и когда " +
+            "она прошла. Ошибку подключения возвращает в поле message с reachable = false, " +
+            "а не кодом 500."
+
+    request {
+        queryParameter<Int>("conversationId") {
+            description = "ID беседы (как в /api/groups), чтобы проверить только одну группу"
+            required = false
+        }
+    }
+
+    response {
+        code(HttpStatusCode.OK) {
+            description = "Состояние записей в Supabase"
+            body<UsersSyncStatus>()
         }
     }
 }

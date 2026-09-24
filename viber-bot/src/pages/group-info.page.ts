@@ -1,5 +1,6 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { BasePage } from './base.page.js';
+import { FULL_LIST_ROW } from './participants.page.js';
 import {
   centerOf,
   collectAll,
@@ -276,12 +277,12 @@ export class GroupInfoPage extends BasePage {
   }
 
   /**
-   * `itemLayout` belongs to `participants_list_item` and to nothing else in
-   * the app, so it tells the full list apart from the panel's preview rows —
-   * which the panel draws with the same `name` id the list rows use.
+   * The full list, recognised by a row inside its own `recycler_view`. The
+   * panel's preview rows use `itemLayout` as well, so the row id alone would
+   * report the list as open while the panel is still on screen.
    */
-  private async participantsListOpened(): Promise<boolean> {
-    return this.isPresent(selectors.participants.row, 2_500);
+  private async participantsListOpened(timeout = 2_500): Promise<boolean> {
+    return this.isPresent(FULL_LIST_ROW, timeout);
   }
 
   /**

@@ -161,15 +161,10 @@ Java.perform(function () {
         return this.$init.apply(this, arguments);
       };
     }
-    if (QueryKlass[QUERY_METHOD]) {
-      var bOverloads = QueryKlass[QUERY_METHOD].overloads;
-      for (var j = 0; j < bOverloads.length; j++) {
-        bOverloads[j].implementation = function () {
-          queryInstance = this;
-          return this[QUERY_METHOD].apply(this, arguments);
-        };
-      }
-    }
+    // `b` is deliberately not hooked. The name is obfuscated and shared by
+    // several unrelated overloads, some of them static; replacing all of them
+    // put the class wrapper (not an instance) into queryInstance and wrapped a
+    // hot path for nothing. The constructor hook plus Java.choose cover it.
   } catch (hookErr) {
     send({ event: 'error', where: 'hookQueryClass/' + QUERY_CLASS, message: String(hookErr) });
   }

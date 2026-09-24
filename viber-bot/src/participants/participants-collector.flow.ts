@@ -17,7 +17,10 @@ import { DeviceMutexService } from '../common/mutex/device-mutex.service.js';
 import { FridaStreamService } from '../automation/frida/frida-stream.service.js';
 import { ViberNavigationService } from '../automation/navigation/viber-navigation.service.js';
 import { ParticipantSyncService } from '../automation/database/participant-sync.service.js';
-import { ViberLifecycleService } from '../automation/lifecycle/viber-lifecycle.service.js';
+import {
+  ViberLifecycleService,
+  defaultNumbersSyncTimeoutMs,
+} from '../automation/lifecycle/viber-lifecycle.service.js';
 import { OnlineStatusService } from '../automation/frida/online-status.service.js';
 import type { TaskEntity } from '../tasks/entities/task.entity.js';
 import type { CollectParticipantsDto } from './dto/collect-participants.dto.js';
@@ -268,7 +271,7 @@ export class ParticipantsCollectorFlow {
           conversationId,
           dto.numbersSyncTimeoutMs && dto.numbersSyncTimeoutMs > 0
             ? dto.numbersSyncTimeoutMs
-            : 45_000,
+            : defaultNumbersSyncTimeoutMs(linkedAfterSync),
           signal,
           (syncStatus) => {
             task.updateProgress({
@@ -378,6 +381,9 @@ export class ParticipantsCollectorFlow {
               memberIdsToQuery,
               {
                 signal,
+                // A large group floods Viber's main thread; pace the batches so
+                // it does not go ANR partway through.
+                pauseBetweenBatchesMs: 100,
                 onProgress: (done, total) => {
                   task.updateProgress({
                     onlineChecked: done,
@@ -392,10 +398,9 @@ export class ParticipantsCollectorFlow {
                 const status = onlineMap.get(p.memberId)!;
                 p.isOnline = status.isOnline;
                 p.lastSeen = status.lastSeen;
-              } else {
-                p.isOnline = false;
-                p.lastSeen = null;
               }
+              // No reply → leave isOnline/lastSeen unknown rather than forcing
+              // "offline", which would mislabel everyone a stall skipped.
             }
           } catch (err) {
             this.logger.warn(

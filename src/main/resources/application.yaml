@@ -10,6 +10,7 @@ ktor:
       - com.viber.plugins.SerializationKt.configureSerialization
       - com.viber.plugins.OpenApiKt.configureOpenApi
       - com.viber.supabase.SupabaseClientKt.configureSupabaseClient
+      - com.viber.plugins.TaskEventConsumerPluginKt.configureTaskEventConsumer
 
 adb:
   host: "$ADB_HOST:android-emulator"
@@ -22,8 +23,13 @@ rabbitmq:
   user: "$RABBITMQ_USER:user"
   password: "$RABBITMQ_PASS:viber_secret"
   queue: "$RABBITMQ_QUEUE:viber_commands_queue"
+  eventsQueue: "$RABBITMQ_EVENTS_QUEUE:viber_events_queue"
   timeoutSeconds: "$RABBITMQ_TIMEOUT_SECONDS:60"
 
 supabase:
   url: "$SUPABASE_URL:"
   key: "$SUPABASE_SERVICE_KEY:"
+
+users:
+  # Auto-upload every finished collect task to Supabase. false disables it.
+  autosync: "$USERS_AUTOSYNC:true"

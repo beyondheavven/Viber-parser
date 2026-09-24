@@ -12,6 +12,27 @@ export interface NumberSyncStatus {
   stable: boolean;
 }
 
+
+export function parseSyncedCount(output: string): number {
+  const lines = output
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
+  if (lines.length < 2) return Number.NaN;
+  const last = lines[lines.length - 1] ?? '';
+  return /^\d+$/.test(last) ? Number.parseInt(last, 10) : Number.NaN;
+}
+
+/**
+ * How long to wait for Viber to resolve numbers when the caller set no limit.
+ * Viber fills them in over the network in batches, so a big roster needs more
+ * than the 45 s that is plenty for a small one: 10 ms per member, capped at
+ * five minutes.
+ */
+export function defaultNumbersSyncTimeoutMs(linkedParticipants: number): number {
+  return Math.min(300_000, Math.max(45_000, Math.round(linkedParticipants * 10)));
+}
+
 @Injectable()
 export class ViberLifecycleService {
   private readonly logger = new Logger(ViberLifecycleService.name);
@@ -82,11 +103,7 @@ export class ViberLifecycleService {
         )
         .trim();
 
-      // `PRAGMA busy_timeout=…` echoes its value on a line of its own ("10000"),
-      // so only the last line is the count. Joining every digit turned 1587
-      // into 100001587.
-      const lastLine = countStr.split('\n').map((line) => line.trim()).filter(Boolean).pop() ?? '';
-      const current = Number.parseInt(lastLine.replace(/[^\d]/g, ''), 10);
+      const current = parseSyncedCount(countStr);
       if (Number.isFinite(current)) {
         onPoll?.({ syncedCount: current, stable: stableStreak >= 2 });
 

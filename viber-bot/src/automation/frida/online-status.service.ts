@@ -16,10 +16,21 @@ export interface FetchOnlineOptions {
   timeoutMs?: number;
   signal?: AbortSignal;
   onProgress?: (done: number, total: number) => void;
+  /**
+   * Stop the whole step after this many batches time out back to back. Once
+   * Viber stops answering (it goes ANR under a flood of last-online requests on
+   * a huge group), every further batch just burns its timeout, so giving up
+   * keeps the already-collected roster instead of stalling for many minutes.
+   */
+  maxConsecutiveTimeouts?: number;
+  /** Idle gap between batches in ms, to keep Viber's main thread breathing. */
+  pauseBetweenBatchesMs?: number;
 }
 
 const DEFAULT_BATCH_SIZE = 50;
 const DEFAULT_BATCH_TIMEOUT_MS = 6_000;
+const DEFAULT_MAX_CONSECUTIVE_TIMEOUTS = 5;
+const DEFAULT_PAUSE_BETWEEN_BATCHES_MS = 0;
 const MIN_MILLISECONDS_TIMESTAMP = 100_000_000_000;
 
 export function normalizeLastSeenTimestamp(value: unknown): number | null {
@@ -107,10 +118,6 @@ export class OnlineStatusService {
         if (message.type !== MessageType.Send) return;
         const payload = (message.payload ?? {}) as Record<string, unknown>;
 
-        if (payload['event'] === 'debug-item') {
-          this.logger.log(`OnlineContactInfo fields: ${JSON.stringify(payload['fields'])}`);
-        }
-
         if (payload['event'] === 'onLastOnline-reply') {
           const token = Number(payload['token']);
           if (token === currentToken) {
@@ -126,9 +133,21 @@ export class OnlineStatusService {
 
       const batchSize = options.batchSize ?? DEFAULT_BATCH_SIZE;
       const batchTimeoutMs = options.timeoutMs ?? DEFAULT_BATCH_TIMEOUT_MS;
+      const maxConsecutiveTimeouts =
+        options.maxConsecutiveTimeouts ?? DEFAULT_MAX_CONSECUTIVE_TIMEOUTS;
+      const pauseMs = options.pauseBetweenBatchesMs ?? DEFAULT_PAUSE_BETWEEN_BATCHES_MS;
+
+      // A distinct value the timeout resolves with, so a batch that genuinely
+      // returned zero results is told apart from one that never answered.
+      const TIMED_OUT = Symbol('online-batch-timeout');
+
+      let processed = 0;
+      let consecutiveTimeouts = 0;
+      let stoppedEarly = false;
 
       for (let i = 0; i < cleanIds.length; i += batchSize) {
         if (options.signal?.aborted) {
+          stoppedEarly = true;
           break;
         }
 
@@ -147,42 +166,66 @@ export class OnlineStatusService {
         });
 
         let timeoutId: ReturnType<typeof setTimeout> | undefined;
-        const timeoutPromise = new Promise<UserOnlineStatus[]>((resolve) => {
+        const timeoutPromise = new Promise<typeof TIMED_OUT>((resolve) => {
           timeoutId = setTimeout(() => {
             if (currentToken === batchToken) pendingResolver = null;
-            resolve([]);
+            resolve(TIMED_OUT);
           }, batchTimeoutMs);
         });
 
-        const batchResults = await Promise.race([batchPromise, timeoutPromise]);
+        const outcome = await Promise.race([batchPromise, timeoutPromise]);
         if (timeoutId !== undefined) clearTimeout(timeoutId);
+        processed += chunk.length;
 
-        for (const item of batchResults) {
-          if (item.memberId) {
-            const lastSeenTimestamp = normalizeLastSeenTimestamp(item.lastSeenTimestamp);
-            results.set(item.memberId, {
-              memberId: item.memberId,
-              isOnline: item.isOnline === true,
-              lastSeenTimestamp,
-              lastSeen:
-                lastSeenTimestamp === null ? null : new Date(lastSeenTimestamp).toISOString(),
-            });
+        if (outcome === TIMED_OUT) {
+          // No reply means unknown, not offline. These members are deliberately
+          // left out of the map so their activity stays undefined downstream,
+          // instead of everyone a stall skipped being mislabelled "offline".
+          consecutiveTimeouts += 1;
+          if (consecutiveTimeouts >= maxConsecutiveTimeouts) {
+            this.logger.warn(
+              `Online status: ${String(consecutiveTimeouts)} batches in a row timed out — ` +
+                'Viber has stopped answering. Ending the step to keep the collected roster.',
+            );
+            stoppedEarly = true;
+            break;
+          }
+        } else {
+          consecutiveTimeouts = 0;
+          for (const item of outcome) {
+            if (item.memberId) {
+              const lastSeenTimestamp = normalizeLastSeenTimestamp(item.lastSeenTimestamp);
+              results.set(item.memberId, {
+                memberId: item.memberId,
+                isOnline: item.isOnline === true,
+                lastSeenTimestamp,
+                lastSeen:
+                  lastSeenTimestamp === null ? null : new Date(lastSeenTimestamp).toISOString(),
+              });
+            }
           }
         }
 
-        // Fill in missing items in chunk as offline with null lastSeen if no reply
-        for (const mid of chunk) {
-          if (!results.has(mid)) {
-            results.set(mid, {
-              memberId: mid,
-              isOnline: false,
-              lastSeenTimestamp: null,
-              lastSeen: null,
-            });
-          }
-        }
+        options.onProgress?.(processed, cleanIds.length);
 
-        options.onProgress?.(results.size, cleanIds.length);
+        // Firing thousands of last-online requests back to back is what pushes
+        // Viber's main thread into ANR on very large groups; a short breather
+        // between batches keeps it responsive.
+        if (pauseMs > 0 && i + batchSize < cleanIds.length) {
+          await delay(pauseMs);
+        }
+      }
+
+      if (stoppedEarly) {
+        this.logger.warn(
+          `Online status incomplete: got replies for ${String(results.size)}/` +
+            `${String(cleanIds.length)} participants; the rest keep unknown activity.`,
+        );
+      } else {
+        this.logger.log(
+          `Online status done: replies for ${String(results.size)}/${String(cleanIds.length)} ` +
+            `participants (${String(cleanIds.length - results.size)} without a reply).`,
+        );
       }
     } finally {
       try {
@@ -192,7 +235,6 @@ export class OnlineStatusService {
       }
     }
 
-    this.logger.log(`Successfully fetched online status for ${String(results.size)}/${String(cleanIds.length)} participants.`);
     return results;
   }
 }
