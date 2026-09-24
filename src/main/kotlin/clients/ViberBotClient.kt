@@ -61,7 +61,7 @@ class ViberBotClient(
         return rpcClient.call("viber.tasks.stop", mapOf("id" to taskId))
     }
 
-    suspend fun getGroups(includeAll: Boolean = false): String {
+    override suspend fun getGroups(includeAll: Boolean): String {
         return rpcClient.call("viber.groups.get_all", mapOf("all" to includeAll))
     }
 

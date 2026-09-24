@@ -116,7 +116,7 @@ export function scanInfoPanelSource(xml: string): PanelScan {
     if (resourceId !== undefined && titleIds.has(resourceId)) {
       sectionTitles.push(text);
       if (participantsAction === null && isParticipantsTitle(text)) {
-        participantsAction = actionNextTo(nodes, index, actionIds);
+        participantsAction = actionNextTo(nodes, index, actionIds) ?? parseBounds(node.bounds);
       }
     }
 
@@ -149,7 +149,7 @@ function actionNextTo(nodes: XmlNode[], titleIndex: number, actionIds: Set<strin
     const node = nodes[index];
     if (node === undefined) continue;
     const resourceId = node['resource-id'];
-    if (resourceId !== undefined && actionIds.has(resourceId) && normalise(node.text) !== '') {
+    if (resourceId !== undefined && actionIds.has(resourceId)) {
       return parseBounds(node.bounds);
     }
   }
@@ -179,12 +179,10 @@ export class GroupInfoPage extends BasePage {
    *
    * The tap has to land on the title text, which sits at the left of a very
    * wide landscape toolbar — clicking the toolbar element itself would hit its
-   * empty centre. The panel's participant section loads a beat later, so this
-   * waits for it before returning.
+   * empty centre.
    */
   async open(): Promise<void> {
     if (await this.isOpen()) {
-      await this.waitForParticipantsSection();
       return;
     }
 
@@ -212,19 +210,11 @@ export class GroupInfoPage extends BasePage {
     await title.waitForExist({ timeout: 10_000 });
     await title.click();
     await this.waitFor(selectors.groupInfo.fragment);
-    await this.waitForParticipantsSection();
+    await this.isPresent(selectors.groupInfo.list, 3_000);
   }
 
   async isOpen(): Promise<boolean> {
     return this.isPresent(selectors.groupInfo.fragment);
-  }
-
-  private async waitForParticipantsSection(): Promise<void> {
-    const deadline = Date.now() + this.timeout;
-    while (Date.now() < deadline) {
-      if (await this.isPresent(selectors.groupInfo.participantName, 800)) return;
-    }
-    throw new Error('Group info opened but its participant list never appeared.');
   }
 
   /**
@@ -236,6 +226,10 @@ export class GroupInfoPage extends BasePage {
    * scrolling finds nothing however long the wait.
    */
   async openAllParticipants(): Promise<void> {
+    if (await this.participantsListOpened()) {
+      return;
+    }
+
     let scan = await this.scanPanel();
     let sectionTitles = scan.sectionTitles;
     let stalled = 0;

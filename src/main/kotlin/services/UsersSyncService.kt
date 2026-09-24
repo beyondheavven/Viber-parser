@@ -2,9 +2,12 @@ package com.viber.services
 
 import com.viber.clients.RosterClient
 import com.viber.models.GroupDetail
+import com.viber.models.GroupSummary
 import com.viber.models.ParticipantModel
 import com.viber.models.TaskDetail
 import com.viber.models.UsersPage
+import com.viber.models.UsersSyncAllResult
+import com.viber.models.UsersSyncFailure
 import com.viber.models.UsersSyncResult
 import com.viber.models.ViberGroupMemberRow
 import com.viber.models.ViberGroupRow
@@ -14,6 +17,7 @@ import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Count
 import io.github.jan.supabase.postgrest.query.Order
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.time.Instant
@@ -111,6 +115,55 @@ class UsersSyncService(
         val participants: List<ParticipantModel> =
             json.decodeFromString(viberBotClient.getGroupParticipants(conversationId))
         return sync(group.name, conversationId, group.groupId, participants)
+    }
+
+    /**
+     * Uploads every group the bot has on the device, one after another.
+     *
+     * A group that fails (bot timeout, a Supabase error) is reported and
+     * skipped rather than aborting the run, so one bad group cannot keep the
+     * rest of the user base out of the database.
+     */
+    suspend fun syncAll(): UsersSyncAllResult {
+        val client = supabase() ?: throw SupabaseDisabledException()
+        val startedAt = Instant.now().toString()
+        val groups: List<GroupSummary> = json.decodeFromString(viberBotClient.getGroups(includeAll = false))
+
+        val synced = mutableListOf<UsersSyncResult>()
+        val failed = mutableListOf<UsersSyncFailure>()
+        for (group in groups) {
+            try {
+                synced += syncGroup(group.id)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn("Bulk upload: group {} ({}) failed: {}", group.id, group.name, e.message)
+                failed += UsersSyncFailure(group.id, group.name, e.message ?: e::class.simpleName.orEmpty())
+            }
+        }
+
+        val usersInDatabase = runCatching {
+            client.from("viber_users").select(Columns.list("id")) {
+                count(Count.EXACT)
+                limit(1)
+            }.countOrNull()?.toInt()
+        }.getOrNull()
+
+        val upserted = synced.sumOf { it.usersUpserted }
+        return UsersSyncAllResult(
+            success = failed.isEmpty(),
+            message = if (failed.isEmpty()) {
+                "Загружено групп: ${synced.size} из ${groups.size}"
+            } else {
+                "Загружено групп: ${synced.size} из ${groups.size}, с ошибкой: ${failed.size}"
+            },
+            groupsTotal = groups.size,
+            groups = synced,
+            failed = failed,
+            usersUpserted = upserted,
+            usersInDatabase = usersInDatabase,
+            syncedAt = startedAt,
+        )
     }
 
     /** Syncs the roster a finished collect task produced (with online status). */

@@ -14,6 +14,8 @@ data class TaskSummary(
 
     val status: String,
 
+    val participantsCount: Int? = null,
+
     val currentStep: TaskStep? = null,
 
     val createdAt: String,

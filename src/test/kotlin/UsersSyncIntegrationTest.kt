@@ -47,6 +47,7 @@ class UsersSyncIntegrationTest {
     }
 
     private class FakeRoster(private val group: String, private val participants: String) : RosterClient {
+        override suspend fun getGroups(includeAll: Boolean): String = "[$group]"
         override suspend fun getGroup(id: Int): String = group
         override suspend fun getGroupParticipants(id: Int): String = participants
         override suspend fun getTask(taskId: String): String = error("not used")

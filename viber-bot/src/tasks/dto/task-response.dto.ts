@@ -46,6 +46,9 @@ export class TaskSummaryDto {
   /** Дата завершения. */
   completedAt?: string | undefined;
 
+  /** Число участников (итоговое или собранное в процессе). */
+  participantsCount?: number | null | undefined;
+
   /** Текст ошибки, если статус error. В списке тоже: иначе причину падения не видно без второго запроса. */
   error?: string | null | undefined;
 }

@@ -92,13 +92,20 @@ export class FridaStreamService {
       const payload = (message.payload ?? {}) as Record<string, unknown>;
 
       if (payload['event'] === 'query-ready') {
+        this.logger.log(`Frida: query controller registered (${String(payload['queryClass'])}.${String(payload['method'])}).`);
         queryReady = true;
+      } else if (payload['event'] === 'hooks-installed') {
+        this.logger.log(`Frida: hooks installed on delegates: ${JSON.stringify(payload['classes'])}`);
+      } else if (payload['event'] === 'query-sent') {
+        this.logger.log(`Frida: query sent via ${String(payload['via'])} for offset ${String(payload['sindex'] ?? payload['a1'])}`);
+      } else if (payload['event'] === 'skip') {
+        this.logger.warn(`Frida delegate skipped ${String(payload['cls'])}: ${String(payload['reason'])}`);
       } else if (payload['event'] === 'query-error') {
-        // The agent falls back to another call path after reporting this, so it
-        // is not fatal on its own — but it explains a walk that then stalls.
         const detail = typeof payload['message'] === 'string' ? payload['message'] : 'unknown';
         this.logger.warn(`Frida agent reported a query error: ${detail}`);
         driveQueryError?.(detail);
+      } else if (payload['event'] === 'error') {
+        this.logger.error(`Frida agent error at ${String(payload['where'])}: ${String(payload['message'])}`);
       } else if (payload['event'] === 'pg-reply') {
         const json = typeof payload['json'] === 'string' ? payload['json'] : null;
         if (json !== null) {
@@ -123,7 +130,10 @@ export class FridaStreamService {
       },
 
       runPaging: async (conversationId, groupId, options = {}) => {
-        const idleTimeoutMs = options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
+        const idleTimeoutMs =
+          options.idleTimeoutMs && options.idleTimeoutMs > 0
+            ? options.idleTimeoutMs
+            : DEFAULT_IDLE_TIMEOUT_MS;
         const pagingSignal = options.signal ?? signal;
         const logger = this.logger;
 
@@ -174,12 +184,19 @@ export class FridaStreamService {
             if (outcome === 'complete') finish();
           };
 
+          let lastNudge = 0;
           const watchdog = setInterval(() => {
             if (walk.isDone) {
               cleanup();
               return;
             }
-            if (Date.now() - lastActivity > idleTimeoutMs) {
+            const idle = Date.now() - lastActivity;
+            if (idle > 3_000 && Date.now() - lastNudge > 3_000 && idle < idleTimeoutMs) {
+              lastNudge = Date.now();
+              logger.log('Paging idle for 3s; nudging participants scroll via ADB swipe to trigger next page...');
+              adb.shell('input swipe 600 800 600 300 300', { allowFailure: true });
+            }
+            if (idle > idleTimeoutMs) {
               logger.warn(`Paging went quiet for ${String(idleTimeoutMs)}ms; ending the walk.`);
               finish();
             }

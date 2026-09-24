@@ -176,7 +176,8 @@ export class ParticipantsCollectorFlow {
           conversationId,
           groupId,
           {
-            idleTimeoutMs: dto.idleTimeoutMs,
+            idleTimeoutMs:
+              dto.idleTimeoutMs && dto.idleTimeoutMs > 0 ? dto.idleTimeoutMs : 15_000,
             signal,
             onProgress: (p) => {
               task.updateProgress({
@@ -265,7 +266,9 @@ export class ParticipantsCollectorFlow {
           context.adb,
           viberConfig,
           conversationId,
-          dto.numbersSyncTimeoutMs ?? 45_000,
+          dto.numbersSyncTimeoutMs && dto.numbersSyncTimeoutMs > 0
+            ? dto.numbersSyncTimeoutMs
+            : 45_000,
           signal,
           (syncStatus) => {
             task.updateProgress({

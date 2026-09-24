@@ -1,5 +1,6 @@
 import { BasePage } from './base.page.js';
 import {
+  collectAll,
   collectDescendants,
   findDescendant,
   parseBounds,
@@ -34,15 +35,25 @@ export const ROSTER_SCROLL_PERCENT = 0.75;
 /** Parses one Appium hierarchy snapshot into roster rows without per-row roundtrips. */
 export function parseRosterPageSource(xml: string): RosterViewport {
   const root = parseHierarchy(xml);
+  const allNodes: XmlNode[] = [];
+  collectAll(root, allNodes);
 
-  const listNode = findDescendant(root, selectors.participants.list);
-  const list = parseBounds(listNode?.bounds);
-  if (listNode === undefined || list === null) {
-    throw new Error('Appium page source has no participants RecyclerView bounds.');
+  let listNode = findDescendant(root, selectors.participants.list);
+  if (listNode === undefined) {
+    listNode = allNodes.find(
+      (n) =>
+        n['resource-id']?.endsWith(':id/recycler_view') ||
+        n['resource-id']?.endsWith(':id/list') ||
+        n['resource-id']?.includes('recycler') ||
+        n['class']?.includes('RecyclerView') ||
+        n['class']?.includes('ListView'),
+    );
   }
 
+  const list = parseBounds(listNode?.bounds) ?? { left: 0, top: 0, right: 1280, bottom: 720 };
+
   const rowNodes: XmlNode[] = [];
-  collectDescendants(listNode, selectors.participants.row, rowNodes);
+  collectDescendants(listNode ?? root, selectors.participants.row, rowNodes);
   const rows: VisibleParticipantRow[] = [];
   for (const rowNode of rowNodes) {
     const bounds = parseBounds(rowNode.bounds);
@@ -61,29 +72,33 @@ export function parseRosterPageSource(xml: string): RosterViewport {
   }
   rows.sort((left, right) => left.top - right.top);
 
-  const countNodes: XmlNode[] = [];
-  collectDescendants(root, 'com.viber.voip:id/text', countNodes);
   let totalCount: number | null = null;
-  // Thousands are grouped by locale: "1 615" / "1 615" in Russian, "1,615" in
-  // English, "1.615" in German. Every separator is stripped before parsing.
-  for (const node of countNodes) {
-    const match = /\(([\d\s\u00a0\u202f,.']+)\)/u.exec(node.text ?? '');
-    if (match === null) continue;
-    const parsed = Number.parseInt((match[1] ?? '').replace(/[^\d]/gu, ''), 10);
-    if (Number.isInteger(parsed) && parsed > 0) {
-      totalCount = parsed;
-      break;
+  // Look for total count across all text nodes (e.g. "(1 615)" or "1 615 участников")
+  for (const node of allNodes) {
+    const text = node.text?.trim();
+    if (!text) continue;
+    const match = /\(([\d\s\u00a0\u202f,.']+)\)/u.exec(text);
+    if (match !== null) {
+      const parsed = Number.parseInt((match[1] ?? '').replace(/[^\d]/gu, ''), 10);
+      if (Number.isInteger(parsed) && parsed > 0) {
+        totalCount = parsed;
+        break;
+      }
     }
   }
 
   if (totalCount === null) {
-    for (const node of countNodes) {
-      const match = /(\d[\d\s  ,.']*)/u.exec(node.text ?? '');
-      if (match !== null) {
-        const parsed = Number.parseInt((match[1] ?? '').replace(/[^\d]/gu, ''), 10);
-        if (Number.isInteger(parsed) && parsed > 0) {
-          totalCount = parsed;
-          break;
+    for (const node of allNodes) {
+      const text = node.text?.trim();
+      if (!text) continue;
+      if (/участник|member|participants/iu.test(text)) {
+        const match = /(\d[\d\s\u00a0\u202f,.']*)/u.exec(text);
+        if (match !== null) {
+          const parsed = Number.parseInt((match[1] ?? '').replace(/[^\d]/gu, ''), 10);
+          if (Number.isInteger(parsed) && parsed > 0) {
+            totalCount = parsed;
+            break;
+          }
         }
       }
     }

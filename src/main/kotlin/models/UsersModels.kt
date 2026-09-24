@@ -104,6 +104,42 @@ data class UsersSyncResult(
     val syncedAt: String,
 )
 
+/** A group the bulk upload could not sync; the others are still uploaded. */
+@Serializable
+data class UsersSyncFailure(
+    val conversationId: Int,
+
+    val group: String? = null,
+
+    val error: String,
+)
+
+/** What uploading every group on the device into Supabase did. */
+@Serializable
+data class UsersSyncAllResult(
+    /** True when every group was uploaded. */
+    val success: Boolean,
+
+    val message: String,
+
+    /** Groups found on the device. */
+    val groupsTotal: Int,
+
+    /** Per-group results, in the order they were uploaded. */
+    val groups: List<UsersSyncResult>,
+
+    /** Groups that failed, with the reason. */
+    val failed: List<UsersSyncFailure>,
+
+    /** Sum of rows written across groups; one person in two groups counts twice. */
+    val usersUpserted: Int,
+
+    /** Distinct people in `viber_users` after the upload. */
+    val usersInDatabase: Int? = null,
+
+    val syncedAt: String,
+)
+
 /** Page of users read back from Supabase. */
 @Serializable
 data class UsersPage(

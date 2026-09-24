@@ -1,6 +1,7 @@
 package com.viber.routes.docs
 
 import com.viber.models.UsersPage
+import com.viber.models.UsersSyncAllResult
 import com.viber.models.UsersSyncResult
 import io.github.smiley4.ktoropenapi.config.RouteConfig
 import io.ktor.http.HttpStatusCode
@@ -35,6 +36,26 @@ val describeListUsers: RouteConfig.() -> Unit = {
         code(HttpStatusCode.OK) {
             description = "Страница пользователей"
             body<UsersPage>()
+        }
+        code(HttpStatusCode.InternalServerError) {
+            description = "Supabase не настроен (SUPABASE_URL / SUPABASE_SERVICE_KEY)"
+        }
+    }
+}
+
+val describeSyncAllUsers: RouteConfig.() -> Unit = {
+    operationId = "syncAllUsers"
+    tags = listOf("Users")
+    summary = "Выгрузить всех пользователей со всех групп в Supabase"
+    description = "Отдельная операция массовой загрузки: проходит по всем группам и сообществам " +
+            "на устройстве и для каждой делает то же, что /api/users/sync/group/{id}. Группа, " +
+            "которая не выгрузилась, попадает в failed и не останавливает остальные. Один человек " +
+            "из нескольких групп хранится одной строкой в viber_users."
+
+    response {
+        code(HttpStatusCode.OK) {
+            description = "Итог загрузки по каждой группе"
+            body<UsersSyncAllResult>()
         }
         code(HttpStatusCode.InternalServerError) {
             description = "Supabase не настроен (SUPABASE_URL / SUPABASE_SERVICE_KEY)"
