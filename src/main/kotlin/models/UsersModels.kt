@@ -68,10 +68,6 @@ data class ViberGroupMemberRow(
 
     val role: Int? = null,
 
-    // No default: with one, the Supabase client omits `active` for rows equal to
-    // it, and PostgREST then fills the omitted cells with null in a bulk upsert,
-    // which the NOT NULL column rejects. Always sending it keeps the payload
-    // rectangular.
     val active: Boolean,
 
     @SerialName("synced_at")
@@ -156,13 +152,10 @@ data class UsersSyncStatus(
 
     val usersTotal: Int? = null,
 
-    /** Rows in `viber_groups`. */
     val groupsTotal: Int? = null,
 
-    /** Rows in `viber_group_members`, active and inactive. */
     val membersTotal: Int? = null,
 
-    /** Most recent `last_synced_at` among the groups returned. */
     val lastSyncedAt: String? = null,
 
     val groups: List<GroupSyncStatus> = emptyList(),
