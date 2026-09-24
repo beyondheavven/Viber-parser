@@ -15,6 +15,9 @@ class RabbitMqSettings(config: ConfigUtil) {
 
     val queue: String = config.text("queue") ?: "viber_commands_queue"
 
+    /** Pub/sub queue the bot emits task and message events to. */
+    val eventsQueue: String = config.text("eventsQueue") ?: "viber_events_queue"
+
     val timeout: Duration = config.seconds("timeoutSeconds") ?: Duration.ofSeconds(60)
 
     companion object {

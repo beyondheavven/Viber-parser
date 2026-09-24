@@ -73,19 +73,40 @@ export class ViberNavigationService {
     this.logger.log(`Navigating to participants of "${groupName}" via Appium...`);
 
     return withViberSession(async (driver) => {
-      if (signal?.aborted) {
-        throw new Error('Navigation aborted.');
+      const abortIfAsked = (): void => {
+        if (signal?.aborted) throw new Error('Navigation aborted.');
+      };
+
+      abortIfAsked();
+
+      const page = new ParticipantsPage(driver);
+
+      // Check if participants screen is already open
+      if (await page.isLoaded(1_000)) {
+        this.logger.log('Participants screen is already loaded!');
+        const snapshot = await page.snapshot();
+        this.logger.log(
+          `Participants screen loaded. Header total: ${String(snapshot.totalCount ?? 'unknown')}`,
+        );
+        try {
+          this.logger.log('Triggering initial scroll on participants list to activate paging controller...');
+          await page.scrollForward(snapshot);
+          await driver.pause(1000);
+        } catch (scrollErr) {
+          this.logger.warn(`Initial scroll trigger failed (non-fatal): ${String(scrollErr)}`);
+        }
+        return {
+          headerTotal: snapshot.totalCount,
+        };
       }
 
       const chatList = new ChatListPage(driver);
       await chatList.waitUntilLoaded();
-
-      if (signal?.aborted) {
-        throw new Error('Navigation aborted.');
-      }
+      abortIfAsked();
 
       this.logger.log(`Opening chat "${groupName}"...`);
       await chatList.open(groupName);
+      abortIfAsked();
 
       // Handle any prompt / modal dialogs if they appear
       try {
@@ -101,27 +122,48 @@ export class ViberNavigationService {
         // Safe to ignore dialog dismiss errors
       }
 
-      if (signal?.aborted) {
-        throw new Error('Navigation aborted.');
+      abortIfAsked();
+
+      // Check if selecting the chat opened participants screen directly
+      if (await page.isLoaded(1_000)) {
+        this.logger.log('Participants screen loaded after opening chat!');
+        const snapshot = await page.snapshot();
+        try {
+          this.logger.log('Triggering initial scroll on participants list to activate paging controller...');
+          await page.scrollForward(snapshot);
+          await driver.pause(1000);
+        } catch (scrollErr) {
+          this.logger.warn(`Initial scroll trigger failed (non-fatal): ${String(scrollErr)}`);
+        }
+        return {
+          headerTotal: snapshot.totalCount,
+        };
       }
 
       const info = new GroupInfoPage(driver);
       await info.open();
-
-      if (signal?.aborted) {
-        throw new Error('Navigation aborted.');
-      }
+      abortIfAsked();
 
       this.logger.log('Opening full participants list in group info...');
       await info.openAllParticipants();
+      abortIfAsked();
 
-      const page = new ParticipantsPage(driver);
       await page.waitUntilLoaded();
+      await driver.pause(1000);
 
       const snapshot = await page.snapshot();
       this.logger.log(
         `Participants screen loaded. Header total: ${String(snapshot.totalCount ?? 'unknown')}`,
       );
+
+      // Trigger initial scroll to activate RecyclerView scroll listener and initialize gp0.y
+      try {
+        this.logger.log('Triggering initial scroll on participants list to activate paging controller...');
+        await page.scrollForward(snapshot);
+        await driver.pause(1000);
+      } catch (scrollErr) {
+        this.logger.warn(`Initial scroll trigger failed (non-fatal): ${String(scrollErr)}`);
+      }
 
       return {
         headerTotal: snapshot.totalCount,

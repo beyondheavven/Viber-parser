@@ -1,5 +1,6 @@
 import { BasePage } from './base.page.js';
 import {
+  collectAll,
   collectDescendants,
   findDescendant,
   parseBounds,
@@ -12,7 +13,17 @@ import {
   PRIVATE_MESSAGES_BLOCKED_TEXT,
   selectors,
 } from './selectors.js';
-import { byId, byText, byTextContains, byTextStartsWith, scrollToText } from './uiselector.js';
+import {
+  byId,
+  byIdWithin,
+  byText,
+  byTextContains,
+  byTextStartsWith,
+  scrollToText,
+} from './uiselector.js';
+
+/** A participant row of the full-screen list, never of the info panel preview. */
+export const FULL_LIST_ROW = byIdWithin(selectors.participants.list, selectors.participants.row);
 
 export interface VisibleParticipantRow {
   name: string;
@@ -34,11 +45,19 @@ export const ROSTER_SCROLL_PERCENT = 0.75;
 /** Parses one Appium hierarchy snapshot into roster rows without per-row roundtrips. */
 export function parseRosterPageSource(xml: string): RosterViewport {
   const root = parseHierarchy(xml);
+  const allNodes: XmlNode[] = [];
+  collectAll(root, allNodes);
 
+  // Strict on purpose. A fallback to "any RecyclerView" also matches the chat's
+  // `conversation_recycler_view` and the info panel, and then the roster is
+  // silently read off the wrong screen instead of failing where it went wrong.
   const listNode = findDescendant(root, selectors.participants.list);
   const list = parseBounds(listNode?.bounds);
   if (listNode === undefined || list === null) {
-    throw new Error('Appium page source has no participants RecyclerView bounds.');
+    throw new Error(
+      'The full participants list is not on screen (no recycler_view). ' +
+        'Navigation probably stopped on the group info panel.',
+    );
   }
 
   const rowNodes: XmlNode[] = [];
@@ -61,27 +80,33 @@ export function parseRosterPageSource(xml: string): RosterViewport {
   }
   rows.sort((left, right) => left.top - right.top);
 
-  const countNodes: XmlNode[] = [];
-  collectDescendants(root, 'com.viber.voip:id/text', countNodes);
   let totalCount: number | null = null;
-  for (const node of countNodes) {
-    const match = /\(([\d\s\u00a0\u202f]+)\)/u.exec(node.text ?? '');
-    if (match === null) continue;
-    const parsed = Number.parseInt((match[1] ?? '').replace(/[^\d]/gu, ''), 10);
-    if (Number.isInteger(parsed) && parsed > 0) {
-      totalCount = parsed;
-      break;
+  // Look for total count across all text nodes (e.g. "(1 615)" or "1 615 участников")
+  for (const node of allNodes) {
+    const text = node.text?.trim();
+    if (!text) continue;
+    const match = /\(([\d\s\u00a0\u202f,.']+)\)/u.exec(text);
+    if (match !== null) {
+      const parsed = Number.parseInt((match[1] ?? '').replace(/[^\d]/gu, ''), 10);
+      if (Number.isInteger(parsed) && parsed > 0) {
+        totalCount = parsed;
+        break;
+      }
     }
   }
 
   if (totalCount === null) {
-    for (const node of countNodes) {
-      const match = /(\d+)/u.exec(node.text ?? '');
-      if (match !== null) {
-        const parsed = Number.parseInt(match[1] ?? '', 10);
-        if (Number.isInteger(parsed) && parsed > 0) {
-          totalCount = parsed;
-          break;
+    for (const node of allNodes) {
+      const text = node.text?.trim();
+      if (!text) continue;
+      if (/участник|member|participants/iu.test(text)) {
+        const match = /(\d[\d\s\u00a0\u202f,.']*)/u.exec(text);
+        if (match !== null) {
+          const parsed = Number.parseInt((match[1] ?? '').replace(/[^\d]/gu, ''), 10);
+          if (Number.isInteger(parsed) && parsed > 0) {
+            totalCount = parsed;
+            break;
+          }
         }
       }
     }
@@ -96,17 +121,20 @@ export function parseRosterPageSource(xml: string): RosterViewport {
  */
 export class ParticipantsPage extends BasePage {
   /**
-   * Waits on a row's `itemLayout`, not on its `name`: `name` is also what the
-   * info panel labels its participant previews with, and `recycler_view`
-   * belongs to a dozen other screens — either would report this list as loaded
-   * while Viber is still showing something else.
+   * Waits on a row (`itemLayout`) inside the list's own `recycler_view`.
+   *
+   * Neither id is enough alone. `recycler_view` belongs to a dozen other
+   * screens, and at 1280x720 the group info panel draws its participant
+   * previews with `itemLayout` too — checking the row id by itself reported
+   * the full list as open while the panel was still on screen, so "Show all"
+   * was never tapped and the paging controller was never created.
    */
   async waitUntilLoaded(): Promise<void> {
-    await this.waitFor(selectors.participants.row);
+    await this.waitFor(FULL_LIST_ROW);
   }
 
   async isLoaded(timeout = 2_000): Promise<boolean> {
-    return this.isPresent(selectors.participants.row, timeout);
+    return this.isPresent(FULL_LIST_ROW, timeout);
   }
 
   /** Display names currently rendered in the list. */

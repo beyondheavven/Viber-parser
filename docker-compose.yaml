@@ -10,7 +10,6 @@ services:
       sh -c "modprobe kvm_amd 2>/dev/null || modprobe kvm_intel 2>/dev/null || true; ls -l /dev/kvm"
 
   android-emulator:
-    # Pinned: emulator/first-boot.sh is a fork of this exact tag's script.
     image: shmayro/dockerify-android:1.0.0
     container_name: android-emulator
     privileged: true
@@ -23,26 +22,13 @@ services:
     volumes:
       - android-data:/data
       - ./emulator/first-boot.sh:/overrides/first-boot.sh:ro
-    # The image re-runs first-boot.sh on every start, and its stock version
-    # switches airplane mode on and lets the screen sleep after 15s — both
-    # racing with (and overriding) whatever start.sh sets. Our fork is copied
-    # over it here; `tr` strips the CR a Windows checkout may have added.
-    # (List form on purpose: a string command is shell-split by compose, which
-    # would eat the backslash in '\r'.)
     command:
       - sh
       - -c
       - "tr -d '\\r' < /overrides/first-boot.sh > /root/first-boot.sh && chmod +x /root/first-boot.sh && exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf"
     environment:
-      # The image ships a single system image (android-30, default x86_64);
-      # the Android version is not configurable through it.
       - GAPPS_SETUP=${GAPPS_SETUP:-true}
       - ROOT_SETUP=${ROOT_SETUP:-true}
-      # Display and memory, mirroring LDPlayer's "Tablet" preset (1280x720 at
-      # 240 dpi), which is the layout the Viber page objects were captured on.
-      # Applied to /data/android.avd/config.ini on every container start, so a
-      # change only needs `docker compose up -d android-emulator`, not a new
-      # data volume.
       - SCREEN_RESOLUTION=${EMULATOR_SCREEN_RESOLUTION:-1280x720}
       - SCREEN_DENSITY=${EMULATOR_SCREEN_DENSITY:-240}
       - RAM_SIZE=${EMULATOR_RAM_SIZE:-4096}

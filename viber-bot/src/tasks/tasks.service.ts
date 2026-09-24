@@ -76,16 +76,29 @@ export class TasksService {
   }
 
   toSummaryDto(task: TaskEntity): TaskSummaryDto {
+    const result = task.result as Record<string, unknown> | undefined;
+    const progress = task.progress as Record<string, unknown> | undefined;
+    const participantsCount =
+      typeof result?.['participantsCount'] === 'number'
+        ? (result['participantsCount'] as number)
+        : typeof progress?.['streamMembers'] === 'number'
+          ? (progress['streamMembers'] as number)
+          : typeof progress?.['linkedAfterSync'] === 'number'
+            ? (progress['linkedAfterSync'] as number)
+            : null;
+
     return {
       id: task.id,
       groupTarget: task.groupTarget,
       groupName: task.groupName,
       conversationId: task.conversationId,
       status: task.status,
+      participantsCount,
       currentStep: task.currentStep ? this.toStepDto(task.currentStep) : null,
       createdAt: task.createdAt.toISOString(),
       startedAt: task.startedAt?.toISOString(),
       completedAt: task.completedAt?.toISOString(),
+      error: task.error,
     };
   }
 
@@ -94,7 +107,6 @@ export class TasksService {
       ...this.toSummaryDto(task),
       stepHistory: task.stepHistory,
       progress: task.progress,
-      error: task.error,
       result: task.result,
     };
   }

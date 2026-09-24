@@ -1,8 +1,10 @@
 package com.viber.routes
 
 import com.viber.routes.docs.describeListUsers
+import com.viber.routes.docs.describeSyncAllUsers
 import com.viber.routes.docs.describeSyncGroupUsers
 import com.viber.routes.docs.describeSyncTaskUsers
+import com.viber.routes.docs.describeUsersSyncStatus
 import com.viber.services.UsersSyncService
 import io.github.smiley4.ktoropenapi.get
 import io.github.smiley4.ktoropenapi.post
@@ -22,6 +24,15 @@ fun Route.usersRoutes(usersSyncService: UsersSyncService) {
                 name = query["name"],
             )
             call.respond(HttpStatusCode.OK, page)
+        }
+
+        get("/sync/status", describeUsersSyncStatus) {
+            val conversationId = call.request.queryParameters["conversationId"]?.toIntOrNull()
+            call.respond(HttpStatusCode.OK, usersSyncService.syncStatus(conversationId))
+        }
+
+        post("/sync/all", describeSyncAllUsers) {
+            call.respond(HttpStatusCode.OK, usersSyncService.syncAll())
         }
 
         post("/sync/group/{id}", describeSyncGroupUsers) {

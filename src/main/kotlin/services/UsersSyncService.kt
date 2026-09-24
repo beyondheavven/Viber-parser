@@ -2,10 +2,15 @@ package com.viber.services
 
 import com.viber.clients.RosterClient
 import com.viber.models.GroupDetail
+import com.viber.models.GroupSummary
+import com.viber.models.GroupSyncStatus
 import com.viber.models.ParticipantModel
-import com.viber.models.TaskDetail
+import com.viber.models.TaskCollectionResult
 import com.viber.models.UsersPage
+import com.viber.models.UsersSyncAllResult
+import com.viber.models.UsersSyncFailure
 import com.viber.models.UsersSyncResult
+import com.viber.models.UsersSyncStatus
 import com.viber.models.ViberGroupMemberRow
 import com.viber.models.ViberGroupRow
 import com.viber.models.ViberUserRow
@@ -14,44 +19,31 @@ import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Count
 import io.github.jan.supabase.postgrest.query.Order
+import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.time.Instant
 
-/** Raised when a sync is requested while `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` are unset. */
 class SupabaseDisabledException :
     IllegalStateException("Supabase is not configured: set SUPABASE_URL and SUPABASE_SERVICE_KEY")
 
-/**
- * Turns the bot's participant records into rows of the Supabase user base.
- *
- * Pure functions, kept apart from the service so the field rules can be unit
- * tested without a Supabase client.
- */
 object UserRowMapper {
 
-    /** Placeholder names the bot emits when Viber has none. */
     private val PLACEHOLDER_NAMES = setOf("(без имени)", "(no name)")
 
-    /**
-     * Normalises a phone to E.164 digits with a leading plus, or null when the
-     * bot passed a placeholder ("em:…", "Ожидает дешифровки", too short).
-     */
     fun normalizePhone(raw: String?): String? {
         val value = raw?.trim().orEmpty()
         if (value.isEmpty() || value.startsWith("em", ignoreCase = true)) return null
         val digits = value.filter { it.isDigit() }
-        // Anything shorter than a subscriber number is a placeholder, not an identity.
         return if (digits.length >= 7) "+$digits" else null
     }
 
-    /** A decoded Viber member id, or null while it is still an `em:` blob. */
     fun cleanMemberId(raw: String?): String? {
         val value = raw?.trim().orEmpty()
         return if (value.isEmpty() || value.startsWith("em:")) null else value
     }
 
-    /** Stable key rows are upserted on: member id first, phone as a fallback. */
     fun identityKey(memberId: String?, phone: String?): String? =
         memberId ?: phone?.let { "phone:${it.removePrefix("+")}" }
 
@@ -60,11 +52,6 @@ object UserRowMapper {
         return if (value.isEmpty() || value in PLACEHOLDER_NAMES) null else value
     }
 
-    /**
-     * Maps one participant, or returns null for rows that have no place in the
-     * user base: the automated account itself, and members with neither a
-     * decoded member id nor a phone (nothing to key them on).
-     */
     fun toUserRow(participant: ParticipantModel, now: String): ViberUserRow? {
         if (participant.isSelf) return null
         val memberId = cleanMemberId(participant.memberId)
@@ -83,17 +70,10 @@ object UserRowMapper {
         )
     }
 
-    /** `groupKey` of a conversation: the 64-bit Viber id, else its local row id. */
     fun groupKey(viberGroupId: String?, conversationId: Int): String =
         viberGroupId?.trim()?.takeIf { it.isNotEmpty() } ?: "conv:$conversationId"
 }
 
-/**
- * Pushes a group's roster from the bot into the Supabase user base.
- *
- * The client is looked up per call because the Supabase module is configured
- * after routing; holding a reference at construction time would capture null.
- */
 class UsersSyncService(
     private val viberBotClient: RosterClient,
     private val supabase: () -> SupabaseClient?,
@@ -102,10 +82,8 @@ class UsersSyncService(
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** Supabase rejects requests past a few MB; 500 rows keeps well under that. */
     private val batchSize = 500
 
-    /** Syncs a group straight from the bot's SQLite snapshot. */
     suspend fun syncGroup(conversationId: Int): UsersSyncResult {
         val group: GroupDetail = json.decodeFromString(viberBotClient.getGroup(conversationId))
         val participants: List<ParticipantModel> =
@@ -113,15 +91,65 @@ class UsersSyncService(
         return sync(group.name, conversationId, group.groupId, participants)
     }
 
-    /** Syncs the roster a finished collect task produced (with online status). */
+    suspend fun syncAll(): UsersSyncAllResult {
+        val client = supabase() ?: throw SupabaseDisabledException()
+        val startedAt = Instant.now().toString()
+        val groups: List<GroupSummary> = json.decodeFromString(viberBotClient.getGroups(includeAll = false))
+
+        val synced = mutableListOf<UsersSyncResult>()
+        val failed = mutableListOf<UsersSyncFailure>()
+        for (group in groups) {
+            try {
+                synced += syncGroup(group.id)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn("Bulk upload: group {} ({}) failed: {}", group.id, group.name, e.message)
+                failed += UsersSyncFailure(group.id, group.name, e.message ?: e::class.simpleName.orEmpty())
+            }
+        }
+
+        val usersInDatabase = runCatching {
+            client.from("viber_users").select(Columns.list("id")) {
+                count(Count.EXACT)
+                limit(1)
+            }.countOrNull()?.toInt()
+        }.getOrNull()
+
+        val upserted = synced.sumOf { it.usersUpserted }
+        return UsersSyncAllResult(
+            success = failed.isEmpty(),
+            message = if (failed.isEmpty()) {
+                "Загружено групп: ${synced.size} из ${groups.size}"
+            } else {
+                "Загружено групп: ${synced.size} из ${groups.size}, с ошибкой: ${failed.size}"
+            },
+            groupsTotal = groups.size,
+            groups = synced,
+            failed = failed,
+            usersUpserted = upserted,
+            usersInDatabase = usersInDatabase,
+            syncedAt = startedAt,
+        )
+    }
+
     suspend fun syncTask(taskId: String): UsersSyncResult {
-        val task: TaskDetail = json.decodeFromString(viberBotClient.getTask(taskId))
+        // Only `status` and `result` are read. This slim view (with
+        // ignoreUnknownKeys) skips stepHistory, whose progress map holds numbers
+        // under keys the full TaskDetail types as String — those fail to parse.
+        val task: TaskSyncView = json.decodeFromString(viberBotClient.getTask(taskId))
         val result = task.result
             ?: throw IllegalArgumentException("Задача $taskId ещё не завершена (статус ${task.status})")
         val participants: List<ParticipantModel> =
             json.decodeFromString(viberBotClient.getTaskParticipants(taskId))
         return sync(result.group, result.conversationId, result.groupId, participants)
     }
+
+    @Serializable
+    private data class TaskSyncView(
+        val status: String,
+        val result: TaskCollectionResult? = null,
+    )
 
     private suspend fun sync(
         groupName: String?,
@@ -134,8 +162,6 @@ class UsersSyncService(
 
         val mapped = participants
             .mapNotNull { p -> UserRowMapper.toUserRow(p, now)?.let { row -> row to p } }
-            // The same person can appear twice before the bot's dedup runs; the
-            // upsert would fail on a duplicate key inside one batch.
             .distinctBy { (row, _) -> row.identityKey }
         val rows = mapped.map { (row, _) -> row }
         val skipped = participants.size - rows.size
@@ -182,7 +208,6 @@ class UsersSyncService(
             client.from("viber_group_members").upsert(batch) { onConflict = "group_id,user_id" }
         }
 
-        // Whoever was not touched by this sync has left the group.
         val deactivated = client.from("viber_group_members").update(
             { set("active", false) },
         ) {
@@ -213,7 +238,85 @@ class UsersSyncService(
         )
     }
 
-    /** Reads users back, newest update first, optionally filtered by phone or name. */
+    suspend fun syncStatus(conversationId: Int? = null): UsersSyncStatus {
+        val checkedAt = Instant.now().toString()
+        val client = supabase() ?: return UsersSyncStatus(
+            configured = false,
+            reachable = false,
+            message = "Supabase не настроен: задайте SUPABASE_URL и SUPABASE_SERVICE_KEY",
+            checkedAt = checkedAt,
+        )
+
+        return try {
+            val groups = client.from("viber_groups").select(Columns.ALL) {
+                conversationId?.let { id -> filter { eq("conversation_id", id) } }
+                order("last_synced_at", Order.DESCENDING)
+            }.decodeList<ViberGroupRow>()
+
+            val groupStatuses = groups.map { group ->
+                val id = group.id
+                GroupSyncStatus(
+                    groupKey = group.groupKey,
+                    conversationId = group.conversationId,
+                    name = group.name,
+                    participantCount = group.participantCount,
+                    activeMembers = id?.let { countMembers(client, it, active = true) },
+                    inactiveMembers = id?.let { countMembers(client, it, active = false) },
+                    lastSyncedAt = group.lastSyncedAt,
+                )
+            }
+
+            val usersTotal = countRows(client, "viber_users")
+            val membersTotal = countRows(client, "viber_group_members")
+            val groupsTotal = if (conversationId == null) groups.size else countRows(client, "viber_groups")
+
+            val message = when {
+                conversationId != null && groups.isEmpty() ->
+                    "Группа $conversationId ещё не записывалась в Supabase"
+                usersTotal == 0 -> "Supabase доступен, но пользователей в нём пока нет"
+                else -> "Supabase доступен, записи есть"
+            }
+
+            UsersSyncStatus(
+                configured = true,
+                reachable = true,
+                message = message,
+                usersTotal = usersTotal,
+                groupsTotal = groupsTotal,
+                membersTotal = membersTotal,
+                lastSyncedAt = groups.mapNotNull { it.lastSyncedAt }.maxOrNull(),
+                groups = groupStatuses,
+                checkedAt = checkedAt,
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn("Supabase status check failed: {}", e.message)
+            UsersSyncStatus(
+                configured = true,
+                reachable = false,
+                message = "Supabase недоступен: ${e.message ?: e::class.simpleName}",
+                checkedAt = checkedAt,
+            )
+        }
+    }
+
+    private suspend fun countRows(client: SupabaseClient, table: String): Int? =
+        client.from(table).select(Columns.list("*")) {
+            count(Count.EXACT)
+            limit(1)
+        }.countOrNull()?.toInt()
+
+    private suspend fun countMembers(client: SupabaseClient, groupId: Long, active: Boolean): Int? =
+        client.from("viber_group_members").select(Columns.list("group_id")) {
+            count(Count.EXACT)
+            limit(1)
+            filter {
+                eq("group_id", groupId)
+                eq("active", active)
+            }
+        }.countOrNull()?.toInt()
+
     suspend fun listUsers(limit: Int, offset: Int, phone: String?, name: String?): UsersPage {
         val client = supabase() ?: throw SupabaseDisabledException()
         val safeLimit = limit.coerceIn(1, 1000)

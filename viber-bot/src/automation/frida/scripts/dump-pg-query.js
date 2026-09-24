@@ -152,12 +152,29 @@ Java.perform(function () {
     return stubCallback;
   }
 
+  try {
+    var QueryKlass = Java.use(QUERY_CLASS);
+    var inits = QueryKlass.$init.overloads;
+    for (var k = 0; k < inits.length; k++) {
+      inits[k].implementation = function () {
+        queryInstance = this;
+        return this.$init.apply(this, arguments);
+      };
+    }
+    // `b` is deliberately not hooked. The name is obfuscated and shared by
+    // several unrelated overloads, some of them static; replacing all of them
+    // put the class wrapper (not an instance) into queryInstance and wrapped a
+    // hot path for nothing. The constructor hook plus Java.choose cover it.
+  } catch (hookErr) {
+    send({ event: 'error', where: 'hookQueryClass/' + QUERY_CLASS, message: String(hookErr) });
+  }
+
   function findInstance() {
     if (queryInstance !== null) return queryInstance;
     try {
       Java.choose(QUERY_CLASS, {
         onMatch: function (inst) {
-          if (queryInstance === null) queryInstance = inst;
+          queryInstance = inst;
           return 'stop';
         },
         onComplete: function () {},

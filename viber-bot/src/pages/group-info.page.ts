@@ -1,5 +1,6 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { BasePage } from './base.page.js';
+import { FULL_LIST_ROW } from './participants.page.js';
 import {
   centerOf,
   collectAll,
@@ -23,6 +24,52 @@ export interface PanelScan {
   participantsAction: Bounds | null;
   /** Section titles rendered right now — the evidence in the failure message. */
   sectionTitles: string[];
+  /**
+   * Texts and positions inside the panel. Two scans with the same signature
+   * mean a scroll did not move anything — more reliable than UiAutomator's
+   * `canScrollMore`, which also answers false when the gesture never landed.
+   */
+  signature: string;
+}
+
+/** Smallest height a target may be clipped to and still be worth tapping. */
+const MIN_TAPPABLE_HEIGHT = 24;
+
+/**
+ * True when `target` is fully inside the panel and tall enough to hit. A row
+ * half-scrolled under the panel's bottom edge has its bounds clipped, and a tap
+ * on the sliver that is left tends to land on whatever sits next to it.
+ */
+export function isTappable(target: Bounds, panel: Bounds | null): boolean {
+  if (target.bottom - target.top < MIN_TAPPABLE_HEIGHT) return false;
+  if (panel === null) return true;
+  return target.top >= panel.top && target.bottom < panel.bottom;
+}
+
+/**
+ * The rectangle a scroll gesture is drawn in: the panel shrunk away from its
+ * edges and from the bottom of the screen.
+ *
+ * `mobile: scrollGesture` starts its swipe near the bottom of the area it is
+ * given. At 1280x720 the info panel reaches the screen's last pixel row, so a
+ * swipe drawn over the full panel starts on the very edge, Android drops it,
+ * and the call reports that the view cannot scroll.
+ */
+export function gestureArea(panel: Bounds, windowHeight: number): Bounds {
+  const width = panel.right - panel.left;
+  const height = panel.bottom - panel.top;
+  const bottomLimit = Math.round(windowHeight * 0.92);
+  const area = {
+    left: Math.round(panel.left + width * 0.1),
+    top: Math.round(panel.top + height * 0.12),
+    right: Math.round(panel.right - width * 0.1),
+    bottom: Math.min(Math.round(panel.bottom - height * 0.12), bottomLimit),
+  };
+  // A panel squeezed into a strip still gets a usable, if small, area.
+  if (area.bottom - area.top < 60) {
+    return { ...area, top: panel.top, bottom: Math.min(panel.bottom, bottomLimit) };
+  }
+  return area;
 }
 
 function normalise(text: string | undefined): string {
@@ -70,7 +117,7 @@ export function scanInfoPanelSource(xml: string): PanelScan {
     if (resourceId !== undefined && titleIds.has(resourceId)) {
       sectionTitles.push(text);
       if (participantsAction === null && isParticipantsTitle(text)) {
-        participantsAction = actionNextTo(nodes, index, actionIds);
+        participantsAction = actionNextTo(nodes, index, actionIds) ?? parseBounds(node.bounds);
       }
     }
 
@@ -79,7 +126,17 @@ export function scanInfoPanelSource(xml: string): PanelScan {
     }
   }
 
-  return { panel, showAll, participantsAction, sectionTitles };
+  const panelNodes: XmlNode[] = [];
+  if (panelNode !== undefined) collectAll(panelNode, panelNodes);
+  const signature = panelNodes
+    .map((node) => {
+      const text = normalise(node.text) || normalise(node['content-desc']);
+      return text === '' ? '' : `${text}@${String(parseBounds(node.bounds)?.top ?? '?')}`;
+    })
+    .filter((entry) => entry !== '')
+    .join('|');
+
+  return { panel, showAll, participantsAction, sectionTitles, signature };
 }
 
 /**
@@ -93,7 +150,7 @@ function actionNextTo(nodes: XmlNode[], titleIndex: number, actionIds: Set<strin
     const node = nodes[index];
     if (node === undefined) continue;
     const resourceId = node['resource-id'];
-    if (resourceId !== undefined && actionIds.has(resourceId) && normalise(node.text) !== '') {
+    if (resourceId !== undefined && actionIds.has(resourceId)) {
       return parseBounds(node.bounds);
     }
   }
@@ -123,12 +180,10 @@ export class GroupInfoPage extends BasePage {
    *
    * The tap has to land on the title text, which sits at the left of a very
    * wide landscape toolbar — clicking the toolbar element itself would hit its
-   * empty centre. The panel's participant section loads a beat later, so this
-   * waits for it before returning.
+   * empty centre.
    */
   async open(): Promise<void> {
     if (await this.isOpen()) {
-      await this.waitForParticipantsSection();
       return;
     }
 
@@ -156,19 +211,11 @@ export class GroupInfoPage extends BasePage {
     await title.waitForExist({ timeout: 10_000 });
     await title.click();
     await this.waitFor(selectors.groupInfo.fragment);
-    await this.waitForParticipantsSection();
+    await this.isPresent(selectors.groupInfo.list, 3_000);
   }
 
   async isOpen(): Promise<boolean> {
     return this.isPresent(selectors.groupInfo.fragment);
-  }
-
-  private async waitForParticipantsSection(): Promise<void> {
-    const deadline = Date.now() + this.timeout;
-    while (Date.now() < deadline) {
-      if (await this.isPresent(selectors.groupInfo.participantName, 800)) return;
-    }
-    throw new Error('Group info opened but its participant list never appeared.');
   }
 
   /**
@@ -180,21 +227,32 @@ export class GroupInfoPage extends BasePage {
    * scrolling finds nothing however long the wait.
    */
   async openAllParticipants(): Promise<void> {
+    if (await this.participantsListOpened()) {
+      return;
+    }
+
     let scan = await this.scanPanel();
     let sectionTitles = scan.sectionTitles;
+    let stalled = 0;
 
     for (let scroll = 0; scroll <= GroupInfoPage.MAX_PANEL_SCROLLS; scroll += 1) {
       const target = scan.showAll ?? scan.participantsAction;
-      if (target !== null) {
+      // A target clipped by the panel edge is scrolled into full view first.
+      if (target !== null && isTappable(target, scan.panel)) {
         await this.tapBounds(target);
         if (await this.participantsListOpened()) return;
         // The tap landed on a row that was still settling; carry on scanning.
       }
 
-      const moved = await this.scrollPanel(scan.panel);
+      const before = scan.signature;
+      await this.scrollPanel(scan.panel);
       scan = await this.scanPanel();
       if (scan.sectionTitles.length > 0) sectionTitles = scan.sectionTitles;
-      if (!moved && scan.showAll === null && scan.participantsAction === null) break;
+
+      // Judge movement by what is on screen. One still frame can be a gesture
+      // that did not register, so give up only after two in a row.
+      stalled = scan.signature === before ? stalled + 1 : 0;
+      if (stalled >= 2 && scan.showAll === null && scan.participantsAction === null) break;
     }
 
     const where =
@@ -219,33 +277,32 @@ export class GroupInfoPage extends BasePage {
   }
 
   /**
-   * `itemLayout` belongs to `participants_list_item` and to nothing else in
-   * the app, so it tells the full list apart from the panel's preview rows —
-   * which the panel draws with the same `name` id the list rows use.
+   * The full list, recognised by a row inside its own `recycler_view`. The
+   * panel's preview rows use `itemLayout` as well, so the row id alone would
+   * report the list as open while the panel is still on screen.
    */
-  private async participantsListOpened(): Promise<boolean> {
-    return this.isPresent(selectors.participants.row, 2_500);
+  private async participantsListOpened(timeout = 2_500): Promise<boolean> {
+    return this.isPresent(FULL_LIST_ROW, timeout);
   }
 
   /**
-   * Scrolls the info panel down by most of its height and reports whether it
-   * actually moved, so a panel already at its end ends the scan instead of
-   * burning through the remaining attempts.
+   * Scrolls the info panel down by a good part of its height. Whether it moved
+   * is decided by the caller from the next snapshot, not from the gesture's
+   * own answer (see {@link gestureArea}).
    */
-  private async scrollPanel(panel: Bounds | null): Promise<boolean> {
-    const area = panel ?? (await this.fallbackPanelArea());
-    // `mobile: scrollGesture` answers with UiAutomator's canScrollMore.
-    const canScrollMore = (await this.driver.execute('mobile: scrollGesture', {
+  private async scrollPanel(panel: Bounds | null): Promise<void> {
+    const { height } = await this.driver.getWindowSize();
+    const area = gestureArea(panel ?? (await this.fallbackPanelArea()), height);
+    await this.driver.execute('mobile: scrollGesture', {
       left: area.left,
       top: area.top,
       width: area.right - area.left,
       height: area.bottom - area.top,
       direction: 'down',
-      percent: 0.8,
+      percent: 0.7,
       speed: 1_600,
-    })) as unknown as boolean;
+    });
     await this.driver.pause(500);
-    return canScrollMore !== false;
   }
 
   /**

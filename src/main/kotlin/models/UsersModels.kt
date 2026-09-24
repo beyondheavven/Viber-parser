@@ -33,7 +33,6 @@ data class ViberUserRow(
     val updatedAt: String? = null,
 )
 
-/** Row of `public.viber_groups` in Supabase. */
 @Serializable
 data class ViberGroupRow(
     val id: Long? = null,
@@ -59,7 +58,6 @@ data class ViberGroupRow(
     val updatedAt: String? = null,
 )
 
-/** Row of `public.viber_group_members` in Supabase. */
 @Serializable
 data class ViberGroupMemberRow(
     @SerialName("group_id")
@@ -70,13 +68,12 @@ data class ViberGroupMemberRow(
 
     val role: Int? = null,
 
-    val active: Boolean = true,
+    val active: Boolean,
 
     @SerialName("synced_at")
     val syncedAt: String,
 )
 
-/** What a sync of one group into Supabase did. */
 @Serializable
 data class UsersSyncResult(
     val success: Boolean,
@@ -89,22 +86,83 @@ data class UsersSyncResult(
 
     val groupId: String? = null,
 
-    /** Participants received from the bot, before filtering. */
     val received: Int,
 
-    /** Rows written to `viber_users` (inserted or updated). */
     val usersUpserted: Int,
 
-    /** Participants skipped: the account itself, duplicates, or no member id and no phone. */
     val skipped: Int,
 
-    /** Members of the group marked inactive because the sync no longer lists them. */
     val deactivated: Int,
 
     val syncedAt: String,
 )
 
-/** Page of users read back from Supabase. */
+@Serializable
+data class UsersSyncFailure(
+    val conversationId: Int,
+
+    val group: String? = null,
+
+    val error: String,
+)
+
+@Serializable
+data class UsersSyncAllResult(
+    val success: Boolean,
+
+    val message: String,
+
+    val groupsTotal: Int,
+
+    val groups: List<UsersSyncResult>,
+
+    val failed: List<UsersSyncFailure>,
+
+    val usersUpserted: Int,
+
+    val usersInDatabase: Int? = null,
+
+    val syncedAt: String,
+)
+
+@Serializable
+data class GroupSyncStatus(
+    val groupKey: String,
+
+    val conversationId: Int? = null,
+
+    val name: String? = null,
+
+    val participantCount: Int,
+
+    val activeMembers: Int? = null,
+
+    val inactiveMembers: Int? = null,
+
+    val lastSyncedAt: String? = null,
+)
+
+@Serializable
+data class UsersSyncStatus(
+    val configured: Boolean,
+
+    val reachable: Boolean,
+
+    val message: String,
+
+    val usersTotal: Int? = null,
+
+    val groupsTotal: Int? = null,
+
+    val membersTotal: Int? = null,
+
+    val lastSyncedAt: String? = null,
+
+    val groups: List<GroupSyncStatus> = emptyList(),
+
+    val checkedAt: String,
+)
+
 @Serializable
 data class UsersPage(
     val total: Int? = null,

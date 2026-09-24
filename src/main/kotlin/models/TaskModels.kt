@@ -14,13 +14,18 @@ data class TaskSummary(
 
     val status: String,
 
+    val participantsCount: Int? = null,
+
     val currentStep: TaskStep? = null,
 
     val createdAt: String,
 
     val startedAt: String? = null,
 
-    val completedAt: String? = null
+    val completedAt: String? = null,
+
+    /** Текст ошибки, если статус error. */
+    val error: String? = null,
 )
 
 @Serializable
