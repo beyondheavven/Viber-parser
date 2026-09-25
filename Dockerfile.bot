@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY viber-bot/package*.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --omit=dev
 
 COPY viber-bot/tsconfig.json ./
 COPY viber-bot/src ./src/
