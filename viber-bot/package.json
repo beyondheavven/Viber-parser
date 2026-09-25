@@ -28,8 +28,11 @@
     "dotenv": "^17.4.2",
     "fast-xml-parser": "^5.11.1",
     "frida": "^17.17.0",
+    "frida-compile": "^19.0.5",
+    "frida-java-bridge": "^7.0.13",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "tsx": "^4.23.12",
     "webdriverio": "^9.31.4"
   },
   "devDependencies": {
@@ -37,9 +40,6 @@
     "@types/node": "^24.13.3",
     "appium": "^2.19.0",
     "appium-uiautomator2-driver": "^4.2.9",
-    "frida-compile": "^19.0.5",
-    "frida-java-bridge": "^7.0.13",
-    "tsx": "^4.23.12",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7"
   }
