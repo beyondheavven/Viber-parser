@@ -17,8 +17,8 @@ services:
       - /dev/kvm
       - /dev/net/tun
     ports:
-      - "${EMULATOR_ADB_PORT}:5555"
-      - "${EMULATOR_VNC_PORT}:6080"
+      - "${BIND_IP:-127.0.0.1}:${EMULATOR_ADB_PORT:-5555}:5555"
+      - "${BIND_IP:-127.0.0.1}:${EMULATOR_VNC_PORT:-6080}:6080"
     volumes:
       - android-data:/data
       - ./emulator/first-boot.sh:/overrides/first-boot.sh:ro
@@ -42,7 +42,7 @@ services:
     container_name: scrcpy-web
     privileged: true
     ports:
-      - "8000:8000"
+      - "${BIND_IP:-127.0.0.1}:${SCRCPY_WEB_PORT:-8000}:8000"
     depends_on:
       android-emulator:
         condition: service_healthy
@@ -54,7 +54,7 @@ services:
     image: appium/appium:latest
     container_name: viber-appium
     ports:
-      - "4723:4723"
+      - "${BIND_IP:-127.0.0.1}:${APPIUM_PORT:-4723}:4723"
     environment:
       - RELAXED_SECURITY=true
       - REMOTE_ADB=true
@@ -71,8 +71,8 @@ services:
     container_name: viber-rabbitmq
     restart: unless-stopped
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "${BIND_IP:-127.0.0.1}:${RABBITMQ_PORT:-5672}:5672"
+      - "${BIND_IP:-127.0.0.1}:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-viber}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-viber_secret}
