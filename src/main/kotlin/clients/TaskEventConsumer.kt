@@ -31,11 +31,9 @@ class TaskEventConsumer(
     private val logger = LoggerFactory.getLogger(TaskEventConsumer::class.java)
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** One worker, so a big roster syncs on its own rather than several at once. */
     private val worker = Executors.newSingleThreadExecutor { r -> Thread(r, "task-event-sync") }
     private val scope = CoroutineScope(SupervisorJob() + worker.asCoroutineDispatcher())
 
-    /** Tasks already handed to a sync, so a redelivery does not sync them twice. */
     private val handled: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     private val connection: Connection
@@ -86,6 +84,7 @@ class TaskEventConsumer(
         val data = payload["data"]?.jsonObject ?: return
         if (data["status"]?.jsonPrimitive?.contentOrNull != READY_STATUS) return
         val taskId = data["taskId"]?.jsonPrimitive?.contentOrNull ?: return
+
         if (!handled.add(taskId)) return
 
         scope.launch {
