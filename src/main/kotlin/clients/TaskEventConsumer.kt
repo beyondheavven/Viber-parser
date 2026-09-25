@@ -22,18 +22,7 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
-/**
- * Consumes the bot's event stream (`viber_events_queue`) and hands every
- * finished collect task to [onReadyTask], which uploads its roster to Supabase.
- *
- * Nothing else reads that queue, so this consumer both triggers the auto-sync
- * and drains a queue that would otherwise grow without bound. Messages that are
- * not a `ready` task event are acknowledged and ignored.
- *
- * The bot publishes with NestJS, which sends each event to the default exchange
- * with the queue name as the routing key and a body of
- * `{"pattern":"viber.task.event","data":{...}}`.
- */
+
 class TaskEventConsumer(
     private val settings: RabbitMqSettings,
     private val onReadyTask: suspend (taskId: String) -> Unit,
@@ -42,11 +31,9 @@ class TaskEventConsumer(
     private val logger = LoggerFactory.getLogger(TaskEventConsumer::class.java)
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** One worker, so a big roster syncs on its own rather than several at once. */
     private val worker = Executors.newSingleThreadExecutor { r -> Thread(r, "task-event-sync") }
     private val scope = CoroutineScope(SupervisorJob() + worker.asCoroutineDispatcher())
 
-    /** Tasks already handed to a sync, so a redelivery does not sync them twice. */
     private val handled: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     private val connection: Connection
@@ -63,7 +50,6 @@ class TaskEventConsumer(
         connection = factory.newConnection("ktor-task-event-consumer")
         channel = connection.createChannel()
         channel.basicQos(20)
-        // Declared with the same parameters the bot's NestJS client asserts.
         channel.queueDeclare(settings.eventsQueue, true, false, false, null)
         channel.basicConsume(
             settings.eventsQueue,
@@ -99,15 +85,12 @@ class TaskEventConsumer(
         if (data["status"]?.jsonPrimitive?.contentOrNull != READY_STATUS) return
         val taskId = data["taskId"]?.jsonPrimitive?.contentOrNull ?: return
 
-        // First `ready` for this task wins; a duplicate delivery is skipped.
         if (!handled.add(taskId)) return
 
         scope.launch {
             try {
                 onReadyTask(taskId)
             } catch (e: Exception) {
-                // Left in `handled`: retry is a manual POST /users/sync/task/{id},
-                // or the next collect of the group re-syncs it.
                 logger.warn("Auto-sync of task {} failed: {}", taskId, e.message)
             }
         }

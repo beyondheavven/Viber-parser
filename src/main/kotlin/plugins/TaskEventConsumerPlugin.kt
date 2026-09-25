@@ -11,15 +11,6 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopping
 import io.ktor.server.application.log
 
-/**
- * Auto-uploads every finished collect task to Supabase, so reads come from the
- * database instead of re-collecting.
- *
- * Listens to the bot's task-event stream and, when a task reaches `ready`,
- * pulls its roster over RPC and upserts it. Off when Supabase is not configured
- * or `users.autosync` is false. Loaded after the Supabase module so the client
- * is ready.
- */
 fun Application.configureTaskEventConsumer() {
     val autosync = ConfigUtil(environment.config, "users").bool("autosync") ?: true
     if (!autosync) {
