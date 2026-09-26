@@ -23,6 +23,7 @@ services:
     volumes:
       - android-data:/data
       - ./emulator/first-boot.sh:/overrides/first-boot.sh:ro
+      - ./emulator/entrypoint.sh:/overrides/entrypoint.sh:ro
     # The image re-runs first-boot.sh on every start, and its stock version
     # switches airplane mode on and lets the screen sleep after 15s — both
     # racing with (and overriding) whatever start.sh sets. Our fork is copied
@@ -32,7 +33,7 @@ services:
     command:
       - sh
       - -c
-      - "tr -d '\\r' < /overrides/first-boot.sh > /root/first-boot.sh && chmod +x /root/first-boot.sh && exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf"
+      - "tr -d '\\r' < /overrides/entrypoint.sh > /root/entrypoint.sh && chmod +x /root/entrypoint.sh && exec /root/entrypoint.sh"
     environment:
       # The image ships a single system image (android-30, default x86_64);
       # the Android version is not configurable through it.
@@ -46,6 +47,11 @@ services:
       - SCREEN_RESOLUTION=${EMULATOR_SCREEN_RESOLUTION:-1280x720}
       - SCREEN_DENSITY=${EMULATOR_SCREEN_DENSITY:-240}
       - RAM_SIZE=${EMULATOR_RAM_SIZE:-4096}
+      - PROXY_HOST=${PROXY_HOST:-}
+      - PROXY_PORT=${PROXY_PORT:-50101}
+      - PROXY_USER=${PROXY_USER:-}
+      - PROXY_PASS=${PROXY_PASS:-}
+      - PROXY_TYPE=${PROXY_TYPE:-socks5}
     depends_on:
       kvm-init:
         condition: service_completed_successfully
