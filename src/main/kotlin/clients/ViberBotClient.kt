@@ -11,6 +11,7 @@ import com.viber.models.StartMonitorRequest
 import com.viber.models.CodeRequest
 import com.viber.models.LoginRequest
 import com.viber.models.LoginResponse
+import com.viber.models.QrStartRequest
 import com.viber.models.TaskCreatedResponse
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -128,6 +129,18 @@ class ViberBotClient(
 
     suspend fun getAuthStatus(): String {
         return rpcClient.call("viber.auth.status")
+    }
+
+    suspend fun startQrLogin(request: QrStartRequest): String {
+        return rpcClient.call("viber.auth.qr.start", sparseJson.encodeToString(request))
+    }
+
+    suspend fun getQrLoginStatus(): String {
+        return rpcClient.call("viber.auth.qr.status")
+    }
+
+    suspend fun cancelQrLogin(): String {
+        return rpcClient.call("viber.auth.qr.cancel")
     }
 
 

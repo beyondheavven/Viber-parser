@@ -4,6 +4,7 @@ import com.viber.clients.ViberBotClient
 import com.viber.models.CodeRequest
 import com.viber.models.LoginRequest
 import com.viber.models.LoginResponse
+import com.viber.models.QrStartRequest
 
 class AuthService(
     private val viberBotClient: ViberBotClient,
@@ -26,5 +27,17 @@ class AuthService(
 
     suspend fun getAuthStatus(): String {
         return viberBotClient.getAuthStatus()
+    }
+
+    suspend fun startQrLogin(request: QrStartRequest): String {
+        return viberBotClient.startQrLogin(request)
+    }
+
+    suspend fun getQrLoginStatus(): String {
+        return viberBotClient.getQrLoginStatus()
+    }
+
+    suspend fun cancelQrLogin(): String {
+        return viberBotClient.cancelQrLogin()
     }
 }

@@ -59,11 +59,47 @@ export const selectors = {
     continueButton: id('continue_btn'),
   },
 
+  /** "Is this your phone number?" sheet shown over RegistrationActivity after Continue. */
+  confirmNumber: {
+    header: id('header'),
+    number: id('number'),
+    yesButton: id('yes_btn'),
+    editButton: id('edit_btn'),
+  },
+
+  /**
+   * "Viber security update" — activation as a secondary device. Viber only
+   * offers it in the `sw600dp` (tablet) layout.
+   */
+  qrActivation: {
+    container: id('qr_container'),
+    /** The ImageView the activation code is drawn into. */
+    image: id('qrcode'),
+    /**
+     * "Do you want to activate this device as your only device?" — the way back
+     * to the SMS flow. Must never be tapped: it spends a registration attempt
+     * and takes the account off its primary phone.
+     */
+    activateAsOnlyDevice: id('click_here'),
+  },
+
+  /** The SMS / call code entry screen. */
+  smsCode: {
+    mainView: id('view_with_description_main_view_id'),
+    pinDigit: id('pin_digit'),
+    codeInput: id('code_input'),
+    verificationCode: id('verification_code'),
+  },
+
   /** Android's runtime permission dialog, `GrantPermissionsActivity`. */
   systemPermission: {
     dialog: 'com.android.permissioncontroller:id/grant_dialog',
     message: 'com.android.permissioncontroller:id/permission_message',
     allowButton: 'com.android.permissioncontroller:id/permission_allow_button',
+    allowForegroundButton:
+      'com.android.permissioncontroller:id/permission_allow_foreground_only_button',
+    /** Pre-Android 10 builds still host the dialog in the package installer. */
+    legacyAllowButton: 'com.android.packageinstaller:id/permission_allow_button',
     denyButton: 'com.android.permissioncontroller:id/permission_deny_button',
   },
 
@@ -84,6 +120,12 @@ export const selectors = {
     positiveButton: 'android:id/button1',
     /** Left-hand button — HELP on the activation-failed dialog. */
     negativeButton: 'android:id/button2',
+  },
+
+  /** Viber's own modal buttons, used by its post-activation prompts. */
+  viberDialog: {
+    positiveButton: id('btn_positive'),
+    negativeButton: id('btn_negative'),
   },
 
   /**

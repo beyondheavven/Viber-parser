@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<hierarchy rotation="0">
+  <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.viber.voip" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[0,0][540,960]">
+    <node index="0" text="Chats" resource-id="com.viber.voip:id/toolbar_title" class="android.widget.TextView" package="com.viber.voip" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[20,40][200,80]" />
+    <node index="1" text="" resource-id="com.viber.voip:id/recycler_view" class="androidx.recyclerview.widget.RecyclerView" package="com.viber.voip" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="true" long-clickable="false" password="false" selected="false" bounds="[0,90][540,900]" />
+  </node>
+</hierarchy>
