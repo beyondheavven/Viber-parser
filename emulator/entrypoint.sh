@@ -71,7 +71,14 @@ EOF
   iptables -t nat -A REDSOCKS -d 224.0.0.0/4 -j RETURN
   iptables -t nat -A REDSOCKS -d 240.0.0.0/4 -j RETURN
 
+  # Bypass proxy IP itself
   iptables -t nat -A REDSOCKS -d "${PROXY_HOST}" -j RETURN
+
+  # Bypass DNS ports so proxy never blocks DNS
+  iptables -t nat -A REDSOCKS -p tcp --dport 53 -j RETURN
+  iptables -t nat -A REDSOCKS -p tcp --dport 853 -j RETURN
+
+  # Redirect all other TCP to redsocks
   iptables -t nat -A REDSOCKS -p tcp -j REDIRECT --to-ports 12345
 
   iptables -t nat -A OUTPUT -p tcp -j REDSOCKS

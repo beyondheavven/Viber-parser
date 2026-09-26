@@ -28,6 +28,9 @@ adb shell settings put global airplane_mode_on 0
 adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false >/dev/null 2>&1 || true
 adb shell svc data enable || true
 adb shell svc wifi enable || true
+adb shell settings put global private_dns_mode off >/dev/null 2>&1 || true
+adb shell settings put global captive_portal_mode 0 >/dev/null 2>&1 || true
+adb shell settings put global captive_portal_detection_enabled 0 >/dev/null 2>&1 || true
 
 echo "--> Keeping the screen on..."
 # A sleeping display swallows every blind `input tap` / `input text` the bot
