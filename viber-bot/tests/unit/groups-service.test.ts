@@ -11,11 +11,11 @@ vi.mock('node:fs', () => ({
   readFileSync: mocks.readFileSync,
 }));
 
-vi.mock('../../src/context.js', () => ({
+vi.mock('../../src/platform/context.js', () => ({
   openDevice: mocks.openDevice,
 }));
 
-import { GroupsService } from '../../src/groups/groups.service.js';
+import { GroupsService } from '../../src/features/groups/groups.service.js';
 
 const baseParticipant = {
   id: 42,

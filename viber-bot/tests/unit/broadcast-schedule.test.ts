@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isOneShotComplete, isWithinWorkingHours, msUntilWorkingHours, selectNextTarget } from '../../src/broadcast/schedule.js';
+import { isOneShotComplete, isWithinWorkingHours, msUntilWorkingHours, selectNextTarget } from '../../src/features/broadcast/schedule.js';
 
 describe('selectNextTarget', () => {
   const ids = [10, 20, 30] as const;

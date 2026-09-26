@@ -6,7 +6,7 @@ import {
   transformParticipantInfo,
   type RawParticipantInfo,
   type TransformedParticipant,
-} from '../../src/viber/participants-service.js';
+} from '../../src/viber/participants-sql.js';
 import {
   deduplicateParticipants,
   normalizePhone,

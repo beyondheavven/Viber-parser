@@ -2,10 +2,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { MessagesMonitorService } from '../../src/messages/messages-monitor.service.js';
-import { formatMonitoredExport } from '../../src/messages/monitor-export.util.js';
+import { MessagesMonitorService } from '../../src/features/messages/messages-monitor.service.js';
+import { formatMonitoredExport } from '../../src/features/messages/monitor-export.util.js';
 import type { Message } from '../../src/viber/repository.js';
-import type { MonitoredMessageDto } from '../../src/messages/dto/monitored-message.dto.js';
+import type { MonitoredMessageDto } from '../../src/features/messages/dto/monitored-message.dto.js';
 import type { RabbitMqPublisher } from '../../src/rabbitmq/rabbitmq-publisher.service.js';
 
 /** The monitor publishes every captured message; these tests read its files. */

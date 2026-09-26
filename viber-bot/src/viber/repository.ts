@@ -1,5 +1,5 @@
-import type { Row, Sqlite } from '../device/sqlite.js';
-import { selectList } from '../device/sqlite.js';
+import type { Row, Sqlite } from '../platform/sqlite.js';
+import { selectList } from '../platform/sqlite.js';
 import {
   CONVERSATION_COLUMNS,
   CONVERSATION_TYPE,

@@ -1,21 +1,19 @@
 import { Module } from '@nestjs/common';
-import { CommonModule } from './common/common.module.js';
-import { AutomationModule } from './automation/automation.module.js';
-import { TasksModule } from './tasks/tasks.module.js';
-import { ParticipantsModule } from './participants/participants.module.js';
-import { GroupsModule } from './groups/groups.module.js';
-import { DatabaseModule } from './database/database.module.js';
-import { MessagesModule } from './messages/messages.module.js';
+import { TasksModule } from './features/tasks/tasks.module.js';
+import { ParticipantsModule } from './features/participants/participants.module.js';
+import { GroupsModule } from './features/groups/groups.module.js';
+import { DatabaseModule } from './features/database/database.module.js';
+import { MessagesModule } from './features/messages/messages.module.js';
 import { RabbitMqModule } from './rabbitmq/rabbitmq.module.js';
-import { AuthModule } from './auth/auth.module.js';
-import { BroadcastModule } from './broadcast/broadcast.module.js';
+import { AuthModule } from './features/auth/auth.module.js';
+import { BroadcastModule } from './features/broadcast/broadcast.module.js';
+import { PlatformModule } from './platform/platform.module.js';
 
 @Module({
   imports: [
     RabbitMqModule,
+    PlatformModule,
     AuthModule,
-    CommonModule,
-    AutomationModule,
     TasksModule,
     ParticipantsModule,
     GroupsModule,

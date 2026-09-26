@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { Sqlite, type SqliteHost } from '../../src/device/sqlite.js';
+import { Sqlite, type SqliteHost } from '../../src/platform/sqlite.js';
 
 const LIVE = '/data/data/com.viber.voip/databases/viber_messages';
 const SNAPSHOT = '/data/local/tmp/viber-snapshot.db';

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { nextSindex, pageAnswers, parsePgPage } from '../../src/intercept/pg-paging.js';
-import type { PgPage } from '../../src/intercept/pg-paging.js';
+import { nextSindex, pageAnswers, parsePgPage } from '../../src/features/participants/pg-paging.js';
+import type { PgPage } from '../../src/features/participants/pg-paging.js';
 
 const OUR_GROUP = '5907779393516782372';
 

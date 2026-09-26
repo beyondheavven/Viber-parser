@@ -2,8 +2,8 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { BroadcastStore } from '../../src/broadcast/broadcast-store.js';
-import type { Campaign, SendHistoryEntry } from '../../src/broadcast/types.js';
+import { BroadcastStore } from '../../src/features/broadcast/broadcast-store.js';
+import type { Campaign, SendHistoryEntry } from '../../src/features/broadcast/types.js';
 
 describe('BroadcastStore', () => {
   const dirs: string[] = [];

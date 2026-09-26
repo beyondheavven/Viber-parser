@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import { parsePgRoster } from '../../src/intercept/parse-pg-roster.js';
+import { parsePgRoster } from '../../src/features/participants/parse-pg-roster.js';
 
 /**
  * Real Public-Group General Query reply pages captured from the live app

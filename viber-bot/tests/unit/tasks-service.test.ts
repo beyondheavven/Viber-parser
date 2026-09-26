@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { TasksService } from '../../src/tasks/tasks.service.js';
-import { DeviceMutexService } from '../../src/common/mutex/device-mutex.service.js';
+import { TasksService } from '../../src/features/tasks/tasks.service.js';
+import { DeviceMutexService } from '../../src/platform/mutex/device-mutex.service.js';
 import type { RabbitMqPublisher } from '../../src/rabbitmq/rabbitmq-publisher.service.js';
 
 /** The service publishes every task transition; these tests only assert state. */
