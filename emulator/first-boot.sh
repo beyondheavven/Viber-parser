@@ -27,9 +27,11 @@ apply_settings() {
   adb shell settings put global transition_animation_scale 0
   adb shell settings put global animator_duration_scale 0
   adb shell settings put system accelerometer_rotation 0
+  adb shell svc wifi disable
   adb shell settings put global private_dns_mode off
-  adb shell settings put global captive_portal_mode 0
-  adb shell settings put global captive_portal_detection_enabled 0
+  adb shell settings delete global private_dns_specifier
+  adb shell settings delete global captive_portal_mode
+  adb shell settings delete global captive_portal_detection_enabled
   # --- Viber-parser changes start here ---------------------------------------
   # The stock script puts the device to sleep after 15s and leaves airplane mode
   # on. Neither matches a real device (or LDPlayer): a sleeping screen swallows

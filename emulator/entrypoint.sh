@@ -78,6 +78,11 @@ EOF
   iptables -t nat -A REDSOCKS -p tcp --dport 53 -j RETURN
   iptables -t nat -A REDSOCKS -p tcp --dport 853 -j RETURN
 
+  # Fail direct DoT immediately so Android falls back to regular DNS. Keep the
+  # redsocks user exempt in case the configured SOCKS endpoint itself uses 853.
+  iptables -t filter -D OUTPUT -p tcp --dport 853 -m owner ! --uid-owner redsocks -j REJECT --reject-with tcp-reset 2>/dev/null || true
+  iptables -t filter -I OUTPUT 1 -p tcp --dport 853 -m owner ! --uid-owner redsocks -j REJECT --reject-with tcp-reset
+
   # Redirect all other TCP to redsocks
   iptables -t nat -A REDSOCKS -p tcp -j REDIRECT --to-ports 12345
 

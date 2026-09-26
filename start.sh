@@ -24,13 +24,15 @@ adb root
 # 15s screen-off timeout on every boot). Re-asserted here as a fallback for a
 # stack that runs the stock image.
 echo "--> Enabling radios..."
+adb shell svc wifi disable || true
+adb shell settings put global private_dns_mode off >/dev/null 2>&1 || true
+adb shell settings delete global private_dns_specifier >/dev/null 2>&1 || true
+adb shell settings delete global captive_portal_mode >/dev/null 2>&1 || true
+adb shell settings delete global captive_portal_detection_enabled >/dev/null 2>&1 || true
 adb shell settings put global airplane_mode_on 0
 adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false >/dev/null 2>&1 || true
 adb shell svc data enable || true
 adb shell svc wifi enable || true
-adb shell settings put global private_dns_mode off >/dev/null 2>&1 || true
-adb shell settings put global captive_portal_mode 0 >/dev/null 2>&1 || true
-adb shell settings put global captive_portal_detection_enabled 0 >/dev/null 2>&1 || true
 
 echo "--> Keeping the screen on..."
 # A sleeping display swallows every blind `input tap` / `input text` the bot
