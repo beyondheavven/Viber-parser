@@ -84,6 +84,24 @@ describe('widenForTabletLayout', () => {
     expect(device.marker).toBeNull();
   });
 
+  it('retries a blank `wm size` instead of silently skipping the tablet layout', () => {
+    const device = fakeDevice({ size: 'Physical size: 1280x720', physical: 240 });
+    let blanks = 2;
+    const flaky = {
+      ...device,
+      shell(command: string): string {
+        if (command === 'wm size' && blanks > 0) {
+          blanks -= 1;
+          return '';
+        }
+        return device.shell(command);
+      },
+    };
+    const { restore } = widenForTabletLayout(flaky);
+    expect(restore).not.toBeNull();
+    expect(device.override).toBe(120);
+  });
+
   it('puts back a deliberate override rather than the physical density', () => {
     const device = fakeDevice({ size: 'Physical size: 540x960', physical: 240, override: 200 });
     widenForTabletLayout(device).restore?.();

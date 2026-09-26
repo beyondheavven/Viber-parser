@@ -174,12 +174,22 @@ export class RegistrationPage extends BasePage {
   }
 
   /**
-   * Skips the "Your name" profile screen that follows an accepted code, when
-   * it is shown. Resolved from the element rather than a fixed point, so it
-   * survives a change of screen resolution.
+   * Gets past the "Your name" profile screen that follows an accepted code,
+   * when it is shown — typing `name` first if one is given. Resolved from the
+   * element rather than a fixed point, so it survives a change of screen
+   * resolution.
    */
-  async skipProfile(timeout = 6_000): Promise<boolean> {
+  async completeProfile(name?: string, timeout = 6_000): Promise<boolean> {
     if (!(await this.isPresent(selectors.profile.continueButton, timeout))) return false;
+    if (name !== undefined && (await this.isPresent(selectors.profile.nameInput, 1_000))) {
+      const field = await this.waitFor(selectors.profile.nameInput);
+      await field.clearValue();
+      await field.setValue(name);
+      if (await this.driver.isKeyboardShown()) {
+        await this.driver.execute('mobile: hideKeyboard').catch(() => this.driver.back());
+        await this.driver.pause(400);
+      }
+    }
     await this.tap(selectors.profile.continueButton);
     return true;
   }

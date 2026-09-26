@@ -33,6 +33,11 @@ export interface QrDevice {
 
 const KEYCODE_ENTER = 66;
 
+const PERMISSION_CONTROLLERS = [
+  'com.android.permissioncontroller',
+  'com.google.android.permissioncontroller',
+];
+
 /**
  * Root adb for the device-level steps (density, data, restart) and an Appium
  * session for the screen.
@@ -51,6 +56,16 @@ class AppiumQrDevice implements QrDevice {
   }
 
   async restartViber(): Promise<boolean> {
+    // A runtime-permission prompt left over from an interrupted session stays
+    // on top of Viber's task after a force-stop; `am start` is then delivered
+    // to it and Viber's process never comes up.
+    for (const pkg of PERMISSION_CONTROLLERS) {
+      try {
+        this.adb.shell(`am force-stop ${pkg}`, { allowFailure: true, timeout: 10_000 });
+      } catch {
+        // restartViberApp recovers a stalled adb on its own.
+      }
+    }
     const result = await restartViberApp(
       {
         shell: (command, options) => this.adb.shell(command, options),

@@ -69,7 +69,7 @@ const RECOVERY_TIMEOUT = 15_000;
 const CONNECT_TIMEOUT = 5_000;
 
 /** Non-blocking TCP probe before we pay for a spawnSync `adb connect`. */
-const TCP_PROBE_TIMEOUT = 400;
+const TCP_PROBE_TIMEOUT = 2_500;
 
 /**
  * True when `serial` looks like host:port and that TCP port accepts a connection.

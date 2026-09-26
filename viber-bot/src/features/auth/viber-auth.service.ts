@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { loadViberConfig } from '../../config/env.js';
 import { openDevice } from '../../platform/context.js';
 import { withViberSession } from '../../platform/appium/session.js';
 import { ActivationRejectedError } from '../../viber/pages/errors.js';
@@ -49,6 +50,12 @@ export class ViberAuthService {
     }
 
     try {
+      if (dto.clearData === true) {
+        this.logger.log('Clearing Viber data before the phone login...');
+        const { adb } = await openDevice({ ensureUp: false });
+        adb.shell(`pm clear ${loadViberConfig().appPackage}`, { allowFailure: true });
+      }
+
       return await withViberSession(async (driver) => {
         const page = new RegistrationPage(driver);
 
@@ -128,8 +135,13 @@ export class ViberAuthService {
       // are typed blind — but what follows is checked on screen, never on faith.
       const authorized = await withViberSession(async (driver) => {
         const page = new RegistrationPage(driver);
-        if (await page.skipProfile()) {
-          this.logger.log('Profile screen detected, skipped with its Continue button.');
+        const userName = dto.userName?.trim() || undefined;
+        if (await page.completeProfile(userName)) {
+          this.logger.log(
+            userName === undefined
+              ? 'Profile screen detected, skipped with its Continue button.'
+              : 'Profile screen detected, name filled in and continued.',
+          );
         }
         return page.isActivated(8_000);
       }).catch((error: unknown) => {

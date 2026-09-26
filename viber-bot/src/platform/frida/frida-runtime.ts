@@ -376,7 +376,7 @@ export function createFridaRuntime(options: FridaRuntimeOptions): FridaRuntime {
     return app.pid;
   }
 
-  async function attachWithRetry(device: Device, initialPid: number, maxAttempts = 5): Promise<Session> {
+  async function attachWithRetry(device: Device, initialPid: number, maxAttempts = 3): Promise<Session> {
     let currentPid = initialPid;
     let lastError: unknown = null;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -384,13 +384,12 @@ export function createFridaRuntime(options: FridaRuntimeOptions): FridaRuntime {
         return await device.attach(currentPid);
       } catch (error) {
         lastError = error;
+        log(`Failed to attach to pid ${currentPid} (${String(error)}). Force-stopping and restarting ${pkg}...`);
+        adbShell(`am force-stop ${pkg}`);
         await delay(1000);
-        let fresh = await resolveViberPid(device);
-        if (fresh === undefined) {
-          adbShell(`am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n ${pkg}/.WelcomeActivity`);
-          await delay(1500);
-          fresh = await resolveViberPid(device);
-        }
+        adbShell(`am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n ${pkg}/.WelcomeActivity`);
+        await delay(2000);
+        const fresh = await resolveViberPid(device);
         if (fresh !== undefined) {
           currentPid = fresh;
         }

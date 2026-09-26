@@ -68,6 +68,24 @@ export const selectors = {
   },
 
   /**
+   * "Success! You have successfully added your Android tablet as a secure
+   * device" — RegistrationActivity right after the phone scans the QR.
+   */
+  activationSuccess: {
+    continueButton: id('continueBtn'),
+  },
+
+  /**
+   * "Control what you see" — the GDPR ads consent (`.feature.gdpr.ui.iabconsent.ConsentActivity`)
+   * shown once after activation. "Manage ad preferences" opens a settings maze,
+   * so "Allow all and continue" is the only way through.
+   */
+  adsConsent: {
+    allowButton: id('allow_btn'),
+    manageButton: id('manage_ads_btn'),
+  },
+
+  /**
    * "Viber security update" — activation as a secondary device. Viber only
    * offers it in the `sw600dp` (tablet) layout.
    */

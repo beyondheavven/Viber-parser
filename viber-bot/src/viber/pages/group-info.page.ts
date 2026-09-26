@@ -123,12 +123,10 @@ export class GroupInfoPage extends BasePage {
    *
    * The tap has to land on the title text, which sits at the left of a very
    * wide landscape toolbar — clicking the toolbar element itself would hit its
-   * empty centre. The panel's participant section loads a beat later, so this
-   * waits for it before returning.
+   * empty centre.
    */
   async open(): Promise<void> {
     if (await this.isOpen()) {
-      await this.waitForParticipantsSection();
       return;
     }
 
@@ -156,19 +154,11 @@ export class GroupInfoPage extends BasePage {
     await title.waitForExist({ timeout: 10_000 });
     await title.click();
     await this.waitFor(selectors.groupInfo.fragment);
-    await this.waitForParticipantsSection();
+    await delay(600);
   }
 
   async isOpen(): Promise<boolean> {
     return this.isPresent(selectors.groupInfo.fragment);
-  }
-
-  private async waitForParticipantsSection(): Promise<void> {
-    const deadline = Date.now() + this.timeout;
-    while (Date.now() < deadline) {
-      if (await this.isPresent(selectors.groupInfo.participantName, 800)) return;
-    }
-    throw new Error('Group info opened but its participant list never appeared.');
   }
 
   /**
@@ -180,6 +170,8 @@ export class GroupInfoPage extends BasePage {
    * scrolling finds nothing however long the wait.
    */
   async openAllParticipants(): Promise<void> {
+    if (await this.participantsListOpened()) return;
+
     let scan = await this.scanPanel();
     let sectionTitles = scan.sectionTitles;
 
@@ -191,10 +183,9 @@ export class GroupInfoPage extends BasePage {
         // The tap landed on a row that was still settling; carry on scanning.
       }
 
-      const moved = await this.scrollPanel(scan.panel);
+      await this.scrollPanel(scan.panel);
       scan = await this.scanPanel();
       if (scan.sectionTitles.length > 0) sectionTitles = scan.sectionTitles;
-      if (!moved && scan.showAll === null && scan.participantsAction === null) break;
     }
 
     const where =
@@ -228,24 +219,45 @@ export class GroupInfoPage extends BasePage {
   }
 
   /**
-   * Scrolls the info panel down by most of its height and reports whether it
-   * actually moved, so a panel already at its end ends the scan instead of
-   * burning through the remaining attempts.
+   * Scrolls the info panel down by performing a touch swipe upwards (moving content down).
    */
   private async scrollPanel(panel: Bounds | null): Promise<boolean> {
     const area = panel ?? (await this.fallbackPanelArea());
-    // `mobile: scrollGesture` answers with UiAutomator's canScrollMore.
-    const canScrollMore = (await this.driver.execute('mobile: scrollGesture', {
-      left: area.left,
-      top: area.top,
-      width: area.right - area.left,
-      height: area.bottom - area.top,
-      direction: 'down',
-      percent: 0.8,
-      speed: 1_600,
-    })) as unknown as boolean;
-    await this.driver.pause(500);
-    return canScrollMore !== false;
+    const centerX = Math.round((area.left + area.right) / 2);
+    const startY = Math.round(area.top + (area.bottom - area.top) * 0.75);
+    const endY = Math.round(area.top + (area.bottom - area.top) * 0.25);
+
+    try {
+      await this.driver.performActions([
+        {
+          type: 'pointer',
+          id: 'finger1',
+          parameters: { pointerType: 'touch' },
+          actions: [
+            { type: 'pointerMove', duration: 0, x: centerX, y: startY },
+            { type: 'pointerDown', button: 0 },
+            { type: 'pause', duration: 100 },
+            { type: 'pointerMove', duration: 400, x: centerX, y: endY },
+            { type: 'pointerUp', button: 0 },
+          ],
+        },
+      ]);
+      await this.driver.releaseActions();
+      await this.driver.pause(500);
+    } catch {
+      // Fallback to mobile scrollGesture if actions fail
+      await this.driver.execute('mobile: scrollGesture', {
+        left: area.left,
+        top: area.top,
+        width: area.right - area.left,
+        height: area.bottom - area.top,
+        direction: 'down',
+        percent: 0.8,
+        speed: 1_600,
+      });
+      await this.driver.pause(500);
+    }
+    return true;
   }
 
   /**

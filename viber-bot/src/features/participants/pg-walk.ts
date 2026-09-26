@@ -66,11 +66,12 @@ export class PgWalk {
     private readonly groupId: string,
     private readonly hooks: PgWalkHooks,
     private readonly sindexCap: number = SINDEX_CAP,
+    private readonly initialOffset: number = 0,
   ) {}
 
   /** Asks for the first page. */
   start(): void {
-    this.request(0);
+    this.request(this.initialOffset);
   }
 
   get isDone(): boolean {
@@ -134,7 +135,7 @@ export class PgWalk {
       // `last` alone is not proof the walk is complete: a page in the middle
       // may have been missed. Only a member count reaching the total the final
       // page implies means nothing was skipped.
-      this.lastReached = this.collectedMembers >= this.expectedTotal;
+      this.lastReached = (this.collectedMembers + this.initialOffset) >= this.expectedTotal;
       if (!this.lastReached) {
         this.hooks.onWarning?.(
           `The final page says the roster holds ${String(this.expectedTotal)} members but only ` +

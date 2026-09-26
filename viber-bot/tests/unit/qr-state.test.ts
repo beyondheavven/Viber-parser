@@ -97,6 +97,20 @@ describe('reduceQrSession', () => {
     expect(scanned.qr).toBeUndefined();
   });
 
+  it('takes the activation success screen as a scan, even one left over from an earlier session', () => {
+    const afterQr = reduceQrSession(shown(), { kind: 'screen', screen: 'activated', at: LATER });
+    expect(afterQr.state).toBe('finishing');
+    expect(afterQr.qr).toBeUndefined();
+    const leftover = reduceQrSession(starting(), { kind: 'screen', screen: 'activated', at: LATER });
+    expect(leftover.state).toBe('finishing');
+    expect(reduceQrSession(lose(shown()), { kind: 'screen', screen: 'activated', at: LATER }).state).toBe(
+      'finishing',
+    );
+    expect(reduceQrSession(starting(), { kind: 'screen', screen: 'ads_consent', at: LATER }).state).toBe(
+      'finishing',
+    );
+  });
+
   it('reports finishing while post-scan prompts are cleared, and stays there', () => {
     const scanned = reduceQrSession(shown(), { kind: 'screen', screen: 'progress', at: LATER });
     for (const screen of ['permission', 'dialog', 'profile_name'] as const) {

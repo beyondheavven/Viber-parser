@@ -47,6 +47,7 @@ class UsersSyncIntegrationTest {
     }
 
     private class FakeRoster(private val group: String, private val participants: String) : RosterClient {
+        override suspend fun getGroups(includeAll: Boolean): String = "[$group]"
         override suspend fun getGroup(id: Int): String = group
         override suspend fun getGroupParticipants(id: Int): String = participants
         override suspend fun getTask(taskId: String): String = error("not used")
@@ -103,6 +104,26 @@ class UsersSyncIntegrationTest {
                     filter { eq("user_id", bob.id!!) }
                 }.decodeList<ViberGroupMemberRow>()
                 assertEquals(listOf(false), members.map { it.active })
+
+                // The status endpoint must see exactly what the two syncs wrote.
+                val status = service2.syncStatus(conversationId)
+                assertTrue(status.configured && status.reachable, status.message)
+                val group = status.groups.single()
+                assertEquals(conversationId, group.conversationId)
+                assertEquals(1, group.participantCount)
+                assertEquals(1, group.activeMembers)
+                assertEquals(1, group.inactiveMembers)
+                // Postgres keeps microseconds; Instant.now() can carry nanoseconds.
+                val micros = java.time.temporal.ChronoUnit.MICROS
+                assertEquals(
+                    java.time.Instant.parse(result2.syncedAt).truncatedTo(micros),
+                    group.lastSyncedAt?.let { java.time.Instant.parse(it).truncatedTo(micros) },
+                )
+                assertTrue((status.usersTotal ?: 0) >= 2, status.toString())
+
+                val missing = service2.syncStatus(conversationId - 1)
+                assertEquals(emptyList(), missing.groups)
+                assertTrue(missing.message.contains("ещё не записывалась"), missing.message)
             } finally {
                 client.from("viber_groups").delete { filter { eq("group_key", "conv:$conversationId") } }
                 client.from("viber_users").delete {

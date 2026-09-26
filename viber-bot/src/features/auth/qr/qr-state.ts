@@ -61,6 +61,8 @@ const TERMINAL: readonly QrAuthState[] = ['ready', 'error'];
 /** Screens that mean Viber is working through the tail of the activation. */
 const POST_SCAN_SCREENS: readonly ViberScreenKind[] = ['permission', 'dialog', 'profile_name'];
 
+const ACTIVATED_SCREENS: readonly ViberScreenKind[] = ['activated', 'ads_consent'];
+
 /** Screens that, once the QR was shown, mean Viber abandoned the activation. */
 const RESET_SCREENS: readonly ViberScreenKind[] = ['welcome', 'phone_entry', 'confirm_number'];
 
@@ -147,6 +149,10 @@ export function reduceQrSession(session: QrSession, event: QrEvent): QrSession {
     }
     return base;
   }
+
+  // Screens Viber only shows once the phone took the code; they can also be
+  // what an earlier session's scan left on screen, so they count from any phase.
+  if (ACTIVATED_SCREENS.includes(screen)) return { ...base, state: 'finishing', qr: undefined };
 
   if (SHOWN_QR.includes(phase) && RESET_SCREENS.includes(screen)) {
     return {

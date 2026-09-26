@@ -12,6 +12,8 @@ export type ViberScreenKind =
   | 'phone_entry'
   | 'confirm_number'
   | 'qr'
+  | 'activated'
+  | 'ads_consent'
   | 'sms_code'
   | 'permission'
   | 'dialog'
@@ -50,6 +52,16 @@ export const CONFIRM_NUMBER_YES: readonly NodeMatcher[] = [
 
 const QR_IMAGE: readonly NodeMatcher[] = [byId(selectors.qrActivation.image)];
 const QR_CONTAINER: readonly NodeMatcher[] = [byId(selectors.qrActivation.container)];
+
+export const ACTIVATION_CONTINUE: readonly NodeMatcher[] = [
+  byId(selectors.activationSuccess.continueButton),
+];
+
+export const ADS_CONSENT_ALLOW: readonly NodeMatcher[] = [byId(selectors.adsConsent.allowButton)];
+const ADS_CONSENT_SCREEN: readonly NodeMatcher[] = [
+  ...ADS_CONSENT_ALLOW,
+  byId(selectors.adsConsent.manageButton),
+];
 
 const SMS_CODE: readonly NodeMatcher[] = [
   byId(selectors.smsCode.mainView),
@@ -166,6 +178,17 @@ export class ScreenSnapshot {
     const node = this.nodes.find((candidate) => candidate['resource-id'] === id);
     return node?.text?.trim() ?? null;
   }
+
+  /** The resource ids on screen, for the log when a screen is not recognised. */
+  resourceIds(limit = 25): string[] {
+    const ids = new Set<string>();
+    for (const node of this.nodes) {
+      const id = node['resource-id'];
+      if (id) ids.add(id.replace(/^com\.viber\.voip:id\//u, ''));
+      if (ids.size >= limit) break;
+    }
+    return [...ids];
+  }
 }
 
 /**
@@ -191,6 +214,8 @@ export function classifyViberScreen(
   // read like nothing in particular while HomeActivity is already up.
   if (isHomeActivity(activity) || screen.has(CHAT_LIST)) return 'chat_list';
   if (screen.has(QR_IMAGE) || screen.has(QR_CONTAINER)) return 'qr';
+  if (screen.has(ACTIVATION_CONTINUE)) return 'activated';
+  if (screen.has(ADS_CONSENT_SCREEN)) return 'ads_consent';
   if (screen.has(PERMISSION_SCREEN)) return 'permission';
   if (screen.has(CONFIRM_NUMBER_YES)) return 'confirm_number';
   if (screen.has(PHONE_FIELD)) return 'phone_entry';

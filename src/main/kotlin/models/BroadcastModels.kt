@@ -23,6 +23,9 @@ data class CreateCampaignRequest(
     val activeFrom: String? = null,
 
     val activeTo: String? = null,
+
+    /** Names the panel shows for [conversationIds]; the bot reads the real ones off the device. */
+    val groupNames: List<String>? = null,
 )
 
 
@@ -37,6 +40,8 @@ data class UpdateCampaignRequest(
     val loop: Boolean? = null,
     val activeFrom: String? = null,
     val activeTo: String? = null,
+    /** Names the panel shows for [conversationIds]; the bot reads the real ones off the device. */
+    val groupNames: List<String>? = null,
 )
 
 

@@ -35,6 +35,16 @@ export class CollectParticipantsDto {
   @IsOptional()
   @IsBoolean()
   fetchOnlineStatus?: boolean = true;
+
+  /** Двойной/тройной проход для устранения пропусков (по умолчанию true). */
+  @IsOptional()
+  @IsBoolean()
+  twoPass?: boolean = true;
+
+  /** Количество полных проходов с 0 для максимального охвата (по умолчанию 5). */
+  @IsOptional()
+  @IsNumber()
+  passesCount?: number = 5;
 }
 
 export class CollectAcceptedResponseDto {

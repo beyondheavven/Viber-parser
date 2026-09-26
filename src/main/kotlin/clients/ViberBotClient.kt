@@ -6,6 +6,7 @@ import com.viber.models.CreateCampaignRequest
 import com.viber.models.UpdateCampaignRequest
 import com.viber.models.DecodeRequest
 import com.viber.models.EnableMonitorGroupRequest
+import com.viber.models.GroupSummary
 import com.viber.models.QueryOnlineStatusRequest
 import com.viber.models.StartMonitorRequest
 import com.viber.models.CodeRequest
@@ -62,7 +63,7 @@ class ViberBotClient(
         return rpcClient.call("viber.tasks.stop", mapOf("id" to taskId))
     }
 
-    suspend fun getGroups(includeAll: Boolean = false): String {
+    override suspend fun getGroups(includeAll: Boolean): String {
         return rpcClient.call("viber.groups.get_all", mapOf("all" to includeAll))
     }
 
@@ -100,6 +101,17 @@ class ViberBotClient(
 
     suspend fun getMonitoredGroups(): String {
         return rpcClient.call("viber.messages.monitor.groups")
+    }
+
+    /**
+     * Local conversation id of the group whose `groupKey` this is — the 64-bit
+     * Viber id, or the local row id for a group Viber never gave one — or
+     * null when this emulator does not have it.
+     */
+    suspend fun findConversationIdByGroupKey(groupKey: String): Int? {
+        val groups = json.decodeFromString<List<GroupSummary>>(getGroups(includeAll = true))
+        return groups.firstOrNull { it.groupId == groupKey }?.id
+            ?: groups.firstOrNull { it.groupId.isNullOrBlank() && it.id.toString() == groupKey }?.id
     }
 
     suspend fun enableMonitorGroup(id: Int, request: EnableMonitorGroupRequest): String {

@@ -1,6 +1,7 @@
 package com.viber.clients
 
 import com.viber.config.AdbSettings
+import com.viber.models.ViberAccountInfo
 
 class AdbClient(
     private val settings: AdbSettings
@@ -44,6 +45,31 @@ class AdbClient(
     fun getPid(packageName: String): Int? {
         val output = exec("shell pidof $packageName").trim()
         return output.toIntOrNull()
+    }
+
+    fun getAccountInfo(): ViberAccountInfo {
+        return try {
+            val rawPhone = exec("shell strings /data/data/com.viber.voip/files/preferences/reg_viber_phone_num_canonized").trim()
+            val phoneMatch = Regex("""\d{7,15}""").find(rawPhone)?.value
+            val formattedPhone = phoneMatch?.let { if (it.startsWith("+")) it else "+$it" }
+
+            val xml = exec("shell cat /data/data/com.viber.voip/shared_prefs/com.viber.voip.ViberPrefs.xml 2>/dev/null")
+            val displayName = Regex("""<string name="display_name">(.*?)</string>""").find(xml)?.groupValues?.get(1)?.trim()
+
+            val isAuthorized = formattedPhone != null
+
+            ViberAccountInfo(
+                phoneNumber = formattedPhone,
+                displayName = displayName,
+                isAuthorized = isAuthorized,
+            )
+        } catch (e: Exception) {
+            ViberAccountInfo(
+                phoneNumber = null,
+                displayName = null,
+                isAuthorized = false,
+            )
+        }
     }
 
 }

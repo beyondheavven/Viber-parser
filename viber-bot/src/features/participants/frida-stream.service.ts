@@ -15,6 +15,8 @@ function delay(ms: number): Promise<void> {
 export type StreamProgress = PgWalkProgress;
 
 export interface FridaPagingOptions {
+  initialOffset?: number | undefined;
+  pageSize?: number | undefined;
   idleTimeoutMs?: number | undefined;
   signal?: AbortSignal | undefined;
   onProgress?: ((progress: StreamProgress) => void) | undefined;
@@ -125,19 +127,26 @@ export class FridaStreamService {
       runPaging: async (conversationId, groupId, options = {}) => {
         const idleTimeoutMs = options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
         const pagingSignal = options.signal ?? signal;
+        const initialOffset = options.initialOffset ?? 0;
+        const pageSize = options.pageSize;
         const logger = this.logger;
 
         return new Promise<FridaPagingResult>((resolve, reject) => {
           let lastActivity = Date.now();
 
-          const walk = new PgWalk(groupId, {
-            request: (sindex) => {
-              lastActivity = Date.now();
-              script.post({ type: 'query', a0: conversationId, a1: sindex, groupId });
+          const walk = new PgWalk(
+            groupId,
+            {
+              request: (sindex) => {
+                lastActivity = Date.now();
+                script.post({ type: 'query', a0: conversationId, a1: sindex, groupId, size: pageSize });
+              },
+              onProgress: options.onProgress,
+              onWarning: (message) => logger.warn(message),
             },
-            onProgress: options.onProgress,
-            onWarning: (message) => logger.warn(message),
-          });
+            undefined,
+            initialOffset,
+          );
 
           const onAbort = (): void => {
             cleanup();

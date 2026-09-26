@@ -32,7 +32,10 @@ data class DecodeRequest(
 
     val restartApp: Boolean = true,
 
-    val waitForSyncSeconds: Int = 10
+    val waitForSyncSeconds: Int = 10,
+
+    /** Decoding the account's own participant row is not supported; only `false` is accepted. */
+    val includeSelf: Boolean = false,
 )
 
 @Serializable

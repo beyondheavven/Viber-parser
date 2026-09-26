@@ -21,6 +21,15 @@ const ACTIVATION_FAILED = `<hierarchy><node resource-id="android:id/content" bou
   <node text="CLOSE" resource-id="android:id/button1" bounds="[400,420][500,470]" />
 </node></hierarchy>`;
 
+const ACTIVATED = `<hierarchy><node resource-id="com.viber.voip:id/fragment_container" bounds="[0,0][1280,720]">
+  <node text="Continue" resource-id="com.viber.voip:id/continueBtn" bounds="[580,340][700,378]" />
+</node></hierarchy>`;
+
+const ADS_CONSENT = `<hierarchy><node resource-id="com.viber.voip:id/root_container" bounds="[0,0][1280,720]">
+  <node text="Allow all and continue" resource-id="com.viber.voip:id/allow_btn" bounds="[24,552][1256,612]" />
+  <node text="Manage ad preferences" resource-id="com.viber.voip:id/manage_ads_btn" bounds="[24,636][1256,696]" />
+</node></hierarchy>`;
+
 function fixture(name: string): string {
   return name.startsWith('<') ? name : readFileSync(join(FIXTURES, `${name}.xml`), 'utf8');
 }
@@ -241,6 +250,28 @@ describe('ViberQrService', () => {
     const final = await settle(service);
     expect(final.state).toBe('error');
     expect(final.error).toMatch(/SMS/u);
+  });
+
+  it('taps through the activation success screen, including one left by an earlier scan', async () => {
+    const device = new ScriptedDevice([
+      { screen: ACTIVATED },
+      { screen: ACTIVATED },
+      { screen: ADS_CONSENT, activity: '.feature.gdpr.ui.iabconsent.ConsentActivity' },
+      { screen: 'synthetic-chat-list', activity: '.HomeActivity' },
+    ]);
+    const { service, mutex } = setup(device);
+    service.start({ phoneNumber: '+48123456789' });
+    const final = await settle(service);
+
+    expect(final.state).toBe('ready');
+    // Continue on the success screen, then "Allow all and continue".
+    expect(device.taps).toEqual([
+      { x: 640, y: 359 },
+      { x: 640, y: 582 },
+    ]);
+    expect(device.typed).toEqual([]);
+    expect(device.override).toBeNull();
+    expect(mutex.isLocked()).toBe(false);
   });
 
   it('reopens the UI session when a screen read fails', async () => {

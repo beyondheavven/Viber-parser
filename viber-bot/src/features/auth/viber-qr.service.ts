@@ -18,6 +18,8 @@ import { openQrDevice, type QrDevice } from './qr/qr-device.js';
 import { cropPng, decodeQrFromPng, renderQrSvg } from './qr/qr-image.js';
 import { maskPhone, splitPhoneNumber } from './qr/phone-number.js';
 import {
+  ACTIVATION_CONTINUE,
+  ADS_CONSENT_ALLOW,
   CONFIRM_NUMBER_YES,
   DIALOG_ANY_BUTTON,
   DISMISS_OPTIONAL,
@@ -120,6 +122,7 @@ interface QrRuntime {
 interface Screen {
   snapshot: ScreenSnapshot;
   kind: ViberScreenKind;
+  activity: string | null;
 }
 
 /**
@@ -316,6 +319,10 @@ export class ViberQrService implements OnModuleDestroy {
 
       this.apply(runtime, { kind: 'screen', screen: screen.kind, at: this.isoNow() });
       if (isFinished(runtime.session)) return;
+      if (runtime.session.state === 'finishing') {
+        this.logger.log('The device is already activated — finishing the setup.');
+        return;
+      }
       await this.captureUnknownScreen(device, runtime);
 
       switch (screen.kind) {
@@ -391,7 +398,11 @@ export class ViberQrService implements OnModuleDestroy {
 
       // Required permissions are granted; optional prompts are declined — none
       // of them is needed to reach the chat list.
-      if (screen.kind === 'permission') {
+      if (screen.kind === 'activated') {
+        await this.tap(device, screen.snapshot, ACTIVATION_CONTINUE, 'Continue (activated)');
+      } else if (screen.kind === 'ads_consent') {
+        await this.tap(device, screen.snapshot, ADS_CONSENT_ALLOW, 'Allow all and continue');
+      } else if (screen.kind === 'permission') {
         await this.tap(device, screen.snapshot, PERMISSION_ALLOW, 'Allow');
       } else if (screen.kind === 'dialog') {
         await this.dismissDialog(device, screen.snapshot);
@@ -430,7 +441,13 @@ export class ViberQrService implements OnModuleDestroy {
       try {
         const snapshot = new ScreenSnapshot(parseHierarchy(await device.pageSource()));
         const activity = await device.currentActivity();
-        return { snapshot, kind: classifyViberScreen(snapshot, activity) };
+        const kind = classifyViberScreen(snapshot, activity);
+        if (kind === 'unknown') {
+          this.logger.debug(
+            `Unrecognised screen: activity=${activity ?? '?'} ids=[${snapshot.resourceIds().join(', ')}]`,
+          );
+        }
+        return { snapshot, kind, activity };
       } catch (err) {
         if (attempt >= UI_READ_ATTEMPTS || runtime.abort.signal.aborted) {
           throw new Error(`Не удалось прочитать экран Viber: ${describeError(err)}`);
@@ -581,6 +598,10 @@ export class ViberQrService implements OnModuleDestroy {
     const previous = runtime.session;
     runtime.session = reduceQrSession(previous, event);
     runtime.updatedAt = this.isoNow();
+    if (runtime.session.state !== previous.state) {
+      const hint = runtime.session.screenHint ?? runtime.session.error ?? '';
+      this.logger.log(`State ${previous.state} → ${runtime.session.state}${hint ? ` (${hint})` : ''}.`);
+    }
     if (runtime.session.qr === undefined && previous.qr !== undefined) {
       runtime.svg = undefined;
       runtime.pngBase64 = undefined;

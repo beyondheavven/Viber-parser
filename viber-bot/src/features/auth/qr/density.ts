@@ -83,6 +83,8 @@ export function densityForTabletLayout(size: WmSize): number {
   return Math.floor((Math.min(size.width, size.height) * 160) / TABLET_MIN_WIDTH_DP);
 }
 
+const METRICS_ATTEMPTS = 3;
+
 function safeShell(device: DensityShell, command: string): string {
   try {
     return device.shell(command, { allowFailure: true, timeout: 15_000 });
@@ -115,8 +117,17 @@ export interface WidenResult {
  * setting, and taking it for the latter would strand the emulator there.
  */
 export function widenForTabletLayout(device: DensityShell): WidenResult {
-  const size = parseWmSize(safeShell(device, 'wm size'));
-  const { physical, override } = parseWmDensities(safeShell(device, 'wm density'));
+  let size: WmSize | null = null;
+  let densities: WmDensities = { physical: null, override: null };
+  // `wm` answers nothing for a moment while the system server is busy — right
+  // after boot or an app being killed — so a blank read is retried.
+  for (let attempt = 1; attempt <= METRICS_ATTEMPTS; attempt += 1) {
+    size = parseWmSize(safeShell(device, 'wm size'));
+    densities = parseWmDensities(safeShell(device, 'wm density'));
+    if (size !== null && (densities.override ?? densities.physical) !== null) break;
+    if (attempt < METRICS_ATTEMPTS) safeShell(device, 'sleep 2');
+  }
+  const { physical, override } = densities;
   const current = override ?? physical;
   if (size === null || current === null) {
     return { restore: null, note: 'screen metrics unreadable; density left alone' };

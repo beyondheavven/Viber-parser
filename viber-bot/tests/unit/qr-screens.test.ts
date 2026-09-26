@@ -67,6 +67,31 @@ describe('classifyViberScreen', () => {
     expect(findQrBounds(screen)).toEqual({ left: 170, top: 242, right: 370, bottom: 442 });
   });
 
+  it('recognises the "added your tablet as a secure device" success screen', () => {
+    const success = new ScreenSnapshot(
+      parseHierarchy(
+        '<hierarchy><node resource-id="com.viber.voip:id/fragment_container" bounds="[0,0][1280,720]">' +
+          '<node resource-id="com.viber.voip:id/continueBtn" text="Continue" bounds="[580,340][700,378]" />' +
+          '<node resource-id="com.viber.voip:id/policy" bounds="[680,694][760,710]" />' +
+          '</node></hierarchy>',
+      ),
+    );
+    expect(classifyViberScreen(success, '.registration.RegistrationActivity')).toBe('activated');
+    expect(success.resourceIds()).toEqual(['fragment_container', 'continueBtn', 'policy']);
+  });
+
+  it('recognises the GDPR ads consent shown after activation', () => {
+    const consent = new ScreenSnapshot(
+      parseHierarchy(
+        '<hierarchy><node resource-id="com.viber.voip:id/root_container" bounds="[0,0][1280,720]">' +
+          '<node resource-id="com.viber.voip:id/allow_btn" text="Allow all and continue" bounds="[24,552][1256,612]" />' +
+          '<node resource-id="com.viber.voip:id/manage_ads_btn" text="Manage ad preferences" bounds="[24,636][1256,696]" />' +
+          '</node></hierarchy>',
+      ),
+    );
+    expect(classifyViberScreen(consent, '.feature.gdpr.ui.iabconsent.ConsentActivity')).toBe('ads_consent');
+  });
+
   it('falls back to unknown for anything it has never seen', () => {
     const blank = new ScreenSnapshot(
       parseHierarchy('<hierarchy><node class="android.widget.FrameLayout" bounds="[0,0][540,960]" /></hierarchy>'),

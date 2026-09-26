@@ -16,6 +16,8 @@ import { OnlineStatusService } from './online-status.service.js';
 import type { TaskEntity } from '../tasks/entities/task.entity.js';
 import type { CollectParticipantsDto } from './dto/collect-participants.dto.js';
 
+const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
 export interface CollectionResult {
   group: string;
   conversationId: number;
@@ -116,8 +118,11 @@ export class ParticipantsCollectorFlow {
       task.setStep('attaching_frida', 'Подключение Frida к процессу com.viber.voip');
       const fridaAgent = await this.fridaStream.attachAgent(context.adb, signal);
 
-      let pagingResult;
+      let pagingResult: FridaPagingResult | undefined;
       let headerTotal: number | null = null;
+      const combinedRawPageJsons: string[] = [];
+      let totalPagesCount = 0;
+      let finalExpectedTotal: number | null = null;
       try {
         if (signal.aborted) {
           task.stop();
@@ -145,53 +150,100 @@ export class ParticipantsCollectorFlow {
           );
         }
 
-        // 4. Frida active stream pagination
-        task.setStep('paging_participants', 'Сбор страниц участников через Frida без прокрутки экрана', {
-          headerTotal,
-          pagesCount: 0,
-        });
+        // 4. Frida active stream pagination - Multi-pass (1..5 passes from 0)
+        const totalPasses =
+          typeof dto.passesCount === 'number' && dto.passesCount >= 1
+            ? Math.min(Math.floor(dto.passesCount), 10)
+            : dto.twoPass === false
+              ? 1
+              : 5;
 
-        pagingResult = await fridaAgent.runPaging(
-          conversationId,
-          groupId,
-          {
-            idleTimeoutMs: dto.idleTimeoutMs,
-            signal,
-            onProgress: (p) => {
-              task.updateProgress({
-                pagesCount: p.pagesCount,
-                currentOffset: p.currentOffset,
-                pageSize: p.pageSize,
-                lastPage: p.lastPage,
-                streamTotal: p.headerTotal,
-              });
+        for (let pass = 1; pass <= totalPasses; pass += 1) {
+          if (signal.aborted) break;
+
+          task.setStep(
+            'paging_participants',
+            totalPasses > 1
+              ? `Сбор страниц участников через Frida (Проход ${pass}/${totalPasses})...`
+              : 'Сбор страниц участников через Frida без прокрутки экрана',
+            {
+              headerTotal,
+              pagesCount: totalPagesCount,
             },
-          },
-        );
+          );
+
+          if (pass > 1) {
+            await delay(1000);
+          }
+
+          try {
+            const currentPassResult = await fridaAgent.runPaging(
+              conversationId,
+              groupId,
+              {
+                initialOffset: 0,
+                idleTimeoutMs: dto.idleTimeoutMs,
+                signal,
+                onProgress: (p) => {
+                  task.updateProgress({
+                    currentPass: pass,
+                    totalPasses,
+                    pagesCount: totalPagesCount + p.pagesCount,
+                    currentOffset: p.currentOffset,
+                    pageSize: p.pageSize,
+                    lastPage: p.lastPage,
+                    streamTotal: p.headerTotal,
+                  });
+                },
+              },
+            );
+
+            combinedRawPageJsons.push(...currentPassResult.rawPageJsons);
+            totalPagesCount += currentPassResult.pagesCount;
+            if (
+              currentPassResult.expectedTotal &&
+              (!finalExpectedTotal || currentPassResult.expectedTotal > finalExpectedTotal)
+            ) {
+              finalExpectedTotal = currentPassResult.expectedTotal;
+            }
+            if (!pagingResult || currentPassResult.lastReached) {
+              pagingResult = currentPassResult;
+            }
+            this.logger.log(
+              `Pass ${pass}/${totalPasses} finished — получено ${String(currentPassResult.pagesCount)} страниц (${String(currentPassResult.collectedMembers)} участников).`,
+            );
+          } catch (err) {
+            this.logger.warn(`Pass ${pass}/${totalPasses} warning: ${String(err)}; proceeding with collected pages.`);
+            if (!pagingResult) throw err;
+          }
+        }
       } finally {
         await fridaAgent.cleanup();
       }
 
+      const collectedMembers = pagingResult?.collectedMembers ?? 0;
+      const ignoredPages = pagingResult?.ignoredPages ?? 0;
+      const queryErrors = pagingResult?.queryErrors ?? [];
       const pagingSummary =
-        `страниц ${String(pagingResult.pagesCount)}, участников ${String(pagingResult.collectedMembers)}` +
-        (pagingResult.expectedTotal === null
+        `страниц ${String(totalPagesCount)}, участников ${String(collectedMembers)}` +
+        (finalExpectedTotal === null
           ? ' (последняя страница не пришла)'
-          : ` из ${String(pagingResult.expectedTotal)}`) +
-        (pagingResult.ignoredPages > 0
-          ? `, отброшено чужих ответов ${String(pagingResult.ignoredPages)}`
+          : ` из ${String(finalExpectedTotal)}`) +
+        (ignoredPages > 0
+          ? `, отброшено чужих ответов ${String(ignoredPages)}`
           : '') +
-        (pagingResult.queryErrors.length > 0
-          ? `, ошибки агента: ${pagingResult.queryErrors.join('; ')}`
+        (queryErrors.length > 0
+          ? `, ошибки агента: ${queryErrors.join('; ')}`
           : '');
       this.logger.log(`Paging finished — ${pagingSummary}.`);
       task.updateProgress({
-        pagesCount: pagingResult.pagesCount,
-        streamMembers: pagingResult.collectedMembers,
-        streamTotal: pagingResult.expectedTotal ?? pagingResult.headerTotal,
-        ignoredPages: pagingResult.ignoredPages,
+        pagesCount: totalPagesCount,
+        streamMembers: collectedMembers,
+        streamTotal: finalExpectedTotal ?? pagingResult?.headerTotal ?? null,
+        ignoredPages,
       });
 
-      if (!dto.allowPartial && !pagingResult.lastReached) {
+      if (!dto.allowPartial && !pagingResult?.lastReached) {
         throw new Error(
           `Пагинация не завершилась: ${pagingSummary}. ` +
             'Для сохранения неполного списка передайте allowPartial: true.',
@@ -205,9 +257,9 @@ export class ParticipantsCollectorFlow {
 
       // 4. Initial live DB update
       task.setStep('syncing_live_db', 'Запись полученных участников и связей в рабочую базу данных эмулятора');
-      const streamMembers = parsePgRoster(pagingResult.rawPageJsons);
+      const streamMembers = parsePgRoster(combinedRawPageJsons);
       this.logger.log(
-        `Parsed ${String(streamMembers.length)} members from ${String(pagingResult.pagesCount)} pages.`,
+        `Parsed ${String(streamMembers.length)} members from ${String(totalPagesCount)} pages across passes.`,
       );
       task.updateProgress({ parsedMembers: streamMembers.length });
 

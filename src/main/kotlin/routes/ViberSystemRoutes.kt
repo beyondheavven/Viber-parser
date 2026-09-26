@@ -32,5 +32,10 @@ fun Route.viberSystemRoutes(viberSystemService: ViberSystemService) {
                 call.respond(HttpStatusCode.ServiceUnavailable, status)
             }
         }
+
+        get("/account") {
+            val account = viberSystemService.getAccountInfo()
+            call.respond(HttpStatusCode.OK, account)
+        }
     }
 }
