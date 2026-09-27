@@ -315,6 +315,21 @@ fi
 apply_settings
 copy_extras
 
+install_viber_apk() {
+  if ! adb shell pm path com.viber.voip >/dev/null 2>&1; then
+    local apk_file
+    apk_file=$(ls /apk/*.apk 2>/dev/null | head -n 1)
+    if [ -n "$apk_file" ] && [ -f "$apk_file" ]; then
+      echo "--> [INSTALL] Installing Viber APK from $apk_file..."
+      adb install -r "$apk_file" || true
+      echo "--> [INSTALL] Viber APK installation finished."
+    else
+      echo "--> [INSTALL] No APK found in /apk, skipping."
+    fi
+  fi
+}
+install_viber_apk
+
 start_viber_autorun() {
   echo "--> [AUTORUN] Checking Viber installation and launching into foreground..."
   local max_retries=30

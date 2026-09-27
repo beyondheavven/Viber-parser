@@ -217,6 +217,7 @@ async function buildAndStartEmulator(config: EmulatorConfig) {
     `${hostProjectDir}/emulator/first-boot.sh:/overrides/first-boot.sh:ro`,
     `${hostProjectDir}/emulator/entrypoint.sh:/overrides/entrypoint.sh:ro`,
     `${hostProjectDir}/emulator/setup-device-profile.sh:/overrides/setup-device-profile.sh:ro`,
+    `${hostProjectDir}/apk:/apk:ro`,
   ];
 
   // Headroom for host QEMU process

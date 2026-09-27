@@ -86,7 +86,7 @@ migrate_generic_viber_data_once() {
       ;;
   esac
 
-  package_path=$("$ADB" shell "pm path $VIBER_PACKAGE" 2>/dev/null | tr -d '\r')
+  package_path=$("$ADB" shell "pm path $VIBER_PACKAGE 2>/dev/null || true" | tr -d '\r')
   if [ -n "$package_path" ]; then
     state=$(account_data_state)
     if [ "$state" = no ]; then
