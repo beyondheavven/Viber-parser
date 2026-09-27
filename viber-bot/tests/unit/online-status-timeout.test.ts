@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Adb } from '../../src/device/adb.js';
+import type { Adb } from '../../src/platform/adb.js';
 
 const mocks = vi.hoisted(() => ({ createFridaRuntime: vi.fn() }));
 
@@ -12,7 +12,7 @@ vi.mock('../../src/config/env.js', () => ({
   loadViberConfig: () => ({ appPackage: 'com.viber.voip' }),
 }));
 
-import { OnlineStatusService } from '../../src/automation/frida/online-status.service.js';
+import { OnlineStatusService } from '../../src/features/participants/online-status.service.js';
 
 /** Builds a mock Frida script whose post() never sends a reply (Viber wedged). */
 function silentRuntime(): { postCount: () => number } {

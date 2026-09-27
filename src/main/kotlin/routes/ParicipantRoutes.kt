@@ -1,6 +1,6 @@
 package com.viber.routes
 
-import com.viber.clients.ViberBotClient
+import com.viber.bot.ViberBotClient
 import com.viber.models.CollectParticipantsRequest
 import com.viber.models.QueryOnlineStatusRequest
 import com.viber.routes.docs.describeCollectParticipants

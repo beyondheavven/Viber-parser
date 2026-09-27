@@ -1,4 +1,4 @@
-package com.viber.clients
+package com.viber.bot
 
 object DeviceQueueRouting {
     const val DEFAULT_QUEUE = "viber_commands_queue"

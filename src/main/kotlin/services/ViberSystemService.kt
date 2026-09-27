@@ -1,6 +1,6 @@
 package com.viber.services
 
-import com.viber.clients.AdbClient
+import com.viber.infrastructure.adb.AdbClient
 import com.viber.models.ViberAccountInfo
 import com.viber.models.ViberStartRequest
 import com.viber.models.ViberStartResponse

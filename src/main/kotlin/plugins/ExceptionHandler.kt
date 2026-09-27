@@ -1,6 +1,6 @@
 package com.viber.plugins
 
-import com.viber.clients.MicroserviceException
+import com.viber.infrastructure.rabbitmq.MicroserviceException
 import com.viber.models.ErrorResponse
 import com.viber.models.ErrorType
 import io.ktor.http.HttpStatusCode

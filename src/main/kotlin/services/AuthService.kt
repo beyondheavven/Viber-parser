@@ -1,6 +1,6 @@
 package com.viber.services
 
-import com.viber.clients.BotAuthClient
+import com.viber.bot.BotAuthClient
 import com.viber.models.CodeRequest
 import com.viber.models.LoginRequest
 import com.viber.models.LoginResponse

@@ -1,4 +1,4 @@
-package com.viber.clients
+package com.viber.consumers
 
 import com.rabbitmq.client.AMQP
 import com.rabbitmq.client.Channel

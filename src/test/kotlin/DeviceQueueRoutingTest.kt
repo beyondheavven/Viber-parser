@@ -1,9 +1,9 @@
 package com.viber
 
-import com.viber.clients.BotAuthClient
-import com.viber.clients.DeviceQueueRouting
-import com.viber.clients.RpcClient
-import com.viber.clients.ViberBotClient
+import com.viber.bot.BotAuthClient
+import com.viber.bot.DeviceQueueRouting
+import com.viber.infrastructure.rabbitmq.RpcClient
+import com.viber.bot.ViberBotClient
 import com.viber.models.CodeRequest
 import com.viber.models.LoginRequest
 import com.viber.models.LoginResponse

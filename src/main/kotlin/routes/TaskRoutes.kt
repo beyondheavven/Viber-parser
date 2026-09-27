@@ -1,6 +1,6 @@
 package com.viber.routes
 
-import com.viber.clients.ViberBotClient
+import com.viber.bot.ViberBotClient
 import com.viber.routes.docs.describeGetAllTasks
 import com.viber.routes.docs.describeGetTaskDetail
 import com.viber.routes.docs.describeGetTaskParticipants

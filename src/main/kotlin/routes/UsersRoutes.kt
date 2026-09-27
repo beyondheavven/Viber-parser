@@ -41,10 +41,6 @@ fun Route.usersRoutes(usersSyncService: UsersSyncService) {
             call.respond(HttpStatusCode.OK, usersSyncService.getGroupUsers(id))
         }
 
-        post("/sync/all", describeSyncAllUsers) {
-            call.respond(HttpStatusCode.OK, usersSyncService.syncAll())
-        }
-
         post("/sync/group/{id}", describeSyncGroupUsers) {
             val id = call.parameters["id"]!!.toInt()
             call.respond(HttpStatusCode.OK, usersSyncService.syncGroup(id))

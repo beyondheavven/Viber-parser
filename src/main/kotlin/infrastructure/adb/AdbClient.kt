@@ -1,4 +1,4 @@
-package com.viber.clients
+package com.viber.infrastructure.adb
 
 import com.viber.config.AdbSettings
 import com.viber.models.ViberAccountInfo

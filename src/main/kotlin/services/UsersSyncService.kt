@@ -1,12 +1,11 @@
 package com.viber.services
 
-import com.viber.clients.RosterClient
+import com.viber.bot.RosterClient
 import com.viber.models.GroupDetail
 import com.viber.models.GroupSummary
 import com.viber.models.GroupSyncStatus
 import com.viber.models.ParticipantModel
 import com.viber.models.SupabaseGroupMemberJoin
-import com.viber.models.TaskCollectionResult
 import com.viber.models.TaskSyncView
 import com.viber.models.UsersPage
 import com.viber.models.UsersSyncAllResult
@@ -22,8 +21,6 @@ import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Count
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.CancellationException
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.time.Instant

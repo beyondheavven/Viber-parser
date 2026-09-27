@@ -1,6 +1,6 @@
 package com.viber
 
-import com.viber.clients.RosterClient
+import com.viber.bot.RosterClient
 import com.viber.models.ViberGroupMemberRow
 import com.viber.models.ViberUserRow
 import com.viber.services.UsersSyncService

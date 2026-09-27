@@ -1,4 +1,4 @@
-package com.viber.clients
+package com.viber.infrastructure.rabbitmq
 
 import com.rabbitmq.client.AMQP
 import com.rabbitmq.client.Channel
@@ -7,12 +7,15 @@ import com.rabbitmq.client.ConnectionFactory
 import com.rabbitmq.client.DefaultConsumer
 import com.rabbitmq.client.Envelope
 import com.viber.config.RabbitMqSettings
+import io.ktor.http.HttpStatusCode
 import io.ktor.utils.io.core.Closeable
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import org.slf4j.LoggerFactory
 import java.util.UUID
@@ -21,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
 
 class MicroserviceException(
-    val statusCode: io.ktor.http.HttpStatusCode,
+    val statusCode: HttpStatusCode,
     override val message: String
 ) : RuntimeException(message)
 
@@ -126,29 +129,29 @@ class RabbitMqRpcClient(
                 try {
                     json.parseToJsonElement(data)
                 } catch (_: Exception) {
-                    kotlinx.serialization.json.JsonPrimitive(data)
+                    JsonPrimitive(data)
                 }
             }
-            is Number -> kotlinx.serialization.json.JsonPrimitive(data)
-            is Boolean -> kotlinx.serialization.json.JsonPrimitive(data)
+            is Number -> JsonPrimitive(data)
+            is Boolean -> JsonPrimitive(data)
             is Map<*, *> -> {
                 val entries = data.entries.associate {
-                    it.key.toString() to (it.value?.let { v -> kotlinx.serialization.json.JsonPrimitive(v.toString()) } ?: JsonNull)
+                    it.key.toString() to (it.value?.let { v -> JsonPrimitive(v.toString()) } ?: JsonNull)
                 }
-                kotlinx.serialization.json.JsonObject(entries)
+                JsonObject(entries)
             }
-            else -> kotlinx.serialization.json.JsonPrimitive(data.toString())
+            else -> JsonPrimitive(data.toString())
         }
 
-        val requestObj = kotlinx.serialization.json.JsonObject(
+        val requestObj = JsonObject(
             mapOf(
-                "pattern" to kotlinx.serialization.json.JsonPrimitive(pattern),
+                "pattern" to JsonPrimitive(pattern),
                 "data" to dataJsonElement,
-                "id" to kotlinx.serialization.json.JsonPrimitive(id)
+                "id" to JsonPrimitive(id)
             )
         )
 
-        return json.encodeToString(kotlinx.serialization.json.JsonObject.serializer(), requestObj)
+        return json.encodeToString(JsonObject.serializer(), requestObj)
     }
 
     private fun extractNestJsResponse(rawResponse: String): String {
@@ -158,12 +161,12 @@ class RabbitMqRpcClient(
         if (errElement != null && errElement !is JsonNull) {
             val errorMsg = errElement.toString()
             logger.error("Error returned from bot: $errorMsg")
-            if (errElement is kotlinx.serialization.json.JsonObject) {
-                val statusCodeInt = (errElement["statusCode"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: 500
-                val messageStr = (errElement["message"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: errorMsg
-                throw MicroserviceException(io.ktor.http.HttpStatusCode.fromValue(statusCodeInt), messageStr)
+            if (errElement is JsonObject) {
+                val statusCodeInt = (errElement["statusCode"] as? JsonPrimitive)?.content?.toIntOrNull() ?: 500
+                val messageStr = (errElement["message"] as? JsonPrimitive)?.content ?: errorMsg
+                throw MicroserviceException(HttpStatusCode.fromValue(statusCodeInt), messageStr)
             }
-            throw MicroserviceException(io.ktor.http.HttpStatusCode.InternalServerError, errorMsg)
+            throw MicroserviceException(HttpStatusCode.InternalServerError, errorMsg)
         }
 
         val responseElement = root["response"] ?: return "{}"

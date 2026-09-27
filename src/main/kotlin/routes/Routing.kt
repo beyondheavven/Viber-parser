@@ -1,7 +1,7 @@
 package com.viber.routes
 
-import com.viber.clients.AdbClient
-import com.viber.clients.ViberBotClient
+import com.viber.infrastructure.adb.AdbClient
+import com.viber.bot.ViberBotClient
 import com.viber.config.AdbSettings
 import com.viber.config.RabbitMqSettings
 import com.viber.services.AuthService

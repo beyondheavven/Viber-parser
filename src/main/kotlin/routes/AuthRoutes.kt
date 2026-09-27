@@ -1,6 +1,6 @@
 package com.viber.routes
 
-import com.viber.clients.DeviceQueueRouting
+import com.viber.bot.DeviceQueueRouting
 import com.viber.models.CodeRequest
 import com.viber.models.LoginRequest
 import com.viber.models.QrStartRequest

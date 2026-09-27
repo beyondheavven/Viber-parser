@@ -1,4 +1,4 @@
-package com.viber.clients
+package com.viber.bot
 
 
 interface RosterClient {

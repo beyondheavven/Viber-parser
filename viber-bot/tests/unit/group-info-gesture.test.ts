@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { gestureArea, isTappable, scanInfoPanelSource } from '../../src/pages/group-info.page.js';
+import { gestureArea, isTappable, scanInfoPanelSource } from '../../src/viber/pages/group-info.page.js';
 
 /** Info panel exactly as captured at 1280x720: it runs to the last pixel row. */
 const PANEL = { left: 90, top: 284, right: 1280, bottom: 720 };

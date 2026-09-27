@@ -1,6 +1,8 @@
-package com.viber.clients
+package com.viber.bot
 
 import com.viber.config.RabbitMqSettings
+import com.viber.infrastructure.rabbitmq.RabbitMqRpcClient
+import com.viber.infrastructure.rabbitmq.RpcClient
 import com.viber.models.CollectParticipantsRequest
 import com.viber.models.CreateCampaignRequest
 import com.viber.models.UpdateCampaignRequest
@@ -113,11 +115,6 @@ class ViberBotClient(
         return rpcClient.call("viber.messages.monitor.groups")
     }
 
-    /**
-     * Local conversation id of the group whose `groupKey` this is — the 64-bit
-     * Viber id, or the local row id for a group Viber never gave one — or
-     * null when this emulator does not have it.
-     */
     suspend fun findConversationIdByGroupKey(groupKey: String): Int? {
         val groups = json.decodeFromString<List<GroupSummary>>(getGroups(includeAll = true))
         return groups.firstOrNull { it.groupId == groupKey }?.id

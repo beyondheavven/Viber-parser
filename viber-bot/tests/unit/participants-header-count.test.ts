@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseRosterPageSource } from '../../src/pages/participants.page.js';
+import { parseRosterPageSource } from '../../src/viber/pages/participants.page.js';
 
 function withHeader(header: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
