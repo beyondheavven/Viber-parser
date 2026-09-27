@@ -128,6 +128,7 @@ services:
       - VIBER_MESSAGES_DB=/data/data/com.viber.voip/databases/viber_messages
       - VIBER_DEFAULT_PHONE=${VIBER_DEFAULT_PHONE:-}
       - VIBER_DEFAULT_COUNTRY=${VIBER_DEFAULT_COUNTRY:-}
+      - VIBER_DEFAULT_NAME=${VIBER_DEFAULT_NAME:-Maks}
     volumes:
       - viber-bot-data:/app/data
     depends_on:

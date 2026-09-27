@@ -60,6 +60,7 @@ export interface ViberConfig {
   appActivity: string | undefined;
   /** On-device path of the Viber messages database. */
   messagesDb: string;
+  defaultName: string;
 }
 
 export interface AppiumConfig {
@@ -135,6 +136,7 @@ export function loadViberConfig(): ViberConfig {
     appPackage: str('VIBER_PACKAGE', 'com.viber.voip'),
     appActivity: optional('VIBER_ACTIVITY'),
     messagesDb: str('VIBER_MESSAGES_DB', '/data/data/com.viber.voip/databases/viber_messages'),
+    defaultName: str('VIBER_DEFAULT_NAME', 'Maks'),
   };
 }
 

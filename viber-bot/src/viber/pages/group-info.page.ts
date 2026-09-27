@@ -1,5 +1,6 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { BasePage } from './base.page.js';
+import { handleProfileModalPrompt } from './profile-dialog.js';
 import {
   centerOf,
   collectAll,
@@ -130,9 +131,15 @@ export class GroupInfoPage extends BasePage {
       return;
     }
 
-    // Actively check and dismiss any modal dialog (e.g. profile prompt "Добавить информацию")
-    const deadline = Date.now() + 15_000;
+    // Actively check and handle profile prompt ("Add details: To join this Community...")
+    // or dismiss any blocking dialog
+    const deadline = Date.now() + 20_000;
     while (Date.now() < deadline) {
+      const handled = await handleProfileModalPrompt(this.driver);
+      if (handled) {
+        await delay(600);
+      }
+
       try {
         const cancelButton = await this.driver.$('android=new UiSelector().resourceId("android:id/button2")');
         if (await cancelButton.isExisting()) {
@@ -143,13 +150,13 @@ export class GroupInfoPage extends BasePage {
         // Ignored
       }
 
-      if (await this.isPresent(selectors.chat.toolbar, 500)) {
+      if (await this.isPresent(selectors.chat.toolbar, 1_000)) {
         break;
       }
       await delay(500);
     }
 
-    const toolbar = await this.waitFor(selectors.chat.toolbar);
+    const toolbar = await this.waitFor(selectors.chat.toolbar, 20_000);
     const title = await toolbar.$('android.widget.TextView');
     await title.waitForExist({ timeout: 10_000 });
     await title.click();

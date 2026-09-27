@@ -52,6 +52,8 @@ const DRIVE_TIMEOUT_MS = 120_000;
 const SESSION_TIMEOUT_MS = 15 * 60_000;
 /** Lets the activity be recreated after `wm density`. */
 const DENSITY_SETTLE_MS = 2_000;
+/** How long to wait for initial background synchronization to settle before restarting Viber. */
+const INITIAL_SYNC_SETTLE_MS = 6_000;
 
 /**
  * How stubbornly the phone-entry screen has to stay up after the number was
@@ -390,6 +392,10 @@ export class ViberQrService implements OnModuleDestroy {
       }
 
       if (runtime.session.state === 'ready') {
+        this.logger.log('Viber reached chat list. Waiting for initial sync to settle...');
+        await this.sleep(INITIAL_SYNC_SETTLE_MS, runtime);
+        this.logger.log('Initial sync settled. Restarting Viber for a clean post-sync state...');
+        await device.restartViber();
         this.logger.log('Viber is ready — the chat list is up.');
         return;
       }
@@ -407,9 +413,13 @@ export class ViberQrService implements OnModuleDestroy {
       } else if (screen.kind === 'dialog') {
         await this.dismissDialog(device, screen.snapshot);
       } else if (screen.kind === 'profile_name') {
-        if (!profileFilled && dto.userName?.trim()) {
-          this.logger.log('Filling in the profile name.');
-          await device.replaceText(selectors.profile.nameInput, dto.userName.trim());
+        const nameToSet =
+          dto.userName?.trim() ||
+          loadViberConfig().defaultName ||
+          'Maks';
+        if (!profileFilled) {
+          this.logger.log(`Filling in the profile name: "${nameToSet}".`);
+          await device.replaceText(selectors.profile.nameInput, nameToSet);
           await device.hideKeyboard();
           profileFilled = true;
           const fresh = await this.readScreen(device, runtime);

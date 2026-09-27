@@ -2,6 +2,7 @@ import { BasePage } from './base.page.js';
 import { ActivationRejectedError } from './errors.js';
 import { selectors } from './selectors.js';
 import { byIdAndTextContains, byTextContains } from './uiselector.js';
+import { loadViberConfig } from '../../config/env.js';
 
 /** Where the registration flow currently stands, as read off the screen. */
 export type RegistrationScreen =
@@ -181,10 +182,11 @@ export class RegistrationPage extends BasePage {
    */
   async completeProfile(name?: string, timeout = 6_000): Promise<boolean> {
     if (!(await this.isPresent(selectors.profile.continueButton, timeout))) return false;
-    if (name !== undefined && (await this.isPresent(selectors.profile.nameInput, 1_000))) {
+    const targetName = name ?? loadViberConfig().defaultName ?? 'Maks';
+    if (await this.isPresent(selectors.profile.nameInput, 1_000)) {
       const field = await this.waitFor(selectors.profile.nameInput);
       await field.clearValue();
-      await field.setValue(name);
+      await field.setValue(targetName);
       if (await this.driver.isKeyboardShown()) {
         await this.driver.execute('mobile: hideKeyboard').catch(() => this.driver.back());
         await this.driver.pause(400);

@@ -4,6 +4,7 @@ import { ChatListPage } from './pages/chat-list.page.js';
 import { ChatPage } from './pages/chat.page.js';
 import { GroupInfoPage } from './pages/group-info.page.js';
 import { ParticipantsPage } from './pages/participants.page.js';
+import { handleProfileModalPrompt } from './pages/profile-dialog.js';
 
 export interface NavigationResult {
   headerTotal: number | null;
@@ -86,6 +87,9 @@ export class ViberNavigationService {
 
       this.logger.log(`Opening chat "${groupName}"...`);
       await chatList.open(groupName);
+
+      // Handle any profile prompt ("Add details: To join this Community, add a name to your profile")
+      await handleProfileModalPrompt(driver);
 
       // Handle any prompt / modal dialogs if they appear
       try {
