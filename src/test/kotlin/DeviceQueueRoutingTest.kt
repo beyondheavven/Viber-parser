@@ -33,6 +33,10 @@ class DeviceQueueRoutingTest {
     @Test
     fun `device queue is deterministic and rejects unsafe ids`() {
         assertEquals("viber_commands_queue", DeviceQueueRouting.queueName(null))
+        assertEquals("viber_commands_queue", DeviceQueueRouting.queueName("default"))
+        assertEquals("viber_commands_queue", DeviceQueueRouting.queueName("android-emulator"))
+        assertEquals("viber_commands_queue", DeviceQueueRouting.queueName("emulator-5554"))
+        assertEquals("viber_commands_queue", DeviceQueueRouting.queueName("main"))
         assertEquals(expectedQueue, DeviceQueueRouting.queueName(deviceId))
         assertEquals("viber_commands_queue.device.worker_1", DeviceQueueRouting.queueName("worker_1"))
         assertEquals(

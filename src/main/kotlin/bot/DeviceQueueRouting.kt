@@ -5,9 +5,18 @@ object DeviceQueueRouting {
     private val validLegacyId = Regex("^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
     private val validHostLabel = Regex("^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$")
 
+    fun isDefaultDevice(deviceId: String?): Boolean {
+        if (deviceId == null) return true
+        val normalized = deviceId.trim().lowercase()
+        return normalized == "default" ||
+                normalized == "android-emulator" ||
+                normalized == "emulator-5554" ||
+                normalized == "main"
+    }
+
     fun queueName(deviceId: String?, baseQueue: String = DEFAULT_QUEUE): String {
-        if (deviceId == null) return baseQueue
-        require(isValidRoutingId(deviceId)) {
+        if (isDefaultDevice(deviceId)) return baseQueue
+        require(isValidRoutingId(deviceId!!)) {
             "deviceId must be a safe instance id or hostname:port (maximum 64 characters)"
         }
         return "$baseQueue.device.$deviceId"
