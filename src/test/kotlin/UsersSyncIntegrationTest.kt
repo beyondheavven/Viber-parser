@@ -74,7 +74,7 @@ class UsersSyncIntegrationTest {
 
         runBlocking {
             try {
-                val service1 = UsersSyncService(FakeRoster(groupJson, first)) { client }
+                val service1 = UsersSyncService(FakeRoster(groupJson, first), supabase = { client })
                 val result1 = service1.syncGroup(conversationId)
                 assertEquals(4, result1.received)
                 assertEquals(2, result1.usersUpserted)
@@ -95,7 +95,7 @@ class UsersSyncIntegrationTest {
                 val page = service1.listUsers(limit = 10, offset = 0, phone = "37529111", name = null)
                 assertTrue(page.items.any { it.identityKey == "it-member-a" }, page.toString())
 
-                val service2 = UsersSyncService(FakeRoster(groupJson, second)) { client }
+                val service2 = UsersSyncService(FakeRoster(groupJson, second), supabase = { client })
                 val result2 = service2.syncGroup(conversationId)
                 assertEquals(1, result2.usersUpserted)
                 assertEquals(1, result2.deactivated)

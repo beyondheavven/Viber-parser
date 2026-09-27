@@ -21,7 +21,7 @@ class UsersSyncStatusTest {
 
     @Test
     fun `reports an unconfigured database instead of throwing`() = runBlocking {
-        val status = UsersSyncService(NoRoster) { null }.syncStatus()
+        val status = UsersSyncService(NoRoster, supabase = { null }).syncStatus()
 
         assertFalse(status.configured)
         assertFalse(status.reachable)

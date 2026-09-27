@@ -138,6 +138,7 @@ services:
       - APPIUM_HOST=${APPIUM_HOST:-appium}
       - APPIUM_PORT=${APPIUM_PORT:-4723}
       - ANDROID_SERIAL=${ADB_HOST:-android-emulator}:${ADB_PORT:-5555}
+      - VIBER_INSTANCE_ID=${VIBER_INSTANCE_ID:-default}
       - ADB_BIN=adb
       - VIBER_PACKAGE=com.viber.voip
       - VIBER_MESSAGES_DB=/data/data/com.viber.voip/databases/viber_messages

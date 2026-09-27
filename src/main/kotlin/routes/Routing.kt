@@ -25,7 +25,7 @@ fun Application.configureRouting() {
 
     val authService = AuthService(viberBotClient)
     val viberSystemService = ViberSystemService(adbClient)
-    val usersSyncService = UsersSyncService(viberBotClient) { supabaseClient }
+    val usersSyncService = UsersSyncService(viberBotClient, supabase = { supabaseClient })
 
     routing {
         route("api.json") {

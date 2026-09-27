@@ -167,7 +167,7 @@ const MESSAGE_EXPRS: Readonly<Record<string, string>> = {
   date: 'm.msg_date',
   body: 'm.body',
   senderId: 'pi._id',
-  senderMemberId: 'pi.member_id',
+  senderMemberId: "coalesce(nullif(pi.member_id, ''), nullif(pi.encrypted_member_id, ''))",
   senderName: 'coalesce(pi.contact_name, pi.display_name, pi.viber_name)',
   senderNumber: 'pi.number',
   senderType: 'pi.participant_type',

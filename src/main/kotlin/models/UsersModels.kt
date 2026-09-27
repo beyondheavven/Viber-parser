@@ -37,6 +37,9 @@ data class ViberUserRow(
 data class ViberGroupRow(
     val id: Long? = null,
 
+    @SerialName("instance_id")
+    val instanceId: String = "default",
+
     @SerialName("group_key")
     val groupKey: String,
 

@@ -267,6 +267,56 @@ export class Sqlite {
   }
 
   /**
+   * Applies one short statement to the live database without stopping Viber.
+   * The caller must serialize device access; ownership is restored even when
+   * SQLite rejects the write so Viber is never left with root-owned sidecars.
+   */
+  updateLiveRow(
+    sql: string,
+    options: { appPackage?: string; timeout?: number } = {},
+  ): void {
+    const payload = Buffer.from(sql, 'utf8').toString('base64');
+    if (payload.length > INLINE_SQL_LIMIT) {
+      throw new Error('updateLiveRow is for one short statement; use updateLive for a batch.');
+    }
+
+    const appPackage = options.appPackage ?? 'com.viber.voip';
+    const timeout = options.timeout ?? 5_000;
+    const appDir = `/data/data/${appPackage}`;
+    const statOut = this.adb
+      .shell(`stat -c "%u:%g" ${appDir}`, { allowFailure: true, timeout })
+      .trim();
+    const owner = /^\d+:\d+$/.test(statOut) ? statOut : null;
+
+    try {
+      const output = this.adb.shell(
+        `echo ${payload} | base64 -d | sqlite3 -cmd ".timeout ${String(timeout)}" ${this.livePath}`,
+        { timeout },
+      );
+      if (/^Error:/m.test(output)) {
+        throw new Error(`sqlite3 rejected the update: ${output.trim()}`);
+      }
+    } finally {
+      if (owner) {
+        try {
+          this.adb.shell(`sh -c 'chown ${owner} ${this.livePath}*'`, {
+            allowFailure: true,
+            timeout,
+          });
+        } catch {
+          // Cleanup must not hide the actual SQLite result.
+        }
+      }
+      try {
+        this.adb.shell(`sh -c 'chmod 777 ${this.livePath}*'`, { allowFailure: true, timeout });
+      } catch {
+        // Cleanup must not hide the actual SQLite result.
+      }
+      this.snapshotTaken = false;
+    }
+  }
+
+  /**
    * Safely applies SQL modifications to the live database file.
    * Runs the SQL in a transaction with timeout, preserves/restores app ownership/permissions,
    * and optionally opens the app again.

@@ -2,14 +2,25 @@ import { Inject, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModul
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { openDevice, type DeviceContext } from '../../platform/context.js';
+import { int, loadViberConfig } from '../../config/env.js';
+import { DeviceMutexService } from '../../platform/mutex/device-mutex.service.js';
+import { ViberLifecycleService } from '../../platform/viber-lifecycle.service.js';
+import { extractEmKey } from '../../viber/em-key.js';
+import { selectList, type Sqlite } from '../../platform/sqlite.js';
+import {
+  PARTICIPANT_INFO_COLUMNS,
+  PARTICIPANT_INFO_EXPRS,
+  toRawParticipantInfo,
+} from '../../viber/participants-sql.js';
 import { extractPhones, normalizePhoneNumber } from './phone-extractor.util.js';
+import { ContactEnrichmentService } from './contact-enrichment.service.js';
 import { mergeMediaWithText, normalizeStoredMedia, type MediaMergedMessage } from './message-media.util.js';
 import { formatMonitoredExport, type MonitorExportFormat } from './monitor-export.util.js';
 import { MessageWatchService, shouldIngestMessageWrite, type MessageDbWrite } from './message-watch.service.js';
 import type { ExportMonitoredMessagesDto, MonitoredMessageDto, MonitoredMessagesFilterDto, PhoneSource } from './dto/monitored-message.dto.js';
 import type { EnableMonitorGroupDto, MonitorStatusDto, MonitoredGroupDto, StartMonitorDto } from './dto/monitor-control.dto.js';
 import type { Message } from '../../viber/repository.js';
-import {RabbitMqPublisher} from "../../rabbitmq/rabbitmq-publisher.service.js";
+import { RabbitMqPublisher } from '../../rabbitmq/rabbitmq-publisher.service.js';
 
 const MAX_RING_BUFFER_SIZE = 2000;
 const CATCH_UP_BATCH_SIZE = 200;
@@ -17,9 +28,15 @@ const LIVE_INGEST_DELAY_MS = 80;
 const LIVE_CATCHUP_MS = 8_000;
 const POLL_WITHOUT_HOOK_MS = 400;
 const DEVICE_RETRY_MS = 5_000;
+const LIVE_WRITE_TIMEOUT_MS = 5_000;
+const CONTACT_REFRESH_MS = 5_000;
+const CONTACT_WRITES_PER_REFRESH = 5;
+const DEFAULT_CONTACT_SYNC_BATCH_MS = 3_000;
+const DEFAULT_CONTACT_SYNC_MIN_RESTART_MS = 30_000;
 
 interface TrackedGroup {
   conversationId: number;
+  viberGroupId: string | null;
   name: string | null;
   enabled: boolean;
   lastMessageId: number;
@@ -34,6 +51,7 @@ interface PersistedMonitorState {
 @Injectable()
 export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MessagesMonitorService.name);
+  private readonly instanceId = process.env['VIBER_INSTANCE_ID']?.trim() || 'default';
 
   private isRunning = false;
   private pollIntervalMs = 2500;
@@ -47,11 +65,28 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
   private deviceContext: DeviceContext | null = null;
   private deviceContextPromise: Promise<DeviceContext> | null = null;
   private deviceUnreachable = false;
+  private unreachableUntil = 0;
   private resumeOnInit = false;
+  private lastContactRefreshAt = 0;
+  private contactSyncRestartTimer: NodeJS.Timeout | null = null;
+  private contactSyncRestartRunning = false;
+  private lastContactSyncRestartAt = 0;
+  private readonly contactSyncBatchMs = Math.max(
+    500,
+    int('MONITOR_CONTACT_SYNC_BATCH_MS', DEFAULT_CONTACT_SYNC_BATCH_MS),
+  );
+  private readonly contactSyncMinRestartMs = Math.max(
+    this.contactSyncBatchMs,
+    int('MONITOR_CONTACT_SYNC_MIN_RESTART_MS', DEFAULT_CONTACT_SYNC_MIN_RESTART_MS),
+  );
 
   private readonly groups = new Map<number, TrackedGroup>();
   private readonly heldMessages: Message[] = [];
-  private readonly recordedIds = new Set<number>();
+  private readonly recordedKeys = new Set<string>();
+  private readonly updatedParticipantIds = new Set<number>();
+  private readonly writingParticipantIds = new Set<number>();
+  private readonly pendingContactSyncParticipantIds = new Set<number>();
+  private participantWriteQueue: Promise<void> = Promise.resolve();
 
   private readonly ringBuffer: MonitoredMessageDto[] = [];
   private readonly dataDir: string;
@@ -63,9 +98,12 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     @Optional()
     @Inject(MessageWatchService)
     private readonly messageWatch: MessageWatchService | undefined,
-
-    private readonly publisher: RabbitMqPublisher,
-
+    @Inject(RabbitMqPublisher) private readonly publisher: RabbitMqPublisher,
+    @Optional()
+    @Inject(ContactEnrichmentService)
+    private readonly contactEnrichment?: ContactEnrichmentService,
+    @Optional() @Inject(DeviceMutexService) private readonly deviceMutex?: DeviceMutexService,
+    @Optional() @Inject(ViberLifecycleService) private readonly viberLifecycle?: ViberLifecycleService,
   ) {
     this.dataDir = process.env['MONITOR_DATA_DIR'] ?? join(process.cwd(), 'data');
     this.storePath = join(this.dataDir, 'monitored-messages.jsonl');
@@ -77,6 +115,8 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleInit(): void {
+    this.contactEnrichment?.warmup(this.dataDir);
+    this.enrichAndPersistBuffer();
     if (this.resumeOnInit) {
       this.logger.log('Resuming group message monitoring from persisted state.');
       this.beginPolling(100);
@@ -127,6 +167,10 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
       clearTimeout(this.pollTimeout);
       this.pollTimeout = null;
     }
+    if (this.contactSyncRestartTimer) {
+      clearTimeout(this.contactSyncRestartTimer);
+      this.contactSyncRestartTimer = null;
+    }
     this.isRunning = false;
     this.pendingImmediate = false;
     this.deviceContext = null;
@@ -142,6 +186,7 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     dto: EnableMonitorGroupDto & { startFromId?: number } = {},
   ): Promise<MonitorStatusDto> {
     let name: string | null = this.groups.get(conversationId)?.name ?? null;
+    let viberGroupId: string | null = this.groups.get(conversationId)?.viberGroupId ?? null;
     let currentLastMessageId = 0;
     try {
       const { viber } = await this.getDeviceContext();
@@ -152,6 +197,7 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
         throw new NotFoundException(`Группа/беседа с ID ${String(conversationId)} не найдена`);
       }
       name = group.name;
+      viberGroupId = group.groupId;
       currentLastMessageId = viber.lastMessageId(conversationId);
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
@@ -163,10 +209,11 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
 
     const tracked: {
       name: string | null;
+      viberGroupId: string | null;
       currentLastMessageId: number;
       fromLatest?: boolean;
       startFromId?: number;
-    } = { name, currentLastMessageId };
+    } = { name, viberGroupId, currentLastMessageId };
     if (dto.fromLatest !== undefined) tracked.fromLatest = dto.fromLatest;
     if (dto.startFromId !== undefined) tracked.startFromId = dto.startFromId;
     this.enableTrackedGroup(conversationId, tracked);
@@ -194,6 +241,7 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     conversationId: number,
     options: {
       name?: string | null;
+      viberGroupId?: string | null;
       currentLastMessageId?: number;
       fromLatest?: boolean;
       startFromId?: number;
@@ -212,6 +260,7 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
 
     this.groups.set(conversationId, {
       conversationId,
+      viberGroupId: options.viberGroupId ?? existing?.viberGroupId ?? null,
       name: options.name ?? existing?.name ?? null,
       enabled: true,
       lastMessageId,
@@ -238,6 +287,7 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
   }
 
   getMonitoredMessages(filter: MonitoredMessagesFilterDto = {}): MonitoredMessageDto[] {
+    this.enrichAndPersistBuffer();
     const filtered = this.filterMessages(this.ringBuffer, filter);
     const unlimited = filter.limit === 0;
     const limit = unlimited ? filtered.length : filter.limit && filter.limit > 0 ? filter.limit : 50;
@@ -258,6 +308,7 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
   processMessage(
     msg: Message | MediaMergedMessage,
     conversationName: string | null = null,
+    viberGroupId: string | null = null,
   ): MonitoredMessageDto {
     const media = normalizeStoredMedia({
       body: msg.body,
@@ -268,6 +319,21 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     const textBody = media.body;
     const allFoundPhones = extractPhones(textBody);
     const primaryTextPhone = allFoundPhones.length > 0 ? allFoundPhones[0]! : null;
+
+    let effectiveMemberId = msg.senderMemberId?.trim() ?? null;
+    if (effectiveMemberId?.startsWith('em:')) {
+      try {
+        effectiveMemberId = extractEmKey(effectiveMemberId);
+      } catch {
+        // Keep the encrypted token when Viber changes its encoding.
+      }
+    } else if (!effectiveMemberId && msg.senderNumber?.startsWith('em:')) {
+      try {
+        effectiveMemberId = extractEmKey(msg.senderNumber.trim());
+      } catch {
+        effectiveMemberId = msg.senderNumber.trim();
+      }
+    }
 
     let attachedPhone: string | null = null;
     let phoneSource: PhoneSource = 'none';
@@ -283,22 +349,44 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
         attachedPhone = normalizePhoneNumber(rawNumber) ?? rawNumber;
         phoneSource = 'viber_profile';
         this.phonesFromViberCount += 1;
+        this.contactEnrichment?.learn(effectiveMemberId, msg.senderName, attachedPhone);
+      } else {
+        const cachedPhone = this.contactEnrichment?.lookup(effectiveMemberId, msg.senderName);
+        if (cachedPhone) {
+          attachedPhone = cachedPhone;
+          phoneSource = 'viber_profile';
+          this.phonesFromViberCount += 1;
+        }
       }
+    }
+
+    if (
+      !attachedPhone &&
+      !msg.outgoing &&
+      msg.senderId !== null &&
+      msg.senderId !== undefined &&
+      msg.senderId !== 1 &&
+      effectiveMemberId &&
+      this.isDecodedMemberId(effectiveMemberId)
+    ) {
+      void this.queueParticipantUpdateInLiveDb(msg.senderId, effectiveMemberId);
     }
 
     this.processedMessagesCount += 1;
     const sourceIds = 'sourceIds' in msg ? msg.sourceIds : [msg.id];
 
     return {
+      instanceId: this.instanceId,
       id: msg.id,
       conversationId: msg.conversationId,
       conversationName,
+      viberGroupId,
       token: msg.token,
       date: msg.date.toISOString(),
       body: textBody,
       senderId: msg.senderId ?? null,
       senderName: msg.senderName ?? null,
-      senderMemberId: msg.senderMemberId ?? null,
+      senderMemberId: effectiveMemberId ?? msg.senderMemberId ?? null,
       outgoing: msg.outgoing,
       hasPhoneInText,
       attachedPhone,
@@ -310,11 +398,207 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  private isDecodedMemberId(memberId: string): boolean {
+    return /^[A-Za-z0-9+/]{11}=$/.test(memberId) && Buffer.from(memberId, 'base64').length === 8;
+  }
+
+  private queueParticipantUpdateInLiveDb(senderId: number, memberId: string): Promise<void> {
+    if (this.updatedParticipantIds.has(senderId) || this.writingParticipantIds.has(senderId)) {
+      return Promise.resolve();
+    }
+    this.writingParticipantIds.add(senderId);
+    const queued = this.participantWriteQueue.then(() =>
+      this.updateParticipantInLiveDb(senderId, memberId),
+    );
+    this.participantWriteQueue = queued
+      .catch(() => undefined)
+      .finally(() => {
+        this.writingParticipantIds.delete(senderId);
+      });
+    return queued;
+  }
+
+  private async updateParticipantInLiveDb(
+    senderId: number,
+    memberId: string,
+    heldLockId?: string,
+  ): Promise<void> {
+    const lockId = heldLockId ?? `message-monitor-contact:${String(senderId)}`;
+    const ownsLock = heldLockId === undefined;
+    if (ownsLock && this.deviceMutex && !this.deviceMutex.tryLock(lockId)) return;
+    try {
+      const { db } = await this.getDeviceContext();
+      const escapedMemberId = memberId.replace(/'/g, "''");
+      db.updateLiveRow(
+        `PRAGMA busy_timeout=${String(LIVE_WRITE_TIMEOUT_MS)}; ` +
+          `UPDATE participants_info SET member_id = '${escapedMemberId}', participant_type = 1, ` +
+          `safe_contact = 0, number = CASE WHEN number LIKE 'em:%' THEN NULL ELSE number END ` +
+          `WHERE _id = ${String(senderId)} AND _id != 1 AND coalesce(participant_type, 1) != 0;`,
+        { appPackage: loadViberConfig().appPackage, timeout: LIVE_WRITE_TIMEOUT_MS },
+      );
+      this.updatedParticipantIds.add(senderId);
+      this.pendingContactSyncParticipantIds.add(senderId);
+      this.scheduleContactSyncRestart();
+    } catch (error) {
+      this.logger.debug(`Could not update participant ${String(senderId)} in live DB: ${String(error)}`);
+      this.deviceContext = null;
+      this.deviceContextPromise = null;
+    } finally {
+      if (ownsLock) this.deviceMutex?.unlock(lockId);
+    }
+  }
+
+  private scheduleContactSyncRestart(delayMs?: number): void {
+    if (!this.isRunning || this.pendingContactSyncParticipantIds.size === 0) return;
+    if (this.contactSyncRestartTimer || this.contactSyncRestartRunning) return;
+    const elapsed = Date.now() - this.lastContactSyncRestartAt;
+    const rateLimitDelay = Math.max(0, this.contactSyncMinRestartMs - elapsed);
+    const delay = delayMs ?? Math.max(this.contactSyncBatchMs, rateLimitDelay);
+    this.contactSyncRestartTimer = setTimeout(() => {
+      this.contactSyncRestartTimer = null;
+      void this.restartViberForContactSync();
+    }, delay);
+  }
+
+  private async restartViberForContactSync(): Promise<void> {
+    if (!this.isRunning || this.pendingContactSyncParticipantIds.size === 0) return;
+    if (this.contactSyncRestartRunning || this.isPolling || this.writingParticipantIds.size > 0) {
+      this.scheduleContactSyncRestart(DEVICE_RETRY_MS);
+      return;
+    }
+
+    const lockId = 'message-monitor-contact-sync';
+    if (this.deviceMutex && !this.deviceMutex.tryLock(lockId)) {
+      this.scheduleContactSyncRestart(DEVICE_RETRY_MS);
+      return;
+    }
+
+    this.contactSyncRestartRunning = true;
+    const batch = [...this.pendingContactSyncParticipantIds];
+    let restarted = false;
+    try {
+      await this.messageWatch?.detach();
+      const { adb } = await this.getDeviceContext();
+      if (!this.isRunning) return;
+      restarted =
+        (await this.viberLifecycle?.restartApp(adb, loadViberConfig())) ?? false;
+      this.lastContactSyncRestartAt = Date.now();
+      if (restarted) {
+        for (const senderId of batch) this.pendingContactSyncParticipantIds.delete(senderId);
+        this.lastContactRefreshAt = 0;
+        this.logger.log(
+          `Restarted only Viber for a batch of ${String(batch.length)} decoded participants.`,
+        );
+      } else {
+        this.logger.warn(
+          `Could not restart Viber for contact sync; ${String(batch.length)} participant updates remain queued.`,
+        );
+      }
+    } catch (error) {
+      this.logger.warn(`Could not restart Viber for contact sync: ${String(error)}`);
+    } finally {
+      this.contactSyncRestartRunning = false;
+      this.deviceMutex?.unlock(lockId);
+      if (this.isRunning) {
+        if (restarted) {
+          await this.ensureLiveWatch();
+          if (this.isRunning) this.requestImmediateIngest();
+        }
+        if (this.pendingContactSyncParticipantIds.size > 0) {
+          this.scheduleContactSyncRestart(DEVICE_RETRY_MS);
+        }
+      }
+    }
+  }
+
+  private async refreshContactPhones(db: Sqlite, heldLockId: string): Promise<void> {
+    if (Date.now() - this.lastContactRefreshAt < CONTACT_REFRESH_MS) return;
+    const senderIds = new Set<number>();
+    const memberIds = new Set<string>();
+    for (const message of this.ringBuffer) {
+      if (message.hasPhoneInText || message.phoneSource === 'message_text') continue;
+      if (message.senderId !== null && Number.isSafeInteger(message.senderId) && message.senderId > 0) {
+        senderIds.add(message.senderId);
+      }
+      if (message.senderMemberId) memberIds.add(message.senderMemberId);
+    }
+    if (senderIds.size === 0 && memberIds.size === 0) return;
+
+    const conditions: string[] = [];
+    if (senderIds.size > 0) conditions.push(`_id IN (${[...senderIds].join(',')})`);
+    if (memberIds.size > 0) {
+      const escapedIds = [...memberIds].map((id) => `'${id.replace(/'/g, "''")}'`).join(',');
+      conditions.push(`member_id IN (${escapedIds})`, `encrypted_member_id IN (${escapedIds})`);
+    }
+    const rows = db
+      .query(
+        `SELECT ${selectList(PARTICIPANT_INFO_COLUMNS, PARTICIPANT_INFO_EXPRS)} ` +
+          `FROM participants_info WHERE ${conditions.join(' OR ')};`,
+        PARTICIPANT_INFO_COLUMNS,
+      )
+      .map(toRawParticipantInfo);
+    this.lastContactRefreshAt = Date.now();
+
+    const phonesByParticipant = new Map<string, string>();
+    let writes = 0;
+    for (const row of rows) {
+      const rawNumber = row.number?.trim();
+      const phone = rawNumber && !rawNumber.startsWith('em:')
+        ? normalizePhoneNumber(rawNumber)
+        : null;
+      const name = row.contactName ?? row.displayName ?? row.viberName;
+      let memberId = row.memberId?.trim() || row.encryptedMemberId?.trim() || null;
+      if (memberId?.startsWith('em:')) {
+        try {
+          memberId = extractEmKey(memberId);
+        } catch {
+          memberId = null;
+        }
+      }
+
+      if (phone) {
+        this.pendingContactSyncParticipantIds.delete(row.id);
+        for (const identity of [row.memberId, row.encryptedMemberId]) {
+          const stableIdentity = this.stableMemberId(identity);
+          if (stableIdentity) {
+            phonesByParticipant.set(this.participantPhoneKey(row.id, stableIdentity), phone);
+          }
+        }
+        this.contactEnrichment?.learn(memberId, name, phone);
+        this.contactEnrichment?.learn(row.encryptedMemberId, name, phone);
+        continue;
+      }
+
+      if (
+        row.id !== 1 &&
+        row.participantType !== 0 &&
+        memberId &&
+        this.isDecodedMemberId(memberId)
+      ) {
+        if (row.memberId !== memberId || row.participantType !== 1 || row.safeContact !== 0) {
+          this.updatedParticipantIds.delete(row.id);
+        }
+        if (writes < CONTACT_WRITES_PER_REFRESH && !this.updatedParticipantIds.has(row.id)) {
+          this.writingParticipantIds.add(row.id);
+          try {
+            await this.updateParticipantInLiveDb(row.id, memberId, heldLockId);
+          } finally {
+            this.writingParticipantIds.delete(row.id);
+          }
+          writes += 1;
+        }
+      }
+    }
+    this.enrichAndPersistBuffer(phonesByParticipant);
+  }
+
   private async pollTick(): Promise<void> {
     if (!this.isRunning || this.isPolling) return;
     this.isPolling = true;
     this.pendingImmediate = false;
     let fetchedCount = 0;
+    let deviceBusy = false;
+    const lockId = 'message-monitor-poll';
 
     try {
       const enabled = this.enabledGroups();
@@ -322,56 +606,111 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      const { viber, db } = await this.getDeviceContext();
-      db.refresh();
-      this.lastPollAt = new Date();
-      this.deviceUnreachable = false;
-
-      const cursors = enabled.map((group) => ({
-        conversationId: group.conversationId,
-        sinceId: group.lastMessageId,
-      }));
-      const fetched = viber.messagesSince(cursors, { limit: CATCH_UP_BATCH_SIZE });
-      fetchedCount = fetched.length;
-
-      const combined = [...this.heldMessages, ...fetched].sort((a, b) => a.id - b.id);
-      this.heldMessages.length = 0;
-
-      const { emitted, held } = mergeMediaWithText(combined);
-      this.heldMessages.push(...held);
-
-      const nameById = new Map<number, string | null>();
-      for (const group of this.groups.values()) {
-        nameById.set(group.conversationId, group.name);
+      if (this.unreachableUntil > Date.now()) {
+        this.deviceUnreachable = true;
+        return;
+      }
+      if (this.deviceMutex && !this.deviceMutex.tryLock(lockId)) {
+        deviceBusy = true;
+        return;
       }
 
-      for (const merged of emitted) {
-        this.advanceCursor(merged.conversationId, merged.id);
-        if (merged.sourceIds.every((sourceId) => this.recordedIds.has(sourceId))) {
-          continue;
-        }
-        for (const sourceId of merged.sourceIds) {
-          this.recordedIds.add(sourceId);
-        }
-        const convName = nameById.get(merged.conversationId) ?? null;
-        this.recordMessage(this.processMessage(merged, convName));
-      }
+      try {
+        const { viber, db } = await this.getDeviceContext();
+        db.refresh();
+        this.lastPollAt = new Date();
+        this.deviceUnreachable = false;
+        this.unreachableUntil = 0;
 
-      this.persistState();
+        const cursors = enabled.map((group) => ({
+          conversationId: group.conversationId,
+          sinceId: group.lastMessageId,
+        }));
+        const fetched = viber.messagesSince(cursors, { limit: CATCH_UP_BATCH_SIZE });
+        fetchedCount = fetched.length;
+        this.ingestFetched(fetched);
+        await this.refreshContactPhones(db, lockId);
+        this.persistState();
+      } finally {
+        this.deviceMutex?.unlock(lockId);
+      }
     } catch (err) {
       this.logger.warn(`Error during message monitor poll tick: ${String(err)}`);
       this.deviceContext = null;
       this.deviceContextPromise = null;
       this.deviceUnreachable = true;
+      this.unreachableUntil = Date.now() + DEVICE_RETRY_MS;
     } finally {
       this.isPolling = false;
       if (this.isRunning) {
-        this.scheduleNextPoll(this.nextPollDelay(fetchedCount));
+        this.scheduleNextPoll(deviceBusy ? DEVICE_RETRY_MS : this.nextPollDelay(fetchedCount));
         if (!this.deviceUnreachable) {
           void this.ensureLiveWatch();
         }
       }
     }
+  }
+
+  private ingestFetched(fetched: Message[]): void {
+    const combined = [...this.heldMessages, ...fetched].sort((a, b) => a.id - b.id);
+    this.heldMessages.length = 0;
+    const { emitted, held } = mergeMediaWithText(combined);
+    this.heldMessages.push(...held);
+
+    const trackedById = new Map<number, TrackedGroup>();
+    for (const group of this.groups.values()) trackedById.set(group.conversationId, group);
+
+    for (const merged of emitted) {
+      this.advanceCursor(merged.conversationId, merged.id);
+      const token = merged.token?.trim();
+      const hasToken = token !== undefined && token !== '' && token !== '0';
+      const alreadyRecorded = hasToken
+        ? this.recordedKeys.has(this.tokenKey(token))
+        : merged.sourceIds.every((sourceId) =>
+            this.recordedKeys.has(this.rowKey(merged.conversationId, sourceId)),
+          );
+      if (alreadyRecorded) continue;
+      if (hasToken) this.recordedKeys.add(this.tokenKey(token));
+      for (const sourceId of merged.sourceIds) {
+        this.recordedKeys.add(this.rowKey(merged.conversationId, sourceId));
+      }
+      const tracked = trackedById.get(merged.conversationId);
+      this.recordMessage(this.processMessage(
+        merged,
+        tracked?.name ?? null,
+        tracked?.viberGroupId ?? null,
+      ));
+    }
+  }
+
+  private tokenKey(token: string): string {
+    return `t:${token}`;
+  }
+
+  private rowKey(conversationId: number, messageId: number): string {
+    return `r:${String(conversationId)}:${String(messageId)}`;
+  }
+
+  private messageIdentity(message: Pick<MonitoredMessageDto, 'token' | 'conversationId' | 'id'>): string {
+    const token = message.token?.trim();
+    return token && token !== '0'
+      ? this.tokenKey(token)
+      : this.rowKey(message.conversationId, message.id);
+  }
+
+  private stableMemberId(memberId: string | null | undefined): string | null {
+    const value = memberId?.trim();
+    if (!value) return null;
+    if (!value.startsWith('em:')) return value;
+    try {
+      return extractEmKey(value);
+    } catch {
+      return null;
+    }
+  }
+
+  private participantPhoneKey(senderId: number, memberId: string): string {
+    return `${String(senderId)}|${memberId}`;
   }
 
   private onLiveWrite(write: MessageDbWrite): void {
@@ -405,6 +744,10 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     try {
       const { adb } = await this.getDeviceContext();
       const attached = await this.messageWatch.attach(adb);
+      if (!this.isRunning) {
+        if (attached) await this.messageWatch.detach();
+        return;
+      }
       if (attached) {
         this.logger.log('Live message watch is on — new messages are ingested as soon as Viber writes them.');
       }
@@ -433,6 +776,7 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     this.messageWatch?.setHandler((write) => this.onLiveWrite(write));
     this.persistState();
     this.scheduleNextPoll(delayMs);
+    this.scheduleContactSyncRestart();
   }
 
   private scheduleNextPoll(delayMs: number): void {
@@ -457,7 +801,12 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
   private listGroups(): MonitoredGroupDto[] {
     return [...this.groups.values()]
       .sort((a, b) => a.conversationId - b.conversationId)
-      .map((group) => ({ ...group }));
+      .map((group) => ({
+        conversationId: group.conversationId,
+        name: group.name,
+        enabled: group.enabled,
+        lastMessageId: group.lastMessageId,
+      }));
   }
 
   private maxCursor(): number {
@@ -505,7 +854,7 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     const payload: PersistedMonitorState = {
       isRunning: this.isRunning,
       pollIntervalMs: this.pollIntervalMs,
-      groups: this.listGroups(),
+      groups: [...this.groups.values()],
     };
     try {
       this.ensureDirectory(dirname(this.statePath));
@@ -525,6 +874,7 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
         if (!Number.isInteger(group.conversationId)) continue;
         this.groups.set(group.conversationId, {
           conversationId: group.conversationId,
+          viberGroupId: group.viberGroupId ?? null,
           name: group.name ?? null,
           enabled: group.enabled === true,
           lastMessageId: Number.isInteger(group.lastMessageId) ? group.lastMessageId : 0,
@@ -540,17 +890,20 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     try {
       const raw = readFileSync(this.storePath, 'utf8');
       const lines = raw.split('\n').filter((line) => line.trim().length > 0);
-      for (const line of lines.slice(-MAX_RING_BUFFER_SIZE)) {
+      for (const line of lines) {
         try {
           const parsed = JSON.parse(line) as MonitoredMessageDto;
+          parsed.instanceId = parsed.instanceId?.trim() || this.instanceId;
+          parsed.viberGroupId ??= null;
           const media = normalizeStoredMedia(parsed);
           parsed.body = media.body;
           parsed.hasMedia = media.hasMedia;
           parsed.mediaUris = media.mediaUris;
           this.ringBuffer.unshift(parsed);
-          this.recordedIds.add(parsed.id);
-          for (const sourceId of parsed.mergedMessageIds ?? []) {
-            this.recordedIds.add(sourceId);
+          if (this.ringBuffer.length > MAX_RING_BUFFER_SIZE) this.ringBuffer.pop();
+          this.recordedKeys.add(this.messageIdentity(parsed));
+          for (const sourceId of parsed.mergedMessageIds ?? [parsed.id]) {
+            this.recordedKeys.add(this.rowKey(parsed.conversationId, sourceId));
           }
         } catch {
           // ignore corrupt line
@@ -558,6 +911,76 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
       }
     } catch (err) {
       this.logger.warn(`Failed to load history from ${this.storePath}: ${String(err)}`);
+    }
+  }
+
+  private enrichExistingMessage(
+    message: MonitoredMessageDto,
+    profilePhone?: string,
+  ): MonitoredMessageDto {
+    let memberId = message.senderMemberId?.trim() ?? null;
+    if (memberId?.startsWith('em:')) {
+      try {
+        memberId = extractEmKey(memberId);
+      } catch {
+        // Keep the original value when it cannot be decoded.
+      }
+    }
+
+    if (message.hasPhoneInText || message.phoneSource === 'message_text') {
+      return memberId !== message.senderMemberId ? { ...message, senderMemberId: memberId } : message;
+    }
+    const phone = profilePhone ?? this.contactEnrichment?.lookup(memberId, message.senderName);
+    if (phone) {
+      if (phone === message.attachedPhone && memberId === message.senderMemberId) return message;
+      return {
+        ...message,
+        senderMemberId: memberId ?? message.senderMemberId,
+        attachedPhone: phone,
+        phoneSource: 'viber_profile',
+      };
+    }
+    return memberId !== message.senderMemberId ? { ...message, senderMemberId: memberId } : message;
+  }
+
+  private enrichAndPersistBuffer(phonesByParticipant = new Map<string, string>()): void {
+    const replacements = new Map<string, MonitoredMessageDto>();
+    for (let index = 0; index < this.ringBuffer.length; index += 1) {
+      const original = this.ringBuffer[index]!;
+      const stableMemberId = this.stableMemberId(original.senderMemberId);
+      const profilePhone =
+        original.senderId !== null && stableMemberId
+          ? phonesByParticipant.get(this.participantPhoneKey(original.senderId, stableMemberId))
+          : undefined;
+      const enriched = this.enrichExistingMessage(
+        original,
+        profilePhone,
+      );
+      if (enriched === original) continue;
+      this.ringBuffer[index] = enriched;
+      replacements.set(this.messageIdentity(enriched), enriched);
+      if (!original.attachedPhone && enriched.attachedPhone) this.phonesFromViberCount += 1;
+      this.publisher.publishMessage(enriched);
+    }
+    if (replacements.size === 0 || !existsSync(this.storePath)) return;
+
+    try {
+      const content = readFileSync(this.storePath, 'utf8')
+        .split('\n')
+        .map((line) => {
+          if (!line.trim()) return line;
+          try {
+            const stored = JSON.parse(line) as MonitoredMessageDto;
+            const replacement = replacements.get(this.messageIdentity(stored));
+            return replacement ? JSON.stringify(replacement) : line;
+          } catch {
+            return line;
+          }
+        })
+        .join('\n');
+      writeFileSync(this.storePath, content, 'utf8');
+    } catch (error) {
+      this.logger.warn(`Could not persist enriched messages to ${this.storePath}: ${String(error)}`);
     }
   }
 }

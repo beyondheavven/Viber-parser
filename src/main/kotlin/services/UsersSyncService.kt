@@ -77,6 +77,9 @@ object UserRowMapper {
 class UsersSyncService(
     private val viberBotClient: RosterClient,
     private val supabase: () -> SupabaseClient?,
+    private val groupPersistence: (SupabaseClient) -> ViberGroupPersistenceService = {
+        ViberGroupPersistenceService(SupabaseViberGroupRepository(it))
+    },
 ) {
     private val logger = LoggerFactory.getLogger(UsersSyncService::class.java)
 
@@ -84,14 +87,14 @@ class UsersSyncService(
 
     private val batchSize = 500
 
-    suspend fun syncGroup(conversationId: Int): UsersSyncResult {
+    suspend fun syncGroup(conversationId: Int, instanceId: String = "default"): UsersSyncResult {
         val group: GroupDetail = json.decodeFromString(viberBotClient.getGroup(conversationId))
         val participants: List<ParticipantModel> =
             json.decodeFromString(viberBotClient.getGroupParticipants(conversationId))
-        return sync(group.name, conversationId, group.groupId, participants)
+        return sync(group.name, conversationId, group.groupId, participants, instanceId)
     }
 
-    suspend fun syncAll(): UsersSyncAllResult {
+    suspend fun syncAll(instanceId: String = "default"): UsersSyncAllResult {
         val client = supabase() ?: throw SupabaseDisabledException()
         val startedAt = Instant.now().toString()
         val groups: List<GroupSummary> = json.decodeFromString(viberBotClient.getGroups(includeAll = false))
@@ -100,7 +103,7 @@ class UsersSyncService(
         val failed = mutableListOf<UsersSyncFailure>()
         for (group in groups) {
             try {
-                synced += syncGroup(group.id)
+                synced += syncGroup(group.id, instanceId)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -133,13 +136,13 @@ class UsersSyncService(
         )
     }
 
-    suspend fun syncTask(taskId: String): UsersSyncResult {
+    suspend fun syncTask(taskId: String, instanceId: String = "default"): UsersSyncResult {
         val task: TaskSyncView = json.decodeFromString(viberBotClient.getTask(taskId))
         val result = task.result
             ?: throw IllegalArgumentException("Задача $taskId ещё не завершена (статус ${task.status})")
         val participants: List<ParticipantModel> =
             json.decodeFromString(viberBotClient.getTaskParticipants(taskId))
-        return sync(result.group, result.conversationId, result.groupId, participants)
+        return sync(result.group, result.conversationId, result.groupId, participants, instanceId)
     }
 
     private suspend fun sync(
@@ -147,6 +150,7 @@ class UsersSyncService(
         conversationId: Int,
         viberGroupId: String?,
         participants: List<ParticipantModel>,
+        instanceId: String,
     ): UsersSyncResult {
         val client = supabase() ?: throw SupabaseDisabledException()
         val now = Instant.now().toString()
@@ -157,20 +161,13 @@ class UsersSyncService(
         val rows = mapped.map { (row, _) -> row }
         val skipped = participants.size - rows.size
 
-        val groupRow = client.from("viber_groups").upsert(
-            ViberGroupRow(
-                groupKey = UserRowMapper.groupKey(viberGroupId, conversationId),
-                viberGroupId = viberGroupId,
-                conversationId = conversationId,
-                name = groupName,
-                participantCount = rows.size,
-                lastSyncedAt = now,
-                updatedAt = now,
-            ),
-        ) {
-            onConflict = "group_key"
-            select()
-        }.decodeSingle<ViberGroupRow>()
+        val groupRow = groupPersistence(client).promoteFromRoster(
+            instanceId = instanceId,
+            conversationId = conversationId,
+            viberGroupId = viberGroupId,
+            name = groupName,
+            participantCount = rows.size,
+        )
         val groupId = groupRow.id ?: error("Supabase returned no id for the group row")
 
         val userIds = HashMap<String, Long>(rows.size)

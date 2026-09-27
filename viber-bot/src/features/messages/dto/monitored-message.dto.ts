@@ -4,6 +4,9 @@ import { IsBoolean, IsEnum, IsIn, IsNumber, IsOptional } from 'class-validator';
 export type PhoneSource = 'message_text' | 'viber_profile' | 'none';
 
 export class MonitoredMessageDto {
+  /** Stable emulator/bot identity assigned by the emulator lifecycle. */
+  instanceId!: string;
+
   /** Внутренний ID сообщения в базе SQLite Viber (_id в таблице messages). */
   id!: number;
 
@@ -12,6 +15,9 @@ export class MonitoredMessageDto {
 
   /** Название группы или имя чата. */
   conversationName!: string | null;
+
+  /** Stable Viber group id when the conversation exposes one. */
+  viberGroupId!: string | null;
 
   /** 64-битный уникальный токен сообщения Viber. */
   token!: string | null;

@@ -6,6 +6,7 @@ import {TaskEvent} from "../features/tasks/entities/task.entity.js";
 @Injectable()
 export class RabbitMqPublisher {
     private readonly logger = new Logger(RabbitMqPublisher.name);
+    private readonly instanceId = process.env['VIBER_INSTANCE_ID']?.trim() || 'default';
 
     constructor(
         @Inject('RABBITMQ_CLIENT') private readonly client: ClientProxy
@@ -21,7 +22,7 @@ export class RabbitMqPublisher {
 
     publishTaskEvent(event: TaskEvent): void {
         try {
-            this.client.emit('viber.task.event', event);
+            this.client.emit('viber.task.event', { ...event, instanceId: this.instanceId });
         } catch (err) {
             this.logger.error(`Не удалось отправить событие задачи ${event.taskId} в RabbitMQ: ${String(err)}`);
         }

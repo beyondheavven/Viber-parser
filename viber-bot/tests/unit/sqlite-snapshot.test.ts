@@ -100,3 +100,39 @@ describe('Sqlite.refresh', () => {
     expect(commands.some((c) => c.includes(`cp -f ${LIVE}-wal`))).toBe(false);
   });
 });
+
+describe('Sqlite.updateLiveRow', () => {
+  it('updates the live file without stopping Viber and restores app ownership', () => {
+    const commands: string[] = [];
+    const host: SqliteHost = {
+      shell(command: string): string {
+        commands.push(command);
+        if (command.startsWith('stat -c')) return '10123:10123\n';
+        return '';
+      },
+      push(): void {},
+    };
+
+    new Sqlite(host, LIVE).updateLiveRow('UPDATE participants_info SET safe_contact = 0;');
+
+    expect(commands.some((command) => command.includes(`sqlite3`) && command.includes(LIVE))).toBe(true);
+    expect(commands.some((command) => command.includes('am force-stop'))).toBe(false);
+    expect(commands).toContain(`sh -c 'chown 10123:10123 ${LIVE}*'`);
+  });
+
+  it('does not let ownership cleanup hide the SQLite failure', () => {
+    const host: SqliteHost = {
+      shell(command: string): string {
+        if (command.startsWith('stat -c')) return '10123:10123\n';
+        if (command.startsWith('echo ')) throw new Error('database is locked');
+        if (command.includes('chown')) throw new Error('transport closed');
+        return '';
+      },
+      push(): void {},
+    };
+
+    expect(() =>
+      new Sqlite(host, LIVE).updateLiveRow('UPDATE participants_info SET safe_contact = 0;'),
+    ).toThrow('database is locked');
+  });
+});

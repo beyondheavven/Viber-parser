@@ -18,6 +18,7 @@ describe('MessagesMonitorService', () => {
 
   afterEach(() => {
     delete process.env['MONITOR_DATA_DIR'];
+    delete process.env['VIBER_INSTANCE_ID'];
     for (const dir of dirs.splice(0)) {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -51,12 +52,14 @@ describe('MessagesMonitorService', () => {
     const service = (): MessagesMonitorService => createService();
 
     it('pins phone from text when message body contains a phone number, ignoring Viber profile', () => {
+      process.env['VIBER_INSTANCE_ID'] = 'emulator-worker-1';
       const processed = service().processMessage(
         createMockMessage({
           body: 'Продам шины, дзвоніть 0501234567 терміново!',
           senderNumber: '+380988806081',
         }),
         'АVTOTRAL🚨',
+        '987654321',
       );
 
       expect(processed.hasPhoneInText).toBe(true);
@@ -64,6 +67,8 @@ describe('MessagesMonitorService', () => {
       expect(processed.phoneSource).toBe('message_text');
       expect(processed.allFoundPhones).toEqual(['+380501234567']);
       expect(processed.hasMedia).toBe(false);
+      expect(processed.instanceId).toBe('emulator-worker-1');
+      expect(processed.viberGroupId).toBe('987654321');
     });
 
     it('falls back to Viber profile when message body does NOT contain a phone number', () => {
@@ -236,9 +241,11 @@ describe('MessagesMonitorService', () => {
 
 describe('formatMonitoredExport', () => {
   const sample: MonitoredMessageDto = {
+    instanceId: 'emulator-a',
     id: 11,
     conversationId: 20,
     conversationName: 'Berlin',
+    viberGroupId: '987654321',
     token: '1',
     date: '2026-09-05T12:00:00.000Z',
     body: 'Київ-Варшава 0501234567',
