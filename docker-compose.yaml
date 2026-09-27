@@ -77,6 +77,34 @@ services:
     command: >
       sh -c "adb connect android-emulator:5555 && npm start"
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  emulator-agent:
+    build:
+      context: services/emulator-agent
+      dockerfile: Dockerfile
+    container_name: viber-emulator-agent
+    restart: unless-stopped
+    ports:
+      - "${AGENT_PORT:-9000}:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /dev/kvm:/dev/kvm
+      - /lib/modules:/lib/modules:ro
+    environment:
+      - PORT=9000
+      - AGENT_SECRET=${VPS_AGENT_SECRET:-viber-secret-agent-token}
+      - HOST_PUBLIC_IP=${HOST_PUBLIC_IP:-136.92.24.88}
+      - HOST_PROJECT_DIR=${HOST_PROJECT_DIR:-/home/kkurzau/Viber-parser}
+      - EMULATOR_IMAGE=${EMULATOR_IMAGE:-shmayro/dockerify-android:1.0.0}
+      - ADB_PORT_START=5556
+      - ADB_PORT_END=5599
+      - VNC_PORT_START=6081
+      - VNC_PORT_END=6120
+      - SCRCPY_PORT=8000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   appium:
     image: appium/appium:latest
