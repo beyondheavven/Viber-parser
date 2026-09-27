@@ -45,6 +45,12 @@ export class TaskSummaryDto {
 
   /** Дата завершения. */
   completedAt?: string | undefined;
+
+  /** Число участников (итоговое или собранное в процессе). */
+  participantsCount?: number | null | undefined;
+
+  /** Текст ошибки, если статус error. В списке тоже: иначе причину падения не видно без второго запроса. */
+  error?: string | null | undefined;
 }
 
 export class TaskDetailDto extends TaskSummaryDto {
@@ -53,9 +59,6 @@ export class TaskDetailDto extends TaskSummaryDto {
 
   /** Текущий объект прогресса. */
   progress?: Record<string, unknown> | null | undefined;
-
-  /** Текст ошибки, если статус error. */
-  error?: string | null | undefined;
 
   /** Итоговый результат задачи сбора участников, если статус ready. */
   result?: TaskCollectionResultDto | Record<string, unknown> | null | undefined;

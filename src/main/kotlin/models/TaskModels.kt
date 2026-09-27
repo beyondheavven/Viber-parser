@@ -14,13 +14,17 @@ data class TaskSummary(
 
     val status: String,
 
+    val participantsCount: Int? = null,
+
     val currentStep: TaskStep? = null,
 
     val createdAt: String,
 
     val startedAt: String? = null,
 
-    val completedAt: String? = null
+    val completedAt: String? = null,
+
+    val error: String? = null,
 )
 
 @Serializable
@@ -110,4 +114,10 @@ data class TaskDetail(
     val error: String? = null,
 
     val result: TaskCollectionResult? = null
+)
+
+@Serializable
+data class TaskSyncView(
+    val status: String,
+    val result: TaskCollectionResult? = null,
 )

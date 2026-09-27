@@ -325,6 +325,50 @@ export function resolveGroupExact(
 }
 
 /**
+ * Cyrillic letters that look like Latin ones. Group titles are typed by hand
+ * on mixed keyboards, so "АVTOTRAL" (Cyrillic А) and "AVTOTRAL" must match.
+ */
+const HOMOGLYPHS: Readonly<Record<string, string>> = {
+  а: 'a', в: 'b', е: 'e', к: 'k', м: 'm', н: 'h', о: 'o', р: 'p', с: 'c', т: 't', х: 'x', у: 'y',
+};
+
+/** Lower-case letters and digits only, with Cyrillic look-alikes folded into Latin. */
+export function looseGroupName(name: string): string {
+  return [...name.toLowerCase()]
+    .map((char) => HOMOGLYPHS[char] ?? char)
+    .filter((char) => /[\p{L}\p{N}]/u.test(char))
+    .join('');
+}
+
+/**
+ * Last-resort match after {@link resolveGroupExact} and `findGroup`: ignores
+ * emoji, spacing, case and Cyrillic/Latin look-alikes. Returns the group only
+ * when exactly one title matches, so a loose match can never pick the wrong
+ * group silently; the candidates are returned for the error message otherwise.
+ */
+export function resolveGroupLoosely(
+  groups: readonly Conversation[],
+  target: string,
+): { group: Conversation | undefined; candidates: Conversation[] } {
+  const needle = looseGroupName(target);
+  if (needle === '') return { group: undefined, candidates: [] };
+  const candidates = groups.filter((group) => {
+    const title = looseGroupName(group.name ?? '');
+    if (title === '') return false; // an empty title would "contain" anything
+    return title === needle || title.includes(needle) || needle.includes(title);
+  });
+  return { group: candidates.length === 1 ? candidates[0] : undefined, candidates };
+}
+
+/** "id — name" lines for an error message, so the caller can retry by id. */
+export function describeGroups(groups: readonly Conversation[], limit = 15): string {
+  return groups
+    .slice(0, limit)
+    .map((group) => `${String(group.id)} — ${group.name ?? '(без названия)'}`)
+    .join('; ');
+}
+
+/**
  * Normalizes a phone number for deduplication comparisons.
  */
 export function normalizePhone(phone: string | null | undefined): string | null {

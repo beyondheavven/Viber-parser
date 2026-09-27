@@ -10,44 +10,28 @@ services:
       sh -c "modprobe kvm_amd 2>/dev/null || modprobe kvm_intel 2>/dev/null || true; ls -l /dev/kvm"
 
   android-emulator:
-    # Pinned: emulator/first-boot.sh is a fork of this exact tag's script.
     image: shmayro/dockerify-android:1.0.0
     container_name: android-emulator
     privileged: true
     devices:
       - /dev/kvm
       - /dev/net/tun
-    ports:
-      - "${EMULATOR_ADB_PORT}:5555"
-      - "${EMULATOR_VNC_PORT}:6080"
     volumes:
       - android-data:/data
       - ./emulator/first-boot.sh:/overrides/first-boot.sh:ro
       - ./emulator/entrypoint.sh:/overrides/entrypoint.sh:ro
       - ./emulator/setup-device-profile.sh:/overrides/setup-device-profile.sh:ro
-    # The image re-runs first-boot.sh on every start, and its stock version
-    # switches airplane mode on and lets the screen sleep after 15s — both
-    # racing with (and overriding) whatever start.sh sets. Our fork is copied
-    # over it here; `tr` strips the CR a Windows checkout may have added.
-    # (List form on purpose: a string command is shell-split by compose, which
-    # would eat the backslash in '\r'.)
     command:
       - sh
       - -c
       - "tr -d '\\r' < /overrides/entrypoint.sh > /root/entrypoint.sh && chmod +x /root/entrypoint.sh && exec /root/entrypoint.sh"
     environment:
-      # The image ships a single system image (android-30, default x86_64);
-      # the Android version is not configurable through it.
       - GAPPS_SETUP=${GAPPS_SETUP:-true}
       - ROOT_SETUP=${ROOT_SETUP:-true}
       - DEVICE_PROFILE=${DEVICE_PROFILE:-samsung-tab-s7}
-      # Display and memory, mirroring LDPlayer's "Tablet" preset (1280x720 at
-      # 240 dpi), which is the layout the Viber page objects were captured on.
-      # Applied to /data/android.avd/config.ini on every container start, so a
-      # change only needs `docker compose up -d android-emulator`, not a new
-      # data volume.
       - SCREEN_RESOLUTION=${EMULATOR_SCREEN_RESOLUTION:-1280x720}
       - SCREEN_DENSITY=${EMULATOR_SCREEN_DENSITY:-240}
+      - RAM_SIZE=${EMULATOR_RAM_SIZE:-3072}
       - RAM_SIZE=${EMULATOR_RAM_SIZE:-4096}
       - PROXY_HOST=${PROXY_HOST:-}
       - PROXY_PORT=${PROXY_PORT:-50101}
@@ -70,12 +54,12 @@ services:
     container_name: scrcpy-web
     privileged: true
     ports:
-      - "8000:8000"
+      - "${BIND_IP:-127.0.0.1}:${SCRCPY_WEB_PORT:-8000}:8000"
     depends_on:
       android-emulator:
         condition: service_healthy
     command: >
-      sh -c "adb connect android-emulator:5555 && npm start"
+      sh -c "adb connect $${ADB_HOST:-android-emulator}:$${ADB_PORT:-5555} && npm start"
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -116,12 +100,10 @@ services:
   appium:
     image: appium/appium:latest
     container_name: viber-appium
-    ports:
-      - "4723:4723"
     environment:
       - RELAXED_SECURITY=true
       - REMOTE_ADB=true
-      - ANDROID_DEVICES=android-emulator:5555
+      - ANDROID_DEVICES=${ADB_HOST:-android-emulator}:${ADB_PORT:-5555}
     depends_on:
       android-emulator:
         condition: service_healthy
@@ -134,8 +116,7 @@ services:
     container_name: viber-rabbitmq
     restart: unless-stopped
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "${BIND_IP:-127.0.0.1}:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-viber}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-viber_secret}
@@ -154,10 +135,10 @@ services:
     container_name: viber-bot
     restart: unless-stopped
     environment:
-      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-viber}:${RABBITMQ_PASS:-viber_secret}@rabbitmq:5672?heartbeat=60
-      - APPIUM_HOST=appium
-      - APPIUM_PORT=4723
-      - ANDROID_SERIAL=android-emulator:5555
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-viber}:${RABBITMQ_PASS:-viber_secret}@${RABBITMQ_HOST:-rabbitmq}:${RABBITMQ_PORT:-5672}?heartbeat=60
+      - APPIUM_HOST=${APPIUM_HOST:-appium}
+      - APPIUM_PORT=${APPIUM_PORT:-4723}
+      - ANDROID_SERIAL=${ADB_HOST:-android-emulator}:${ADB_PORT:-5555}
       - ADB_BIN=adb
       - VIBER_PACKAGE=com.viber.voip
       - VIBER_MESSAGES_DB=/data/data/com.viber.voip/databases/viber_messages

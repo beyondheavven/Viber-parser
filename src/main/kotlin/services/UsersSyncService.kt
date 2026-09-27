@@ -5,7 +5,9 @@ import com.viber.models.GroupDetail
 import com.viber.models.GroupSummary
 import com.viber.models.GroupSyncStatus
 import com.viber.models.ParticipantModel
+import com.viber.models.SupabaseGroupMemberJoin
 import com.viber.models.TaskCollectionResult
+import com.viber.models.TaskSyncView
 import com.viber.models.UsersPage
 import com.viber.models.UsersSyncAllResult
 import com.viber.models.UsersSyncFailure
@@ -135,9 +137,6 @@ class UsersSyncService(
     }
 
     suspend fun syncTask(taskId: String): UsersSyncResult {
-        // Only `status` and `result` are read. This slim view (with
-        // ignoreUnknownKeys) skips stepHistory, whose progress map holds numbers
-        // under keys the full TaskDetail types as String — those fail to parse.
         val task: TaskSyncView = json.decodeFromString(viberBotClient.getTask(taskId))
         val result = task.result
             ?: throw IllegalArgumentException("Задача $taskId ещё не завершена (статус ${task.status})")
@@ -145,12 +144,6 @@ class UsersSyncService(
             json.decodeFromString(viberBotClient.getTaskParticipants(taskId))
         return sync(result.group, result.conversationId, result.groupId, participants)
     }
-
-    @Serializable
-    private data class TaskSyncView(
-        val status: String,
-        val result: TaskCollectionResult? = null,
-    )
 
     private suspend fun sync(
         groupName: String?,
@@ -340,14 +333,6 @@ class UsersSyncService(
             items = result.decodeList<ViberUserRow>(),
         )
     }
-
-    @Serializable
-    private data class SupabaseGroupMemberJoin(
-        val role: Int? = null,
-        val active: Boolean = true,
-        @SerialName("viber_users")
-        val user: ViberUserRow? = null,
-    )
 
     suspend fun getGroupUsers(targetId: String): List<ParticipantModel> {
         val client = supabase() ?: throw SupabaseDisabledException()

@@ -13,7 +13,7 @@ data class CollectParticipantsRequest(
 
     val idleTimeoutMs: Int = 15_000,
 
-    val numbersSyncTimeoutMs: Int = 45_000,
+    val numbersSyncTimeoutMs: Int = 0,
 
     val syncLiveDbAfter: Boolean = false,
 

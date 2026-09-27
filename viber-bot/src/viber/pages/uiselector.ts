@@ -50,3 +50,14 @@ export function scrollToTextContains(part: string): string {
     `.scrollIntoView(new UiSelector().textContains(${quote(part)}))`
   );
 }
+
+/**
+ * An element with `childId` that sits inside an element with `parentId`.
+ * Used where the child id alone is ambiguous across screens.
+ */
+export function byIdWithin(parentId: string, childId: string): string {
+  return (
+    `android=new UiSelector().resourceId(${quote(parentId)})` +
+    `.childSelector(new UiSelector().resourceId(${quote(childId)}))`
+  );
+}

@@ -27,14 +27,18 @@ fun Route.usersRoutes(usersSyncService: UsersSyncService) {
             call.respond(HttpStatusCode.OK, page)
         }
 
-        get("/group/{id}", describeGetGroupUsers) {
-            val id = call.parameters["id"]!!
-            call.respond(HttpStatusCode.OK, usersSyncService.getGroupUsers(id))
-        }
-
         get("/sync/status", describeUsersSyncStatus) {
             val conversationId = call.request.queryParameters["conversationId"]?.toIntOrNull()
             call.respond(HttpStatusCode.OK, usersSyncService.syncStatus(conversationId))
+        }
+
+        post("/sync/all", describeSyncAllUsers) {
+            call.respond(HttpStatusCode.OK, usersSyncService.syncAll())
+        }
+
+        get("/group/{id}", describeGetGroupUsers) {
+            val id = call.parameters["id"]!!
+            call.respond(HttpStatusCode.OK, usersSyncService.getGroupUsers(id))
         }
 
         post("/sync/all", describeSyncAllUsers) {
