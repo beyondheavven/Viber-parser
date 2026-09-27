@@ -84,7 +84,7 @@ services:
     environment:
       - PORT=9000
       - AGENT_SECRET=${VPS_AGENT_SECRET:-viber-secret-agent-token}
-      - HOST_PUBLIC_IP=${HOST_PUBLIC_IP:-136.92.24.88}
+      - HOST_PUBLIC_IP=${HOST_PUBLIC_IP:-localhost}
       - HOST_PROJECT_DIR=${HOST_PROJECT_DIR:-/home/kkurzau/Viber-parser}
       - EMULATOR_IMAGE=${EMULATOR_IMAGE:-shmayro/dockerify-android:1.0.0}
       - ADB_PORT_START=5556
