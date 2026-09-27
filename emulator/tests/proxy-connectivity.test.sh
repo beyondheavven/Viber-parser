@@ -41,6 +41,11 @@ assert_before "$ENTRYPOINT" \
   'iptables -t nat -A REDSOCKS -p tcp -j REDIRECT --to-ports 12345'
 assert_contains "$ENTRYPOINT" \
   'iptables -t filter -I OUTPUT 1 -p tcp --dport 853 -m owner ! --uid-owner redsocks -j REJECT --reject-with tcp-reset'
+assert_contains "$ENTRYPOINT" 'getent ahostsv4 "$host"'
+assert_contains "$ENTRYPOINT" 'refresh_direct_host_ips "secure.viber.com"'
+assert_before "$ENTRYPOINT" \
+  'iptables -t nat -A REDSOCKS -p tcp --dport 443 -j VIBER_DIRECT' \
+  'iptables -t nat -A REDSOCKS -p tcp -j REDIRECT --to-ports 12345'
 
 for script in "$FIRST_BOOT" "$START"; do
   assert_contains "$script" 'adb shell settings delete global private_dns_specifier'

@@ -301,6 +301,17 @@ fi
 [ "$root_needed" = true ]            && install_root
 [ "$gapps_needed" = true ]           && install_gapps
 [ "$arm_translation_needed" = true ] && install_arm_translation
+
+# Viber caches android.os.Build during its first process start. Install and
+# verify the persistent physical-tablet identity before dependent services can
+# install or launch the app.
+tr -d '\r' < /overrides/setup-device-profile.sh > /tmp/setup-device-profile.sh
+chmod +x /tmp/setup-device-profile.sh
+if ! DEVICE_PROFILE="${DEVICE_PROFILE:-samsung-tab-s7}" /tmp/setup-device-profile.sh; then
+  echo "ERROR: device profile setup failed" >&2
+  exit 1
+fi
+
 apply_settings
 copy_extras
 

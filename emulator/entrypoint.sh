@@ -58,9 +58,12 @@ EOF
 
   iptables -t nat -D OUTPUT -p tcp -j REDSOCKS 2>/dev/null || true
   iptables -t nat -F REDSOCKS 2>/dev/null || true
+  iptables -t nat -F VIBER_DIRECT 2>/dev/null || true
+  iptables -t nat -X VIBER_DIRECT 2>/dev/null || true
   iptables -t nat -X REDSOCKS 2>/dev/null || true
 
   iptables -t nat -N REDSOCKS
+  iptables -t nat -N VIBER_DIRECT
 
   iptables -t nat -A REDSOCKS -d 0.0.0.0/8 -j RETURN
   iptables -t nat -A REDSOCKS -d 10.0.0.0/8 -j RETURN
@@ -83,10 +86,32 @@ EOF
   iptables -t filter -D OUTPUT -p tcp --dport 853 -m owner ! --uid-owner redsocks -j REJECT --reject-with tcp-reset 2>/dev/null || true
   iptables -t filter -I OUTPUT 1 -p tcp --dport 853 -m owner ! --uid-owner redsocks -j REJECT --reject-with tcp-reset
 
+  # The configured SOCKS exit can be rejected by Viber's CloudFront policy.
+  # Keep only the registration endpoint on the VM's direct egress and refresh
+  # its rotating addresses without logging proxy credentials.
+  refresh_direct_host_ips() {
+    local host="$1"
+    local ip resolved_ips
+    resolved_ips=$(getent ahostsv4 "$host" | awk '{print $1}' | sort -u)
+    [ -n "$resolved_ips" ] || return 0
+
+    iptables -w -t nat -F VIBER_DIRECT
+    for ip in $resolved_ips; do
+      iptables -w -t nat -A VIBER_DIRECT -d "$ip" -j RETURN
+    done
+  }
+
+  iptables -t nat -A REDSOCKS -p tcp --dport 443 -j VIBER_DIRECT
+  refresh_direct_host_ips "secure.viber.com"
+
   # Redirect all other TCP to redsocks
   iptables -t nat -A REDSOCKS -p tcp -j REDIRECT --to-ports 12345
 
   iptables -t nat -A OUTPUT -p tcp -j REDSOCKS
+
+  while sleep 60; do
+    refresh_direct_host_ips "secure.viber.com"
+  done &
 
   echo "--> [PROXY] Transparent proxy activated successfully."
 fi

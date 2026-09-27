@@ -24,6 +24,7 @@ services:
       - android-data:/data
       - ./emulator/first-boot.sh:/overrides/first-boot.sh:ro
       - ./emulator/entrypoint.sh:/overrides/entrypoint.sh:ro
+      - ./emulator/setup-device-profile.sh:/overrides/setup-device-profile.sh:ro
     # The image re-runs first-boot.sh on every start, and its stock version
     # switches airplane mode on and lets the screen sleep after 15s — both
     # racing with (and overriding) whatever start.sh sets. Our fork is copied
@@ -39,6 +40,7 @@ services:
       # the Android version is not configurable through it.
       - GAPPS_SETUP=${GAPPS_SETUP:-true}
       - ROOT_SETUP=${ROOT_SETUP:-true}
+      - DEVICE_PROFILE=${DEVICE_PROFILE:-samsung-tab-s7}
       # Display and memory, mirroring LDPlayer's "Tablet" preset (1280x720 at
       # 240 dpi), which is the layout the Viber page objects were captured on.
       # Applied to /data/android.avd/config.ini on every container start, so a
@@ -55,6 +57,12 @@ services:
     depends_on:
       kvm-init:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "adb shell 'test \"$(getprop sys.boot_completed)\" = 1 && test -f /data/local/tmp/.viber-device-profile-ready-v1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 120
+      start_period: 10s
     restart: unless-stopped
 
   scrcpy-web:
@@ -147,6 +155,7 @@ services:
       - PORT=8080
       - ADB_HOST=${ADB_HOST:-android-emulator}
       - ADB_PORT=${ADB_PORT:-5555}
+      - DEVICE_PROFILE=${DEVICE_PROFILE:-samsung-tab-s7}
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
       - RABBITMQ_USER=${RABBITMQ_USER:-viber}
