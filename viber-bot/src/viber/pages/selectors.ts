@@ -233,7 +233,8 @@ export const selectors = {
  * Regex matching the "show all participants" action in the info panel in
  * various languages. Matches case-insensitively.
  */
-export const SHOW_ALL_PARTICIPANTS_REGEX = /show all|показать всех|показати всіх|паказаць усё/i;
+export const SHOW_ALL_PARTICIPANTS_REGEX =
+  /show all|see all|показать всех|показати всіх|паказаць усё/i;
 
 /**
  * Regex matching the prefix of the participants section title in various languages.

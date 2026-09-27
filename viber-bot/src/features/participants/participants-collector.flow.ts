@@ -8,7 +8,7 @@ import { extractEmKey } from '../../viber/em-key.js';
 import { formatParticipantCsv, formatParticipantTable } from '../../viber/format.js';
 import { deduplicateParticipants, resolveGroupExact, type Participant } from '../../viber/repository.js';
 import { DeviceMutexService } from '../../platform/mutex/device-mutex.service.js';
-import { FridaStreamService } from './frida-stream.service.js';
+import { FridaStreamService, type FridaPagingResult } from './frida-stream.service.js';
 import { ViberNavigationService } from '../../viber/navigation.js';
 import { ParticipantSyncService } from './participant-sync.service.js';
 import { ViberLifecycleService } from '../../platform/viber-lifecycle.service.js';
@@ -451,8 +451,8 @@ export class ParticipantsCollectorFlow {
         conversationId,
         groupId,
         headerTotal,
-        paginationCompleted: pagingResult.lastReached,
-        pagesCount: pagingResult.pagesCount,
+        paginationCompleted: pagingResult?.lastReached ?? false,
+        pagesCount: pagingResult?.pagesCount ?? totalPagesCount,
         participantsCount: participants.length,
         extractedAt: new Date().toISOString(),
         participants,
@@ -461,7 +461,7 @@ export class ParticipantsCollectorFlow {
 
       const txtLines: string[] = [
         `${groupName} — ${String(participants.length)} participants synced`,
-        `conversation ${String(conversationId)} · pages ${String(pagingResult.pagesCount)} · pagination ${pagingResult.lastReached ? 'COMPLETED' : 'PARTIAL'}`,
+        `conversation ${String(conversationId)} · pages ${String(pagingResult?.pagesCount ?? totalPagesCount)} · pagination ${(pagingResult?.lastReached ?? false) ? 'COMPLETED' : 'PARTIAL'}`,
         '',
         formatParticipantTable(participants),
       ];
@@ -475,7 +475,7 @@ export class ParticipantsCollectorFlow {
         conversationId,
         groupId,
         headerTotal,
-        pagesCount: pagingResult.pagesCount,
+        pagesCount: pagingResult?.pagesCount ?? totalPagesCount,
         participantsCount: participants.length,
         participantsWithPhone,
         savedJsonPath: jsonPath,

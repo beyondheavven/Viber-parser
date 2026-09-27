@@ -205,17 +205,54 @@ export class GroupInfoPage extends BasePage {
 
   private async tapBounds(bounds: Bounds): Promise<void> {
     const { x, y } = centerOf(bounds);
-    await this.driver.execute('mobile: clickGesture', { x, y });
+    try {
+      await this.driver.execute('mobile: clickGesture', { x, y });
+    } catch {
+      await this.driver.performActions([
+        {
+          type: 'pointer',
+          id: 'finger1',
+          parameters: { pointerType: 'touch' },
+          actions: [
+            { type: 'pointerMove', duration: 0, x, y },
+            { type: 'pointerDown', button: 0 },
+            { type: 'pause', duration: 50 },
+            { type: 'pointerMove', duration: 50, x, y },
+            { type: 'pointerUp', button: 0 },
+          ],
+        },
+      ]);
+      await this.driver.releaseActions();
+    }
     await this.driver.pause(600);
   }
 
   /**
-   * `itemLayout` belongs to `participants_list_item` and to nothing else in
-   * the app, so it tells the full list apart from the panel's preview rows —
-   * which the panel draws with the same `name` id the list rows use.
+   * Checks whether the full participants list (ParticipantsListActivity) is opened.
+   *
+   * In tablet layout, the conversation info panel (ConversationActivity) has preview rows
+   * that also use `itemLayout`, so checking `itemLayout` alone falsely reports the list
+   * as opened while still on the info panel. We verify that `ParticipantsListActivity` is active,
+   * or that `selectors.participants.list` (recycler_view) is present without the info fragment.
    */
-  private async participantsListOpened(): Promise<boolean> {
-    return this.isPresent(selectors.participants.row, 2_500);
+  private async participantsListOpened(timeout = 2_000): Promise<boolean> {
+    try {
+      const activity = await this.currentActivity();
+      if (activity.includes('ParticipantsListActivity')) {
+        return true;
+      }
+    } catch {
+      // Ignore activity query failure
+    }
+
+    if (await this.isPresent(selectors.groupInfo.fragment, 200)) {
+      return false;
+    }
+
+    return (
+      (await this.isPresent(selectors.participants.list, timeout)) &&
+      (await this.isPresent(selectors.participants.row, timeout))
+    );
   }
 
   /**

@@ -35,7 +35,10 @@ export const ROSTER_SCROLL_PERCENT = 0.75;
 export function parseRosterPageSource(xml: string): RosterViewport {
   const root = parseHierarchy(xml);
 
-  const listNode = findDescendant(root, selectors.participants.list);
+  let listNode = findDescendant(root, selectors.participants.list);
+  if (listNode === undefined) {
+    listNode = findDescendant(root, selectors.groupInfo.list);
+  }
   const list = parseBounds(listNode?.bounds);
   if (listNode === undefined || list === null) {
     throw new Error('Appium page source has no participants RecyclerView bounds.');
@@ -63,6 +66,7 @@ export function parseRosterPageSource(xml: string): RosterViewport {
 
   const countNodes: XmlNode[] = [];
   collectDescendants(root, 'com.viber.voip:id/text', countNodes);
+  collectDescendants(root, selectors.groupInfo.sectionTitle, countNodes);
   let totalCount: number | null = null;
   for (const node of countNodes) {
     const match = /\(([\d\s\u00a0\u202f]+)\)/u.exec(node.text ?? '');
@@ -96,17 +100,18 @@ export function parseRosterPageSource(xml: string): RosterViewport {
  */
 export class ParticipantsPage extends BasePage {
   /**
-   * Waits on a row's `itemLayout`, not on its `name`: `name` is also what the
-   * info panel labels its participant previews with, and `recycler_view`
-   * belongs to a dozen other screens — either would report this list as loaded
-   * while Viber is still showing something else.
+   * Waits for both the list container and the participant rows to be present.
    */
   async waitUntilLoaded(): Promise<void> {
+    await this.waitFor(selectors.participants.list);
     await this.waitFor(selectors.participants.row);
   }
 
   async isLoaded(timeout = 2_000): Promise<boolean> {
-    return this.isPresent(selectors.participants.row, timeout);
+    return (
+      (await this.isPresent(selectors.participants.list, timeout)) &&
+      (await this.isPresent(selectors.participants.row, timeout))
+    );
   }
 
   /** Display names currently rendered in the list. */
