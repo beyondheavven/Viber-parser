@@ -206,11 +206,10 @@ done
 while ! pm path com.viber.voip >/dev/null 2>&1; do
   sleep 2
 done
-sleep 3
-if ! pidof com.viber.voip >/dev/null 2>&1; then
-  am start -n com.viber.voip/com.viber.voip.WelcomeActivity >/dev/null 2>&1 || \
-    monkey -p com.viber.voip -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
-fi
+# Allow BOOT_COMPLETED broadcast receivers to settle before launching UI
+sleep 8
+am start -n com.viber.voip/com.viber.voip.WelcomeActivity >/dev/null 2>&1 || \
+  monkey -p com.viber.voip -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
 AUTORUN_EOF
 chmod 755 /data/adb/service.d/99-viber-autorun.sh"
 "$ADB" shell "touch $READY_MARKER"

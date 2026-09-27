@@ -343,6 +343,7 @@ start_viber_autorun() {
   done
 
   if adb shell pm path com.viber.voip >/dev/null 2>&1; then
+    sleep 5
     echo "--> [AUTORUN] Starting com.viber.voip (Viber)..."
     adb shell am start -n com.viber.voip/com.viber.voip.WelcomeActivity >/dev/null 2>&1 || \
       adb shell monkey -p com.viber.voip -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 || true
