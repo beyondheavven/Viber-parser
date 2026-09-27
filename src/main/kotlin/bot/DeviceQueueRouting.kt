@@ -11,7 +11,8 @@ object DeviceQueueRouting {
         return normalized == "default" ||
                 normalized == "android-emulator" ||
                 normalized == "emulator-5554" ||
-                normalized == "main"
+                normalized == "main" ||
+                normalized == "worker"
     }
 
     fun queueName(deviceId: String?, baseQueue: String = DEFAULT_QUEUE): String {

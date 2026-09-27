@@ -119,10 +119,10 @@ data class SupabaseMonitoredMessageWithGroup(
     @SerialName("viber_groups")
     val group: SupabaseGroupSummary? = null,
 ) {
-    fun toResponse(): MonitoredMessageResponse =
+    fun toResponse(requestedDeviceId: String? = null): MonitoredMessageResponse =
         MonitoredMessageResponse(
             id = sourceMessageId,
-            deviceId = instanceId,
+            deviceId = requestedDeviceId ?: instanceId,
             conversationId = conversationId,
             conversationName = group?.name,
             token = viberToken,

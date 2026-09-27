@@ -68,7 +68,16 @@ class SupabaseMonitoredMessageQueryRepository(
         ) {
             filter {
                 if (targetInstance != null) {
-                    eq("instance_id", targetInstance)
+                    if (com.viber.bot.DeviceQueueRouting.isDefaultDevice(targetInstance)) {
+                        or {
+                            eq("instance_id", "default")
+                            eq("instance_id", targetInstance)
+                            eq("instance_id", "worker")
+                            eq("instance_id", "android-emulator")
+                        }
+                    } else {
+                        eq("instance_id", targetInstance)
+                    }
                 }
                 if (conversationId != null) {
                     eq("conversation_id", conversationId)
@@ -92,7 +101,7 @@ class SupabaseMonitoredMessageQueryRepository(
         }
 
         val rows = query.decodeList<SupabaseMonitoredMessageWithGroup>()
-        return rows.map { it.toResponse() }
+        return rows.map { it.toResponse(targetInstance) }
     }
 }
 
