@@ -143,13 +143,27 @@ fun Route.messageRoutes(
                 val request = runCatching { call.receiveNullable<EnableMonitorGroupRequest>() }.getOrNull() ?: EnableMonitorGroupRequest()
                 val deviceId = request.deviceId ?: call.request.queryParameters["deviceId"]
                 val groupKey = request.groupKey?.trim()?.takeIf { it.isNotEmpty() }
-                val id = if (groupKey == null) {
-                    call.parameters["id"]!!.toInt()
-                } else {
-                    viberBotClient.findConversationIdByGroupKey(groupKey, deviceId)
+                val paramId = call.parameters["id"]?.toIntOrNull()
+
+                val raw = if (paramId != null && paramId > 0) {
+                    try {
+                        viberBotClient.enableMonitorGroup(paramId, request, deviceId)
+                    } catch (e: Exception) {
+                        if (groupKey != null) {
+                            val resolvedId = viberBotClient.findConversationIdByGroupKey(groupKey, deviceId)
+                                ?: throw NotFoundException("Группа с groupKey $groupKey не найдена на этом эмуляторе")
+                            viberBotClient.enableMonitorGroup(resolvedId, request, deviceId)
+                        } else {
+                            throw e
+                        }
+                    }
+                } else if (groupKey != null) {
+                    val resolvedId = viberBotClient.findConversationIdByGroupKey(groupKey, deviceId)
                         ?: throw NotFoundException("Группа с groupKey $groupKey не найдена на этом эмуляторе")
+                    viberBotClient.enableMonitorGroup(resolvedId, request, deviceId)
+                } else {
+                    throw NotFoundException("Не указан ID группы")
                 }
-                val raw = viberBotClient.enableMonitorGroup(id, request, deviceId)
                 call.respondText(enrichMonitorStatusWithDevice(raw, deviceId), ContentType.Application.Json)
             }
 
