@@ -107,7 +107,7 @@ fun Route.messageRoutes(
 
         route("/monitor") {
             post("/start", describeStartMonitor) {
-                val request = call.receiveNullable<StartMonitorRequest>() ?: StartMonitorRequest()
+                val request = runCatching { call.receiveNullable<StartMonitorRequest>() }.getOrNull() ?: StartMonitorRequest()
                 val deviceId = request.deviceId ?: call.request.queryParameters["deviceId"]
                 val raw = viberBotClient.startMonitor(request, deviceId)
                 call.respondText(enrichMonitorStatusWithDevice(raw, deviceId), ContentType.Application.Json)
@@ -140,7 +140,7 @@ fun Route.messageRoutes(
             }
 
             post("/groups/{id}/enable", describeEnableMonitorGroup) {
-                val request = call.receiveNullable<EnableMonitorGroupRequest>() ?: EnableMonitorGroupRequest()
+                val request = runCatching { call.receiveNullable<EnableMonitorGroupRequest>() }.getOrNull() ?: EnableMonitorGroupRequest()
                 val deviceId = request.deviceId ?: call.request.queryParameters["deviceId"]
                 val groupKey = request.groupKey?.trim()?.takeIf { it.isNotEmpty() }
                 val id = if (groupKey == null) {
