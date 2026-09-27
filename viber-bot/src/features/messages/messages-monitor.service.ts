@@ -273,6 +273,7 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     const groups = this.listGroups();
     const enabled = groups.filter((group) => group.enabled);
     return {
+      deviceId: this.instanceId,
       isRunning: this.isRunning,
       conversationId: enabled.length === 1 ? enabled[0]!.conversationId : null,
       groups,
@@ -806,6 +807,8 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
         name: group.name,
         enabled: group.enabled,
         lastMessageId: group.lastMessageId,
+        groupKey: group.viberGroupId ?? null,
+        deviceId: this.instanceId,
       }));
   }
 

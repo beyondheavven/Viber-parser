@@ -5,6 +5,7 @@ import com.viber.bot.ViberBotClient
 import com.viber.config.AdbSettings
 import com.viber.config.RabbitMqSettings
 import com.viber.services.AuthService
+import com.viber.services.MonitoredMessageQueryService
 import com.viber.services.UsersSyncService
 import com.viber.services.ViberSystemService
 import com.viber.supabase.supabaseClient
@@ -26,6 +27,7 @@ fun Application.configureRouting() {
     val authService = AuthService(viberBotClient)
     val viberSystemService = ViberSystemService(adbClient)
     val usersSyncService = UsersSyncService(viberBotClient, supabase = { supabaseClient })
+    val monitoredMessageQueryService = MonitoredMessageQueryService(supabase = { supabaseClient })
 
     routing {
         route("api.json") {
@@ -43,7 +45,7 @@ fun Application.configureRouting() {
             groupRoutes(viberBotClient)
             tasksRoutes(viberBotClient)
             databaseRoutes(viberBotClient)
-            messageRoutes(viberBotClient)
+            messageRoutes(viberBotClient, monitoredMessageQueryService)
             broadcastRoutes(viberBotClient)
             usersRoutes(usersSyncService)
         }

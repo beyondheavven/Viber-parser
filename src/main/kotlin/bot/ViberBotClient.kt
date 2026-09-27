@@ -50,90 +50,111 @@ class ViberBotClient(
     }
 
     suspend fun collectParticipants(request: CollectParticipantsRequest): TaskCreatedResponse {
-        val raw = rpcClient.call("viber.participants.collect", json.encodeToString(request))
+        val raw = rpcClient.call("viber.participants.collect", json.encodeToString(request), authQueue(request.deviceId))
         return json.decodeFromString(raw)
     }
 
-    override suspend fun getTaskParticipants(taskId: String): String {
-        return rpcClient.call("viber.participants.get_task_participants", mapOf("id" to taskId))
+    override suspend fun getTaskParticipants(taskId: String): String = getTaskParticipants(taskId, null)
+
+    override suspend fun getTaskParticipants(taskId: String, deviceId: String?): String {
+        return rpcClient.call("viber.participants.get_task_participants", mapOf("id" to taskId), queueName = authQueue(deviceId))
     }
 
-    suspend fun getOnlineStatuses(request: QueryOnlineStatusRequest): String {
-        return rpcClient.call("viber.participants.online_status", json.encodeToString(request))
+    suspend fun getOnlineStatuses(request: QueryOnlineStatusRequest, deviceId: String? = null): String {
+        return rpcClient.call("viber.participants.online_status", json.encodeToString(request), queueName = authQueue(deviceId))
     }
 
-    suspend fun getTasks(status: String? = null): String {
+    suspend fun getTasks(status: String? = null, deviceId: String? = null): String {
         val payload = if (status != null) mapOf("status" to status) else emptyMap<String, String>()
-        return rpcClient.call("viber.tasks.get_all", payload)
+        return rpcClient.call("viber.tasks.get_all", payload, queueName = authQueue(deviceId))
     }
 
-    override suspend fun getTask(taskId: String): String {
-        return rpcClient.call("viber.tasks.get_by_id", mapOf("id" to taskId))
+    override suspend fun getTask(taskId: String): String = getTask(taskId, null)
+
+    override suspend fun getTask(taskId: String, deviceId: String?): String {
+        return rpcClient.call("viber.tasks.get_by_id", mapOf("id" to taskId), queueName = authQueue(deviceId))
     }
 
-    suspend fun stopTask(taskId: String): String {
-        return rpcClient.call("viber.tasks.stop", mapOf("id" to taskId))
+    suspend fun stopTask(taskId: String, deviceId: String? = null): String {
+        return rpcClient.call("viber.tasks.stop", mapOf("id" to taskId), queueName = authQueue(deviceId))
     }
 
-    override suspend fun getGroups(includeAll: Boolean): String {
-        return rpcClient.call("viber.groups.get_all", mapOf("all" to includeAll))
+    override suspend fun getGroups(includeAll: Boolean): String = getGroups(includeAll, null)
+
+    override suspend fun getGroups(includeAll: Boolean, deviceId: String?): String {
+        return rpcClient.call("viber.groups.get_all", mapOf("all" to includeAll), queueName = authQueue(deviceId))
     }
 
-    override suspend fun getGroup(id: Int): String {
-        return rpcClient.call("viber.groups.get_by_id", mapOf("id" to id))
+    override suspend fun getGroup(id: Int): String = getGroup(id, null)
+
+    override suspend fun getGroup(id: Int, deviceId: String?): String {
+        return rpcClient.call("viber.groups.get_by_id", mapOf("id" to id), queueName = authQueue(deviceId))
     }
 
-    override suspend fun getGroupParticipants(id: Int): String {
-        return rpcClient.call("viber.groups.get_participants", mapOf("id" to id))
+    override suspend fun getGroupParticipants(id: Int): String = getGroupParticipants(id, null)
+
+    override suspend fun getGroupParticipants(id: Int, deviceId: String?): String {
+        return rpcClient.call("viber.groups.get_participants", mapOf("id" to id), queueName = authQueue(deviceId))
     }
 
-    suspend fun syncDatabase(): String {
-        return rpcClient.call("viber.database.sync")
+    suspend fun syncDatabase(deviceId: String? = null): String {
+        return rpcClient.call("viber.database.sync", queueName = authQueue(deviceId))
     }
 
-    suspend fun getDatabaseStats(): String {
-        return rpcClient.call("viber.database.stats")
+    suspend fun getDatabaseStats(deviceId: String? = null): String {
+        return rpcClient.call("viber.database.stats", queueName = authQueue(deviceId))
     }
 
-    suspend fun decodeParticipants(request: DecodeRequest): String {
-        return rpcClient.call("viber.database.decode", json.encodeToString(request))
+    suspend fun decodeParticipants(request: DecodeRequest, deviceId: String? = null): String {
+        return rpcClient.call("viber.database.decode", json.encodeToString(request), queueName = authQueue(deviceId))
     }
 
-    suspend fun startMonitor(request: StartMonitorRequest): String {
-        return rpcClient.call("viber.messages.monitor.start", json.encodeToString(request))
+    suspend fun startMonitor(request: StartMonitorRequest, deviceId: String? = null): String {
+        val targetDevice = request.deviceId ?: deviceId
+        return rpcClient.call("viber.messages.monitor.start", json.encodeToString(request), queueName = authQueue(targetDevice))
     }
 
-    suspend fun stopMonitor(): String {
-        return rpcClient.call("viber.messages.monitor.stop")
+    suspend fun stopMonitor(deviceId: String? = null): String {
+        return rpcClient.call("viber.messages.monitor.stop", queueName = authQueue(deviceId))
     }
 
-    suspend fun getMonitorStatus(): String {
-        return rpcClient.call("viber.messages.monitor.status")
+    suspend fun getMonitorStatus(deviceId: String? = null): String {
+        return rpcClient.call("viber.messages.monitor.status", queueName = authQueue(deviceId))
     }
 
-    suspend fun getMonitoredGroups(): String {
-        return rpcClient.call("viber.messages.monitor.groups")
+    suspend fun getMonitoredGroups(deviceId: String? = null): String {
+        return rpcClient.call("viber.messages.monitor.groups", queueName = authQueue(deviceId))
     }
 
-    suspend fun findConversationIdByGroupKey(groupKey: String): Int? {
-        val groups = json.decodeFromString<List<GroupSummary>>(getGroups(includeAll = true))
+    suspend fun findConversationIdByGroupKey(groupKey: String, deviceId: String? = null): Int? {
+        val groups = json.decodeFromString<List<GroupSummary>>(getGroups(includeAll = true, deviceId = deviceId))
         return groups.firstOrNull { it.groupId == groupKey }?.id
             ?: groups.firstOrNull { it.groupId.isNullOrBlank() && it.id.toString() == groupKey }?.id
     }
 
-    suspend fun enableMonitorGroup(id: Int, request: EnableMonitorGroupRequest): String {
+    suspend fun enableMonitorGroup(id: Int, request: EnableMonitorGroupRequest, deviceId: String? = null): String {
+        val targetDevice = request.deviceId ?: deviceId
+        val payload = buildJsonObject {
+            put("id", id)
+            put("dto", json.encodeToJsonElement(request))
+        }
         return rpcClient.call(
             "viber.messages.monitor.enable_group",
-            mapOf("id" to id, "dto" to json.encodeToString(request))
+            payload,
+            queueName = authQueue(targetDevice)
         )
     }
 
-    suspend fun disableMonitorGroup(id: Int): String {
-        return rpcClient.call("viber.messages.monitor.disable_group", mapOf("id" to id))
+    suspend fun disableMonitorGroup(id: Int, deviceId: String? = null): String {
+        return rpcClient.call(
+            "viber.messages.monitor.disable_group",
+            mapOf("id" to id),
+            queueName = authQueue(deviceId)
+        )
     }
 
-    suspend fun getMonitoredMessages(queryParams: Map<String, String>): String {
-        return rpcClient.call("viber.messages.get_monitored", queryParams)
+    suspend fun getMonitoredMessages(queryParams: Map<String, String>, deviceId: String? = null): String {
+        return rpcClient.call("viber.messages.get_monitored", queryParams, queueName = authQueue(deviceId))
     }
 
     override suspend fun enterPhoneNumber(request: LoginRequest): LoginResponse {

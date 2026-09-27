@@ -3,6 +3,7 @@ package com.viber.routes.docs
 import com.viber.models.EnableMonitorGroupRequest
 import com.viber.models.MonitorStatus
 import com.viber.models.MonitoredGroup
+import com.viber.models.MonitoredMessageResponse
 import com.viber.models.StartMonitorRequest
 import io.github.smiley4.ktoropenapi.config.RouteConfig
 import io.ktor.http.HttpStatusCode
@@ -126,3 +127,84 @@ val describeDisableMonitorGroup: RouteConfig.() -> Unit = {
         }
     }
 }
+
+val describeGetMonitoredMessages: RouteConfig.() -> Unit = {
+    operationId = "getMonitoredMessages"
+    tags = listOf("Messages")
+    summary = "Получить список сохранённых сообщений мониторинга"
+    description = "Возвращает сообщения из Supabase, отфильтрованные по инстансу, беседе или наличию телефона."
+
+    request {
+        queryParameter<String>("deviceId") {
+            description = "ID инстанса эмулятора"
+            required = false
+        }
+        queryParameter<Int>("conversationId") {
+            description = "ID беседы/группы"
+            required = false
+        }
+        queryParameter<Boolean>("hasPhone") {
+            description = "Фильтр по наличию номера телефона"
+            required = false
+        }
+        queryParameter<String>("phoneSource") {
+            description = "Источник номера (message_text, viber_profile, none)"
+            required = false
+        }
+        queryParameter<Int>("limit") {
+            description = "Максимальное количество возвращаемых записей"
+            required = false
+        }
+        queryParameter<Int>("offset") {
+            description = "Смещение для пагинации"
+            required = false
+        }
+    }
+
+    response {
+        code(HttpStatusCode.OK) {
+            description = "Список сообщений"
+            body<List<MonitoredMessageResponse>>()
+        }
+    }
+}
+
+val describeExportMonitoredMessages: RouteConfig.() -> Unit = {
+    operationId = "exportMonitoredMessages"
+    tags = listOf("Messages")
+    summary = "Экспорт сообщений мониторинга"
+    description = "Выгружает сохранённые сообщения в формате CSV, JSON или JSONL."
+
+    request {
+        queryParameter<String>("format") {
+            description = "Формат выгрузки (csv, json, jsonl)"
+            required = false
+        }
+        queryParameter<String>("deviceId") {
+            description = "ID инстанса эмулятора"
+            required = false
+        }
+        queryParameter<Int>("conversationId") {
+            description = "ID беседы/группы"
+            required = false
+        }
+        queryParameter<Boolean>("hasPhone") {
+            description = "Фильтр по наличию номера телефона"
+            required = false
+        }
+        queryParameter<String>("phoneSource") {
+            description = "Источник номера (message_text, viber_profile, none)"
+            required = false
+        }
+        queryParameter<Int>("limit") {
+            description = "Ограничение количества записей (0 — без ограничений)"
+            required = false
+        }
+    }
+
+    response {
+        code(HttpStatusCode.OK) {
+            description = "Файл экспорта (текст / поток байтов)"
+        }
+    }
+}

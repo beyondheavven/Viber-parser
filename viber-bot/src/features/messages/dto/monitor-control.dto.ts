@@ -16,6 +16,12 @@ export class MonitoredGroupDto {
 
   /** Последний обработанный ID сообщения в этой группе. После рестарта эмулятора опрос продолжается отсюда. */
   lastMessageId!: number;
+
+  /** Глобальный ключ группы Viber (conversations.group_id). */
+  groupKey?: string | null;
+
+  /** Инстанс эмулятора, на котором стоит группа. */
+  deviceId?: string;
 }
 
 export class StartMonitorDto {
@@ -43,6 +49,9 @@ export class StartMonitorDto {
 export class MonitorStatusDto {
   /** Активен ли сейчас фоновый мониторинг сообщений. */
   isRunning!: boolean;
+
+  /** Инстанс эмулятора, к которому привязан статус. */
+  deviceId?: string;
 
   /** Устарело: используйте groups. Заполнено, если включена ровно одна группа. */
   conversationId?: number | null;

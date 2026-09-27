@@ -15,17 +15,20 @@ fun Route.groupRoutes(viberBotClient: ViberBotClient){
     route("/groups"){
         get("", describeGetGroups){
             val includeAll = call.request.queryParameters["all"]?.let { it == "true" || it == "1"} ?: false
-            call.respondText(viberBotClient.getGroups(includeAll), ContentType.Application.Json)
+            val deviceId = call.request.queryParameters["deviceId"]
+            call.respondText(viberBotClient.getGroups(includeAll, deviceId), ContentType.Application.Json)
         }
 
         get("/{id}", describeGetGroup) {
             val id = call.parameters["id"]!!.toInt()
-            call.respondText(viberBotClient.getGroup(id), ContentType.Application.Json)
+            val deviceId = call.request.queryParameters["deviceId"]
+            call.respondText(viberBotClient.getGroup(id, deviceId), ContentType.Application.Json)
         }
 
         get("/{id}/participants", describeGetGroupParticipants) {
             val id = call.parameters["id"]!!.toInt()
-            call.respondText(viberBotClient.getGroupParticipants(id), ContentType.Application.Json)
+            val deviceId = call.request.queryParameters["deviceId"]
+            call.respondText(viberBotClient.getGroupParticipants(id, deviceId), ContentType.Application.Json)
         }
     }
 

@@ -10,7 +10,11 @@ data class MonitoredGroup(
 
     val enabled: Boolean,
 
-    val lastMessageId: Int
+    val lastMessageId: Int,
+
+    val groupKey: String? = null,
+
+    val deviceId: String? = null,
 )
 
 @Serializable
@@ -45,6 +49,8 @@ data class EnableMonitorGroupRequest(
 @Serializable
 data class MonitorStatus(
     val isRunning: Boolean,
+
+    val deviceId: String? = null,
 
     val conversationId: Int? = null,
 

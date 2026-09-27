@@ -41,10 +41,18 @@ export class MessagesController {
 
   @MessagePattern('viber.messages.monitor.enable_group')
   async enableGroup(
-    @Payload() data: { id: number; dto?: EnableMonitorGroupDto },
+    @Payload() data: { id: number; dto?: EnableMonitorGroupDto | string },
   ): Promise<MonitorStatusDto> {
     const id = Number(data.id);
-    return this.monitorService.enableGroup(id, data.dto ?? {});
+    let dto = data.dto ?? {};
+    if (typeof dto === 'string') {
+      try {
+        dto = JSON.parse(dto) as EnableMonitorGroupDto;
+      } catch {
+        dto = {};
+      }
+    }
+    return this.monitorService.enableGroup(id, dto as EnableMonitorGroupDto);
   }
 
   @MessagePattern('viber.messages.monitor.disable_group')
