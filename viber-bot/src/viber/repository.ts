@@ -165,7 +165,7 @@ const MESSAGE_EXPRS: Readonly<Record<string, string>> = {
   token: 'cast(m.token as text)',
   // msg_date is epoch milliseconds, verified against a live database.
   date: 'm.msg_date',
-  body: 'm.body',
+  body: "coalesce(nullif(m.body, ''), nullif(m.description, ''))",
   senderId: 'pi._id',
   senderMemberId: "coalesce(nullif(pi.member_id, ''), nullif(pi.encrypted_member_id, ''))",
   senderName: 'coalesce(pi.contact_name, pi.display_name, pi.viber_name)',
