@@ -3,6 +3,7 @@ import cors from 'cors';
 import Docker from 'dockerode';
 import fs from 'node:fs';
 import { runContainerCommand } from './container-command.js';
+import { CompanionController } from './companion-stack.js';
 
 const app = express();
 const port = Number(process.env.PORT || 9000);
@@ -15,8 +16,24 @@ const vncPortStart = Number(process.env.VNC_PORT_START || 6081);
 const vncPortEnd = Number(process.env.VNC_PORT_END || 6120);
 const scrcpyPort = Number(process.env.SCRCPY_PORT || 8000);
 const hostPublicIp = process.env.HOST_PUBLIC_IP || '136.92.24.88';
+const companionNetwork = process.env.COMPANION_NETWORK || '';
+const companionAppiumImage = process.env.COMPANION_APPIUM_IMAGE || '';
+const companionBotImage = process.env.COMPANION_BOT_IMAGE || '';
+const companionRabbitMqUrl = process.env.COMPANION_RABBITMQ_URL || '';
+const companionDefaultPhone = process.env.VIBER_DEFAULT_PHONE;
+const companionDefaultCountry = process.env.VIBER_DEFAULT_COUNTRY;
+const companionDefaultName = process.env.VIBER_DEFAULT_NAME;
 
 const docker = new Docker({ socketPath: process.env.DOCKER_SOCKET || '/var/run/docker.sock' });
+const companions = new CompanionController(docker, {
+  network: companionNetwork,
+  appiumImage: companionAppiumImage,
+  botImage: companionBotImage,
+  rabbitMqUrl: companionRabbitMqUrl,
+  defaultPhone: companionDefaultPhone,
+  defaultCountry: companionDefaultCountry,
+  defaultName: companionDefaultName,
+});
 
 app.use(cors());
 app.use(express.json());
@@ -132,6 +149,41 @@ async function findFreePorts(): Promise<{ adbPort: number; vncPort: number }> {
   }
 
   return { adbPort, vncPort };
+}
+
+function requireCompanionConfig(): void {
+  const missing = [
+    ['COMPANION_NETWORK', companionNetwork],
+    ['COMPANION_APPIUM_IMAGE', companionAppiumImage],
+    ['COMPANION_BOT_IMAGE', companionBotImage],
+    ['COMPANION_RABBITMQ_URL', companionRabbitMqUrl],
+  ].filter(([, value]) => !value).map(([name]) => name);
+  if (missing.length > 0) {
+    throw new Error(`Missing companion configuration: ${missing.join(', ')}`);
+  }
+}
+
+async function reconcileCompanionStack(deviceId: string, adbPort: number): Promise<void> {
+  requireCompanionConfig();
+  await companions.reconcileRunning(deviceId, adbPort);
+}
+
+async function inspectManagedEmulator(container: Docker.Container): Promise<{
+  deviceId: string;
+  adbPort: number;
+  dynamic: boolean;
+  inspect: Docker.ContainerInspectInfo;
+}> {
+  const inspect = await container.inspect();
+  const name = (inspect.Name || '').replace(/^\//, '');
+  const dynamic = name !== 'android-emulator';
+  if (dynamic && inspect.Config?.Labels?.app !== 'viber-emulator' && !name.startsWith('viber-emu-')) {
+    throw new Error('Container is not a Viber emulator');
+  }
+  const adbBinding = inspect.HostConfig?.PortBindings?.['5555/tcp'];
+  const adbPort = adbBinding?.[0]?.HostPort ? Number(adbBinding[0].HostPort) : (dynamic ? 0 : 5555);
+  if (!adbPort) throw new Error('Emulator has no published ADB port');
+  return { deviceId: inspect.Id, adbPort, dynamic, inspect };
 }
 
 // Parse proxy URL (http://user:pass@host:port or socks5://...)
@@ -319,6 +371,10 @@ async function handleListEmulators(_req: Request, res: Response): Promise<void> 
         const adbPortBinding = c.Ports.find((p: any) => p.PrivatePort === 5555);
         const adbPort = adbPortBinding?.PublicPort || (rawName === 'android-emulator' ? 5555 : null);
 
+        if (rawName !== 'android-emulator' && adbPort && c.State === 'running') {
+          await reconcileCompanionStack(c.Id, adbPort);
+        }
+
         let bootCompleted = false;
         let viberRunning = false;
 
@@ -402,6 +458,7 @@ async function handleCreateEmulator(req: Request, res: Response): Promise<void> 
 
     const { adbPort, vncPort } = await findFreePorts();
 
+    requireCompanionConfig();
     const result = await buildAndStartEmulator({
       containerName,
       instanceName: name,
@@ -412,6 +469,12 @@ async function handleCreateEmulator(req: Request, res: Response): Promise<void> 
       resolution: resolution || '1280x720',
       proxyUrl,
       deviceProfile: deviceProfile || 'samsung-tab-s7',
+    });
+    await companions.provisionNew(result.id, result.adbPort, async () => {
+      const createdEmulator = docker.getContainer(result.id);
+      if (await createdEmulator.inspect().catch(() => null)) {
+        await createdEmulator.remove({ force: true });
+      }
     });
 
     res.status(201).json({
@@ -430,14 +493,19 @@ async function handleCreateEmulator(req: Request, res: Response): Promise<void> 
 async function handleStartEmulator(req: Request, res: Response): Promise<void> {
   try {
     const container = docker.getContainer(req.params.id);
-    await container.start();
-    const inspect = await container.inspect();
-    const portBindings = inspect.HostConfig?.PortBindings || {};
-    const adbBinding = portBindings['5555/tcp'];
-    const adbPort = adbBinding?.[0]?.HostPort ? Number(adbBinding[0].HostPort) : null;
-    if (adbPort) {
-      void ensureScrcpyConnected(adbPort);
-    }
+    const emulator = await inspectManagedEmulator(container);
+    await companions.runExclusive(emulator.deviceId, async () => {
+      let fresh = await inspectManagedEmulator(container);
+      if (!fresh.inspect.State.Running) {
+        await container.start();
+        fresh = await inspectManagedEmulator(container);
+      }
+      if (fresh.dynamic) {
+        requireCompanionConfig();
+        await companions.reconcileRunningLocked(fresh.deviceId, fresh.adbPort);
+      }
+      void ensureScrcpyConnected(fresh.adbPort);
+    });
     res.json({ success: true, message: 'Инстанс запущен' });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -447,7 +515,14 @@ async function handleStartEmulator(req: Request, res: Response): Promise<void> {
 async function handleStopEmulator(req: Request, res: Response): Promise<void> {
   try {
     const container = docker.getContainer(req.params.id);
-    await container.stop();
+    const emulator = await inspectManagedEmulator(container);
+    await companions.runExclusive(emulator.deviceId, async () => {
+      const fresh = await inspectManagedEmulator(container);
+      if (fresh.dynamic) {
+        await companions.stopCompanionsLocked(fresh.deviceId);
+      }
+      if (fresh.inspect.State.Running) await container.stop();
+    });
     res.json({ success: true, message: 'Инстанс остановлен' });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -457,7 +532,20 @@ async function handleStopEmulator(req: Request, res: Response): Promise<void> {
 async function handleRestartEmulator(req: Request, res: Response): Promise<void> {
   try {
     const container = docker.getContainer(req.params.id);
-    await container.restart();
+    const emulator = await inspectManagedEmulator(container);
+    await companions.runExclusive(emulator.deviceId, async () => {
+      let fresh = await inspectManagedEmulator(container);
+      if (fresh.dynamic) {
+        await companions.stopCompanionsLocked(fresh.deviceId);
+      }
+      await container.restart();
+      fresh = await inspectManagedEmulator(container);
+      if (fresh.dynamic) {
+        requireCompanionConfig();
+        await companions.reconcileRunningLocked(fresh.deviceId, fresh.adbPort);
+      }
+      void ensureScrcpyConnected(fresh.adbPort);
+    });
     res.json({ success: true, message: 'Инстанс перезапущен' });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -467,10 +555,17 @@ async function handleRestartEmulator(req: Request, res: Response): Promise<void>
 async function handleDeleteEmulator(req: Request, res: Response): Promise<void> {
   try {
     const container = docker.getContainer(req.params.id);
-    const inspect = await container.inspect().catch(() => null);
+    const emulator = await inspectManagedEmulator(container);
+    const inspect = emulator.inspect;
     const deleteVolumes = req.query.deleteData === 'true';
 
-    await container.remove({ force: true });
+    await companions.runExclusive(emulator.deviceId, async () => {
+      const fresh = await inspectManagedEmulator(container);
+      if (fresh.dynamic) {
+        await companions.removeCompanionsLocked(fresh.deviceId);
+      }
+      await container.remove({ force: true });
+    });
 
     if (deleteVolumes && inspect) {
       const name = inspect.Config?.Labels?.instance || (inspect.Name || '').replace(/^\//, '').replace(/^viber-emu-/, '');

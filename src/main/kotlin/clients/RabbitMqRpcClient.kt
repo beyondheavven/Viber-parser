@@ -25,9 +25,13 @@ class MicroserviceException(
     override val message: String
 ) : RuntimeException(message)
 
+interface RpcClient {
+    suspend fun call(pattern: String, payload: Any? = null, queueName: String? = null): String
+}
+
 class RabbitMqRpcClient(
     private val settings: RabbitMqSettings,
-) : Closeable {
+) : Closeable, RpcClient {
 
     private val logger = LoggerFactory.getLogger(RabbitMqRpcClient::class.java)
 
@@ -86,7 +90,9 @@ class RabbitMqRpcClient(
         logger.info("RabbitMQ RPC client connected. Target queue: ${settings.queue}")
     }
 
-    suspend fun call(pattern: String, payload: Any? = null): String {
+    override suspend fun call(pattern: String, payload: Any?, queueName: String?): String {
+        val targetQueue = queueName ?: settings.queue
+        channel.queueDeclare(targetQueue, true, false, false, null)
         val correlationId = UUID.randomUUID().toString()
         val future = CompletableFuture<String>()
         pendingRequests[correlationId] = future
@@ -98,7 +104,7 @@ class RabbitMqRpcClient(
             .contentType("application/json")
             .build()
 
-        channel.basicPublish("", settings.queue, props, messageJson.toByteArray(Charsets.UTF_8))
+        channel.basicPublish("", targetQueue, props, messageJson.toByteArray(Charsets.UTF_8))
 
         return try {
             withTimeout(settings.timeout.toMillis().milliseconds) {

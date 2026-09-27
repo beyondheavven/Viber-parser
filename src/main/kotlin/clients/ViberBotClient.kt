@@ -21,10 +21,20 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
 
+interface BotAuthClient {
+    suspend fun enterPhoneNumber(request: LoginRequest): LoginResponse
+    suspend fun enterCode(request: CodeRequest): LoginResponse
+    suspend fun getAuthStatus(): String
+    suspend fun startQrLogin(request: QrStartRequest): String
+    suspend fun getQrLoginStatus(deviceId: String? = null): String
+    suspend fun cancelQrLogin(deviceId: String? = null): String
+}
+
 class ViberBotClient(
-    private val rpcClient: RabbitMqRpcClient
-) : RosterClient {
-    constructor(settings: RabbitMqSettings) : this(RabbitMqRpcClient(settings))
+    private val rpcClient: RpcClient,
+    private val defaultQueue: String,
+) : RosterClient, BotAuthClient {
+    constructor(settings: RabbitMqSettings) : this(RabbitMqRpcClient(settings), settings.queue)
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -129,31 +139,33 @@ class ViberBotClient(
         return rpcClient.call("viber.messages.get_monitored", queryParams)
     }
 
-    suspend fun enterPhoneNumber(request: LoginRequest): LoginResponse {
-        val raw = rpcClient.call("viber.auth.phone", json.encodeToString(request))
+    override suspend fun enterPhoneNumber(request: LoginRequest): LoginResponse {
+        val raw = rpcClient.call("viber.auth.phone", json.encodeToString(request), authQueue(request.deviceId))
         return json.decodeFromString(raw)
     }
 
-    suspend fun enterCode(request: CodeRequest): LoginResponse {
-        val raw = rpcClient.call("viber.auth.code", json.encodeToString(request))
+    override suspend fun enterCode(request: CodeRequest): LoginResponse {
+        val raw = rpcClient.call("viber.auth.code", json.encodeToString(request), authQueue(request.deviceId))
         return json.decodeFromString(raw)
     }
 
-    suspend fun getAuthStatus(): String {
+    override suspend fun getAuthStatus(): String {
         return rpcClient.call("viber.auth.status")
     }
 
-    suspend fun startQrLogin(request: QrStartRequest): String {
-        return rpcClient.call("viber.auth.qr.start", sparseJson.encodeToString(request))
+    override suspend fun startQrLogin(request: QrStartRequest): String {
+        return rpcClient.call("viber.auth.qr.start", sparseJson.encodeToString(request), authQueue(request.deviceId))
     }
 
-    suspend fun getQrLoginStatus(): String {
-        return rpcClient.call("viber.auth.qr.status")
+    override suspend fun getQrLoginStatus(deviceId: String?): String {
+        return rpcClient.call("viber.auth.qr.status", queueName = authQueue(deviceId))
     }
 
-    suspend fun cancelQrLogin(): String {
-        return rpcClient.call("viber.auth.qr.cancel")
+    override suspend fun cancelQrLogin(deviceId: String?): String {
+        return rpcClient.call("viber.auth.qr.cancel", queueName = authQueue(deviceId))
     }
+
+    private fun authQueue(deviceId: String?): String = DeviceQueueRouting.queueName(deviceId, defaultQueue)
 
 
     suspend fun getBroadcastStatus(): String {

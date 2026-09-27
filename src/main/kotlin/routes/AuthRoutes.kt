@@ -1,5 +1,6 @@
 package com.viber.routes
 
+import com.viber.clients.DeviceQueueRouting
 import com.viber.models.CodeRequest
 import com.viber.models.LoginRequest
 import com.viber.models.QrStartRequest
@@ -15,6 +16,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.request.receiveNullable
+import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
@@ -25,6 +27,7 @@ fun Route.authRoutes(authService: AuthService) {
     route("/auth") {
         post("/phone", describeLogin){
             val request = call.receiveNullable<LoginRequest>() ?: LoginRequest()
+            validateDeviceId(request.deviceId)
             val result = authService.enterPhoneNumber(request)
             if (result.success){
                 call.respond(HttpStatusCode.OK, result)
@@ -35,6 +38,7 @@ fun Route.authRoutes(authService: AuthService) {
 
         post("/code", describeEnterCode) {
             val request = call.receive<CodeRequest>()
+            validateDeviceId(request.deviceId)
             val result = authService.enterCode(request)
             if (result.success){
                 call.respond(HttpStatusCode.OK, result)
@@ -46,16 +50,25 @@ fun Route.authRoutes(authService: AuthService) {
         route("/qr") {
             post("/start", describeStartQrLogin) {
                 val request = call.receiveNullable<QrStartRequest>() ?: QrStartRequest()
+                validateDeviceId(request.deviceId)
                 call.respondText(authService.startQrLogin(request), ContentType.Application.Json)
             }
 
             get("/status", describeGetQrLoginStatus) {
-                call.respondText(authService.getQrLoginStatus(), ContentType.Application.Json)
+                val deviceId = validateDeviceId(call.request.queryParameters["deviceId"])
+                call.respondText(authService.getQrLoginStatus(deviceId), ContentType.Application.Json)
             }
 
             post("/cancel", describeCancelQrLogin) {
-                call.respondText(authService.cancelQrLogin(), ContentType.Application.Json)
+                val deviceId = validateDeviceId(call.request.queryParameters["deviceId"])
+                call.respondText(authService.cancelQrLogin(deviceId), ContentType.Application.Json)
             }
         }
     }
+}
+
+private fun validateDeviceId(deviceId: String?): String? = try {
+    DeviceQueueRouting.validate(deviceId)
+} catch (cause: IllegalArgumentException) {
+    throw BadRequestException(cause.message ?: "Invalid deviceId", cause)
 }

@@ -103,6 +103,13 @@ services:
       - VNC_PORT_START=6081
       - VNC_PORT_END=6120
       - SCRCPY_PORT=8000
+      - COMPANION_NETWORK=${COMPANION_NETWORK:-viber-parser_default}
+      - COMPANION_APPIUM_IMAGE=${COMPANION_APPIUM_IMAGE:-appium/appium:latest}
+      - COMPANION_BOT_IMAGE=${COMPANION_BOT_IMAGE:-viber-parser-bot}
+      - COMPANION_RABBITMQ_URL=amqp://${RABBITMQ_USER:-viber}:${RABBITMQ_PASS:-viber_secret}@rabbitmq:5672?heartbeat=60
+      - VIBER_DEFAULT_PHONE=${VIBER_DEFAULT_PHONE:-}
+      - VIBER_DEFAULT_COUNTRY=${VIBER_DEFAULT_COUNTRY:-}
+      - VIBER_DEFAULT_NAME=${VIBER_DEFAULT_NAME:-Maks}
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

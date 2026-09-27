@@ -1,6 +1,8 @@
 import type { QrAuthState } from '../qr/qr-state.js';
 
 export interface QrStartDto {
+  /** Emulator identifier used by the API to route this request to its bot queue. */
+  deviceId?: string;
   /**
    * Number of the Viber account the emulator joins as a secondary device.
    * Falls back to VIBER_DEFAULT_PHONE. No SMS is sent: the number only tells
