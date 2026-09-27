@@ -38,6 +38,9 @@ private class FakeGroupRepository : ViberGroupRepository {
     override suspend fun find(instanceId: String, conversationId: Int): ViberGroupRow? =
         rows[instanceId to conversationId]
 
+    override suspend fun findByGroupKey(instanceId: String, groupKey: String): ViberGroupRow? =
+        rows.values.firstOrNull { it.instanceId == instanceId && it.groupKey == groupKey }
+
     override suspend fun insertPlaceholderIfAbsent(group: ViberGroupRow): ViberGroupRow {
         val key = group.instanceId to requireNotNull(group.conversationId)
         return rows.getOrPut(key) { group.copy(id = 77) }
@@ -48,5 +51,12 @@ private class FakeGroupRepository : ViberGroupRepository {
         val promoted = group.copy(id = rows[key]?.id ?: 77)
         rows[key] = promoted
         return promoted
+    }
+
+    override suspend fun updateGroup(id: Long, group: ViberGroupRow): ViberGroupRow {
+        val key = group.instanceId to requireNotNull(group.conversationId)
+        val updated = group.copy(id = id)
+        rows[key] = updated
+        return updated
     }
 }

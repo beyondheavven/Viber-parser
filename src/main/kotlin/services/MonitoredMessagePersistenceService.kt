@@ -13,18 +13,7 @@ interface MonitoredMessageRepository : ViberGroupRepository {
 
 class SupabaseMonitoredMessageRepository(
     private val client: SupabaseClient,
-) : MonitoredMessageRepository {
-    private val groups = SupabaseViberGroupRepository(client)
-
-    override suspend fun find(instanceId: String, conversationId: Int): ViberGroupRow? =
-        groups.find(instanceId, conversationId)
-
-    override suspend fun insertPlaceholderIfAbsent(group: ViberGroupRow): ViberGroupRow =
-        groups.insertPlaceholderIfAbsent(group)
-
-    override suspend fun upsertRosterGroup(group: ViberGroupRow): ViberGroupRow =
-        groups.upsertRosterGroup(group)
-
+) : MonitoredMessageRepository, ViberGroupRepository by SupabaseViberGroupRepository(client) {
     override suspend fun upsertMessage(message: ViberMonitoredMessageRow) {
         client.from("viber_monitored_messages").upsert(message) {
             onConflict = "instance_id,conversation_id,source_key"

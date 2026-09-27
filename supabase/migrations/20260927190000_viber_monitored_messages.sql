@@ -7,7 +7,9 @@ alter table public.viber_groups
 create unique index if not exists viber_groups_instance_group_key_key
   on public.viber_groups (instance_id, group_key);
 
-create unique index if not exists viber_groups_instance_conversation_key
+drop index if exists public.viber_groups_instance_conversation_key;
+
+create index if not exists viber_groups_instance_conversation_idx
   on public.viber_groups (instance_id, conversation_id);
 
 create table if not exists public.viber_monitored_messages (
