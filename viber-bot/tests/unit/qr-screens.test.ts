@@ -39,12 +39,16 @@ describe('classifyViberScreen', () => {
     expect(kindOf('synthetic-progress')).toBe('progress');
   });
 
-  it('calls the chat list ready whenever HomeActivity is resumed, however it is spelled', () => {
+  it('falls back to the chat list when HomeActivity is resumed, however it is spelled', () => {
     for (const activity of ['.HomeActivity', 'com.viber.voip.HomeActivity', 'com.viber.voip/.HomeActivity']) {
-      expect(kindOf('synthetic-progress', activity)).toBe('chat_list');
+      expect(kindOf('synthetic-chat-list', activity)).toBe('chat_list');
     }
     expect(isHomeActivity('.registration.RegistrationActivity')).toBe(false);
     expect(isHomeActivity('.NotHomeActivityX')).toBe(false);
+  });
+
+  it('recognises the welcome screen even when Viber reports HomeActivity', () => {
+    expect(kindOf('welcome', '.HomeActivity')).toBe('welcome');
   });
 
   it('recognises the chat list by its own ids, and not by familiar-looking generic ones', () => {

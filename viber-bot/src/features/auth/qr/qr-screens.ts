@@ -210,9 +210,7 @@ export function classifyViberScreen(
   screen: ScreenSnapshot,
   activity: string | null,
 ): ViberScreenKind {
-  // The resumed activity outranks the tree: a dump taken mid-animation can
-  // read like nothing in particular while HomeActivity is already up.
-  if (isHomeActivity(activity) || screen.has(CHAT_LIST)) return 'chat_list';
+  if (screen.has(CHAT_LIST)) return 'chat_list';
   if (screen.has(QR_IMAGE) || screen.has(QR_CONTAINER)) return 'qr';
   if (screen.has(ACTIVATION_CONTINUE)) return 'activated';
   if (screen.has(ADS_CONSENT_SCREEN)) return 'ads_consent';
@@ -224,6 +222,9 @@ export function classifyViberScreen(
   if (screen.has(PROFILE_NAME_FIELD) || screen.has(PROFILE_CONTINUE)) return 'profile_name';
   if (screen.has(DIALOG_SCREEN)) return 'dialog';
   if (screen.has(PROGRESS)) return 'progress';
+  // HomeActivity also hosts registration UI in some Viber versions, so only
+  // use it as a fallback when the tree has no more specific screen markers.
+  if (isHomeActivity(activity)) return 'chat_list';
   return 'unknown';
 }
 
