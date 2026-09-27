@@ -27,14 +27,20 @@ import kotlin.test.assertFailsWith
 class DeviceQueueRoutingTest {
     private val deviceId = "a".repeat(64)
     private val expectedQueue = "viber_commands_queue.device.$deviceId"
+    private val routingId = "136.92.24.88:5556"
+    private val expectedRoutingQueue = "viber_commands_queue.device.$routingId"
 
     @Test
     fun `device queue is deterministic and rejects unsafe ids`() {
         assertEquals("viber_commands_queue", DeviceQueueRouting.queueName(null))
         assertEquals(expectedQueue, DeviceQueueRouting.queueName(deviceId))
         assertEquals("viber_commands_queue.device.worker_1", DeviceQueueRouting.queueName("worker_1"))
+        assertEquals(
+            expectedRoutingQueue,
+            DeviceQueueRouting.queueName(routingId)
+        )
 
-        listOf("", "../worker", "worker.name", "worker name", "a".repeat(65)).forEach { invalid ->
+        listOf("", "../worker", "worker.name", "worker name", "host:0", "host:65536", "a".repeat(65)).forEach { invalid ->
             assertFailsWith<IllegalArgumentException> { DeviceQueueRouting.queueName(invalid) }
         }
     }
@@ -44,13 +50,13 @@ class DeviceQueueRoutingTest {
         val rpc = RecordingRpcClient()
         val client = ViberBotClient(rpc, "viber_commands_queue")
 
-        client.enterPhoneNumber(LoginRequest(deviceId = deviceId))
-        client.enterCode(CodeRequest(code = "1234", deviceId = deviceId))
-        client.startQrLogin(QrStartRequest(deviceId = deviceId))
-        client.getQrLoginStatus(deviceId)
-        client.cancelQrLogin(deviceId)
+        client.enterPhoneNumber(LoginRequest(deviceId = routingId))
+        client.enterCode(CodeRequest(code = "1234", deviceId = routingId))
+        client.startQrLogin(QrStartRequest(deviceId = routingId))
+        client.getQrLoginStatus(routingId)
+        client.cancelQrLogin(routingId)
 
-        assertEquals(List(5) { expectedQueue }, rpc.queues)
+        assertEquals(List(5) { expectedRoutingQueue }, rpc.queues)
     }
 
     @Test
@@ -72,9 +78,9 @@ class DeviceQueueRoutingTest {
             routing { authRoutes(AuthService(authClient)) }
         }
 
-        assertEquals(HttpStatusCode.OK, client.get("/auth/qr/status?deviceId=$deviceId").status)
-        assertEquals(HttpStatusCode.OK, client.post("/auth/qr/cancel?deviceId=$deviceId").status)
-        assertEquals(listOf<String?>(deviceId, deviceId), authClient.deviceIds.toList())
+        assertEquals(HttpStatusCode.OK, client.get("/auth/qr/status?deviceId=136.92.24.88%3A5556").status)
+        assertEquals(HttpStatusCode.OK, client.post("/auth/qr/cancel?deviceId=136.92.24.88%3A5556").status)
+        assertEquals(listOf<String?>(routingId, routingId), authClient.deviceIds.toList())
     }
 
     @Test

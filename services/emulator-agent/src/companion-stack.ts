@@ -1,12 +1,13 @@
 import type Docker from 'dockerode';
 
 const DEFAULT_QUEUE = 'viber_commands_queue';
-const VALID_DEVICE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+const VALID_LEGACY_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+const VALID_HOST_LABEL = /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/;
 
 export function commandQueueName(deviceId?: string, baseQueue = DEFAULT_QUEUE): string {
   if (deviceId === undefined) return baseQueue;
-  if (!VALID_DEVICE_ID.test(deviceId)) {
-    throw new Error("deviceId must contain 1-64 alphanumeric, '-' or '_' characters");
+  if (!isValidRoutingId(deviceId)) {
+    throw new Error('deviceId must be a safe instance id or hostname:port (maximum 64 characters)');
   }
   return `${baseQueue}.device.${deviceId}`;
 }
@@ -23,6 +24,7 @@ export interface CompanionRuntimeConfig {
 
 interface CompanionConfig extends CompanionRuntimeConfig {
   deviceId: string;
+  routingId: string;
   adbPort: number;
 }
 
@@ -37,7 +39,7 @@ export interface CompanionSpecs {
 }
 
 export function buildCompanionSpecs(config: CompanionConfig): CompanionSpecs {
-  const queue = commandQueueName(config.deviceId);
+  const queue = commandQueueName(config.routingId);
   const suffix = config.deviceId.slice(0, 12).toLowerCase();
   const appiumName = `viber-appium-${suffix}`;
   const botName = `viber-bot-${suffix}`;
@@ -133,18 +135,19 @@ export class CompanionController {
     }
   }
 
-  async reconcileRunning(deviceId: string, adbPort: number): Promise<void> {
-    await this.runExclusive(deviceId, () => this.reconcileRunningLocked(deviceId, adbPort));
+  async reconcileRunning(deviceId: string, adbPort: number, routingId: string): Promise<void> {
+    await this.runExclusive(deviceId, () => this.reconcileRunningLocked(deviceId, adbPort, routingId));
   }
 
   async provisionNew(
     deviceId: string,
     adbPort: number,
+    routingId: string,
     rollbackEmulator: () => Promise<void>,
   ): Promise<void> {
     await this.runExclusive(deviceId, async () => {
       try {
-        await this.reconcileRunningLocked(deviceId, adbPort);
+        await this.reconcileRunningLocked(deviceId, adbPort, routingId);
       } catch (cause) {
         try {
           await this.removeCompanionsLocked(deviceId);
@@ -156,13 +159,13 @@ export class CompanionController {
     });
   }
 
-  async reconcileRunningLocked(deviceId: string, adbPort: number): Promise<void> {
+  async reconcileRunningLocked(deviceId: string, adbPort: number, routingId: string): Promise<void> {
     if (!await this.isEmulatorRunning(deviceId)) {
       await this.stopCompanionsLocked(deviceId);
       return;
     }
 
-    const specs = buildCompanionSpecs({ deviceId, adbPort, ...this.config });
+    const specs = buildCompanionSpecs({ deviceId, routingId, adbPort, ...this.config });
     for (const spec of [specs.appium, specs.bot]) {
       if (!await this.ensureCurrentAndRunning(spec, deviceId)) {
         await this.stopCompanionsLocked(deviceId);
@@ -260,4 +263,20 @@ function envMap(entries: string[]): Map<string, string> {
     const separator = entry.indexOf('=');
     return separator === -1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)];
   }));
+}
+
+function isValidRoutingId(deviceId: string): boolean {
+  if (VALID_LEGACY_ID.test(deviceId)) return true;
+  if (deviceId.length > 64) return false;
+
+  const separator = deviceId.lastIndexOf(':');
+  if (separator <= 0 || separator === deviceId.length - 1) return false;
+  const host = deviceId.slice(0, separator);
+  const portText = deviceId.slice(separator + 1);
+  if (!/^[0-9]{1,5}$/.test(portText)) return false;
+  const port = Number(portText);
+  return Number.isInteger(port)
+    && port >= 1
+    && port <= 65535
+    && host.split('.').every((label) => VALID_HOST_LABEL.test(label));
 }

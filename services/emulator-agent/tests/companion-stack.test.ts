@@ -7,6 +7,7 @@ import {
 } from '../src/companion-stack.js';
 
 const deviceId = 'a'.repeat(64);
+const routingId = '136.92.24.88:5556';
 const runtimeConfig = {
   network: 'viber-parser_default',
   appiumImage: 'appium/appium:latest',
@@ -21,8 +22,9 @@ test('command queue naming matches the API contract and rejects unsafe ids', () 
   assert.equal(commandQueueName(undefined), 'viber_commands_queue');
   assert.equal(commandQueueName(deviceId), `viber_commands_queue.device.${deviceId}`);
   assert.equal(commandQueueName('worker_1'), 'viber_commands_queue.device.worker_1');
+  assert.equal(commandQueueName(routingId), `viber_commands_queue.device.${routingId}`);
 
-  for (const invalid of ['', '../worker', 'worker.name', 'worker name', 'a'.repeat(65)]) {
+  for (const invalid of ['', '../worker', 'worker.name', 'worker name', 'host:0', 'host:65536', 'a'.repeat(65)]) {
     assert.throws(() => commandQueueName(invalid), /deviceId/);
   }
 });
@@ -30,6 +32,7 @@ test('command queue naming matches the API contract and rejects unsafe ids', () 
 test('companion specs isolate appium and bot for the selected emulator', () => {
   const specs = buildCompanionSpecs({
     deviceId,
+    routingId,
     adbPort: 5556,
     ...runtimeConfig,
   });
@@ -43,7 +46,8 @@ test('companion specs isolate appium and bot for the selected emulator', () => {
     'ANDROID_DEVICES=host.docker.internal:5556',
   ]);
   assert.equal(specs.bot.createOptions.HostConfig?.NetworkMode, 'viber-parser_default');
-  assert.ok(specs.bot.createOptions.Env?.includes(`RABBITMQ_QUEUE=viber_commands_queue.device.${deviceId}`));
+  assert.equal(specs.bot.createOptions.Labels?.['viber.emulator.id'], deviceId);
+  assert.ok(specs.bot.createOptions.Env?.includes(`RABBITMQ_QUEUE=viber_commands_queue.device.${routingId}`));
   assert.ok(specs.bot.createOptions.Env?.includes('APPIUM_HOST=viber-appium-aaaaaaaaaaaa'));
   assert.ok(specs.bot.createOptions.Env?.includes('ANDROID_SERIAL=host.docker.internal:5556'));
 });
@@ -53,6 +57,14 @@ test('reconciliation replaces companions when image, environment or network drif
   docker.images.set('appium/appium:latest', 'sha256:appium-new');
   docker.images.set('viber-parser-bot', 'sha256:bot-new');
   docker.addEmulator(deviceId, true);
+  const oldBotEnv = buildCompanionSpecs({
+    deviceId,
+    routingId,
+    adbPort: 5556,
+    ...runtimeConfig,
+  }).bot.createOptions.Env?.map((entry) => entry.startsWith('RABBITMQ_QUEUE=')
+    ? `RABBITMQ_QUEUE=viber_commands_queue.device.${deviceId}`
+    : entry) ?? [];
   docker.addCompanion('viber-appium-aaaaaaaaaaaa', deviceId, 'appium', {
     imageId: 'sha256:appium-old',
     imageName: 'appium/appium:latest',
@@ -60,14 +72,14 @@ test('reconciliation replaces companions when image, environment or network drif
     network: 'old_default',
   });
   docker.addCompanion('viber-bot-aaaaaaaaaaaa', deviceId, 'bot', {
-    imageId: 'sha256:bot-old',
+    imageId: 'sha256:bot-new',
     imageName: 'viber-parser-bot',
-    env: ['RABBITMQ_QUEUE=stale'],
-    network: 'old_default',
+    env: oldBotEnv,
+    network: 'viber-parser_default',
   });
 
   const controller = new CompanionController(docker as never, runtimeConfig);
-  await controller.reconcileRunning(deviceId, 5556);
+  await controller.reconcileRunning(deviceId, 5556, routingId);
 
   assert.deepEqual(docker.removed.sort(), ['viber-appium-aaaaaaaaaaaa', 'viber-bot-aaaaaaaaaaaa']);
   assert.deepEqual(docker.created, ['viber-appium-aaaaaaaaaaaa', 'viber-bot-aaaaaaaaaaaa']);
@@ -101,7 +113,7 @@ test('device operations are serialized and stopped emulators cannot recreate com
   await Promise.all([first, second]);
   assert.deepEqual(events, ['first-start', 'first-end', 'second']);
 
-  await controller.reconcileRunning(deviceId, 5556);
+  await controller.reconcileRunning(deviceId, 5556, routingId);
   assert.deepEqual(docker.created, []);
 });
 
@@ -115,7 +127,7 @@ test('new emulator provisioning rolls back partial companions and the emulator o
   let rolledBack = false;
 
   await assert.rejects(
-    controller.provisionNew(deviceId, 5556, async () => {
+    controller.provisionNew(deviceId, 5556, routingId, async () => {
       rolledBack = true;
       await docker.container(deviceId).remove({ force: true });
     }),

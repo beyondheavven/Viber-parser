@@ -163,9 +163,13 @@ function requireCompanionConfig(): void {
   }
 }
 
+function routingIdFor(adbPort: number): string {
+  return `${hostPublicIp}:${adbPort}`;
+}
+
 async function reconcileCompanionStack(deviceId: string, adbPort: number): Promise<void> {
   requireCompanionConfig();
-  await companions.reconcileRunning(deviceId, adbPort);
+  await companions.reconcileRunning(deviceId, adbPort, routingIdFor(adbPort));
 }
 
 async function inspectManagedEmulator(container: Docker.Container): Promise<{
@@ -309,6 +313,7 @@ async function buildAndStartEmulator(config: EmulatorConfig) {
 
   return {
     id: container.id,
+    deviceId: routingIdFor(adbPort),
     name: instanceName,
     containerName,
     adbPort,
@@ -370,6 +375,7 @@ async function handleListEmulators(_req: Request, res: Response): Promise<void> 
         const name = c.Labels?.instance || rawName.replace(/^viber-emu-/, '');
         const adbPortBinding = c.Ports.find((p: any) => p.PrivatePort === 5555);
         const adbPort = adbPortBinding?.PublicPort || (rawName === 'android-emulator' ? 5555 : null);
+        const adbSerial = adbPort ? routingIdFor(adbPort) : null;
 
         if (rawName !== 'android-emulator' && adbPort && c.State === 'running') {
           await reconcileCompanionStack(c.Id, adbPort);
@@ -410,13 +416,14 @@ async function handleListEmulators(_req: Request, res: Response): Promise<void> 
 
         return {
           id: c.Id,
+          deviceId: rawName === 'android-emulator' ? null : adbSerial,
           name,
           containerName: rawName,
           status: statusText,
           state: c.State,
           created: c.Created,
           adbPort,
-          adbSerial: adbPort ? `${hostPublicIp}:${adbPort}` : null,
+          adbSerial,
           scrcpyUrl: buildScrcpyUrl(hostPublicIp, scrcpyPort, adbPort),
           bootCompleted,
           viberRunning,
@@ -470,7 +477,7 @@ async function handleCreateEmulator(req: Request, res: Response): Promise<void> 
       proxyUrl,
       deviceProfile: deviceProfile || 'samsung-tab-s7',
     });
-    await companions.provisionNew(result.id, result.adbPort, async () => {
+    await companions.provisionNew(result.id, result.adbPort, result.deviceId, async () => {
       const createdEmulator = docker.getContainer(result.id);
       if (await createdEmulator.inspect().catch(() => null)) {
         await createdEmulator.remove({ force: true });
@@ -502,7 +509,7 @@ async function handleStartEmulator(req: Request, res: Response): Promise<void> {
       }
       if (fresh.dynamic) {
         requireCompanionConfig();
-        await companions.reconcileRunningLocked(fresh.deviceId, fresh.adbPort);
+        await companions.reconcileRunningLocked(fresh.deviceId, fresh.adbPort, routingIdFor(fresh.adbPort));
       }
       void ensureScrcpyConnected(fresh.adbPort);
     });
@@ -542,7 +549,7 @@ async function handleRestartEmulator(req: Request, res: Response): Promise<void>
       fresh = await inspectManagedEmulator(container);
       if (fresh.dynamic) {
         requireCompanionConfig();
-        await companions.reconcileRunningLocked(fresh.deviceId, fresh.adbPort);
+        await companions.reconcileRunningLocked(fresh.deviceId, fresh.adbPort, routingIdFor(fresh.adbPort));
       }
       void ensureScrcpyConnected(fresh.adbPort);
     });
