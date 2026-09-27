@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MessageType, type Message } from 'frida';
-import type { Adb } from '../../src/device/adb.js';
+import type { Adb } from '../../src/platform/adb.js';
 
 const mocks = vi.hoisted(() => ({
   createFridaRuntime: vi.fn(),
 }));
 
-vi.mock('../../src/intercept/frida-runtime.js', () => ({
+vi.mock('../../src/platform/frida/frida-runtime.js', () => ({
   createFridaRuntime: mocks.createFridaRuntime,
 }));
 
@@ -15,7 +15,7 @@ vi.mock('../../src/config/env.js', () => ({
   loadViberConfig: () => ({ appPackage: 'com.viber.voip' }),
 }));
 
-import { OnlineStatusService } from '../../src/automation/frida/online-status.service.js';
+import { OnlineStatusService } from '../../src/features/participants/online-status.service.js';
 
 describe('OnlineStatusService batching', () => {
   afterEach(() => {

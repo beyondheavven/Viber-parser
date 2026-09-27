@@ -134,6 +134,11 @@ Ktor API принимает внешние HTTP-запросы и делегир
 | `POST` | `/api/auth/phone` | `viber.auth.phone` | Ввод номера телефона для входа в Viber |
 | `POST` | `/api/auth/code` | `viber.auth.code` | Ввод 6-значного кода подтверждения из SMS |
 | `GET` | `/api/auth/status` | `viber.auth.status` | Проверка текущего статуса авторизации приложения |
+| `POST` | `/api/auth/qr/start` | `viber.auth.qr.start` | Вход по QR-коду вторым устройством (без SMS): открывает экран с кодом |
+| `GET` | `/api/auth/qr/status` | `viber.auth.qr.status` | Состояние входа по QR и сам код (SVG / PNG) — опрашивать раз в пару секунд |
+| `POST` | `/api/auth/qr/cancel` | `viber.auth.qr.cancel` | Отменить вход по QR, вернуть плотность экрана, освободить эмулятор |
+
+Вход по QR работает только в планшетной раскладке Viber (`sw600dp`): если экран эмулятора уже, бот временно снижает `wm density` на шаге ввода номера и возвращает исходную, как только появился QR-код. Ссылку «Activate this device as your only device» бот не нажимает никогда — она увела бы аккаунт с основного телефона.
 
 ### Группы и чаты
 | Метод | HTTP Эндпоинт | Паттерн RabbitMQ | Описание |

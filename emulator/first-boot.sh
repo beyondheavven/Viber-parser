@@ -27,8 +27,11 @@ apply_settings() {
   adb shell settings put global transition_animation_scale 0
   adb shell settings put global animator_duration_scale 0
   adb shell settings put system accelerometer_rotation 0
-  adb shell settings put global private_dns_mode hostname
-  adb shell settings put global private_dns_specifier ${DNS:-one.one.one.one}
+  adb shell svc wifi disable
+  adb shell settings put global private_dns_mode off
+  adb shell settings delete global private_dns_specifier
+  adb shell settings delete global captive_portal_mode
+  adb shell settings delete global captive_portal_detection_enabled
   # --- Viber-parser changes start here ---------------------------------------
   # The stock script puts the device to sleep after 15s and leaves airplane mode
   # on. Neither matches a real device (or LDPlayer): a sleeping screen swallows
@@ -298,8 +301,56 @@ fi
 [ "$root_needed" = true ]            && install_root
 [ "$gapps_needed" = true ]           && install_gapps
 [ "$arm_translation_needed" = true ] && install_arm_translation
+
+# Viber caches android.os.Build during its first process start. Install and
+# verify the persistent physical-tablet identity before dependent services can
+# install or launch the app.
+tr -d '\r' < /overrides/setup-device-profile.sh > /tmp/setup-device-profile.sh
+chmod +x /tmp/setup-device-profile.sh
+if ! DEVICE_PROFILE="${DEVICE_PROFILE:-samsung-tab-s7}" /tmp/setup-device-profile.sh; then
+  echo "ERROR: device profile setup failed" >&2
+  exit 1
+fi
+
 apply_settings
 copy_extras
+
+install_viber_apk() {
+  if ! adb shell pm path com.viber.voip >/dev/null 2>&1; then
+    local apk_file
+    apk_file=$(ls /apk/*.apk 2>/dev/null | head -n 1)
+    if [ -n "$apk_file" ] && [ -f "$apk_file" ]; then
+      echo "--> [INSTALL] Installing Viber APK from $apk_file..."
+      adb install -r "$apk_file" || true
+      echo "--> [INSTALL] Viber APK installation finished."
+    else
+      echo "--> [INSTALL] No APK found in /apk, skipping."
+    fi
+  fi
+}
+install_viber_apk
+
+start_viber_autorun() {
+  echo "--> [AUTORUN] Checking Viber installation and launching into foreground..."
+  local max_retries=30
+  local count=0
+  while [ $count -lt $max_retries ]; do
+    if adb shell pm path com.viber.voip >/dev/null 2>&1; then
+      break
+    fi
+    sleep 2
+    count=$((count + 1))
+  done
+
+  if adb shell pm path com.viber.voip >/dev/null 2>&1; then
+    sleep 5
+    echo "--> [AUTORUN] Starting com.viber.voip (Viber)..."
+    adb shell am start -n com.viber.voip/com.viber.voip.WelcomeActivity >/dev/null 2>&1 || \
+      adb shell monkey -p com.viber.voip -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 || true
+    echo "--> [AUTORUN] Viber launched successfully."
+  fi
+}
+start_viber_autorun
 
 touch /data/.first-boot-done
 echo "Success !!"

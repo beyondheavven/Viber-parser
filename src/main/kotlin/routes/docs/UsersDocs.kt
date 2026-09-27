@@ -1,5 +1,6 @@
 package com.viber.routes.docs
 
+import com.viber.models.ParticipantModel
 import com.viber.models.UsersPage
 import com.viber.models.UsersSyncAllResult
 import com.viber.models.UsersSyncResult
@@ -141,3 +142,28 @@ val describeSyncTaskUsers: RouteConfig.() -> Unit = {
         }
     }
 }
+
+val describeGetGroupUsers: RouteConfig.() -> Unit = {
+    operationId = "getGroupUsers"
+    tags = listOf("Users")
+    summary = "Получить участников группы из Supabase"
+    description = "Возвращает сохранённых участников группы из базы данных Supabase (viber_group_members + viber_users)."
+
+    request {
+        pathParameter<String>("id") {
+            description = "ID беседы (conversationId) или ключ группы (viberGroupId / groupKey)"
+            required = true
+        }
+    }
+
+    response {
+        code(HttpStatusCode.OK) {
+            description = "Список участников группы"
+            body<List<ParticipantModel>>()
+        }
+        code(HttpStatusCode.InternalServerError) {
+            description = "Supabase не настроен или недоступен"
+        }
+    }
+}
+

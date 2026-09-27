@@ -4,7 +4,7 @@
  * here — Viber renames and reshapes columns between releases, so this is the
  * one file to re-verify after an app update.
  */
-import type { ColumnDef } from '../device/sqlite.js';
+import type { ColumnDef } from '../platform/sqlite.js';
 
 export const CONVERSATION_TYPE = {
   /** A one-to-one chat. */

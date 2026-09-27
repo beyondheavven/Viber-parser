@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<hierarchy rotation="0">
+  <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.viber.voip" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[0,0][540,960]">
+    <node index="0" text="Enter your code" resource-id="com.viber.voip:id/title" class="android.widget.TextView" package="com.viber.voip" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[100,80][440,110]" />
+    <node index="1" text="" resource-id="com.viber.voip:id/view_with_description_main_view_id" class="android.widget.EditText" package="com.viber.voip" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="true" scrollable="false" long-clickable="true" password="false" selected="false" bounds="[100,200][440,250]" />
+    <node index="2" text="Continue" resource-id="com.viber.voip:id/btn_continue" class="android.widget.Button" package="com.viber.voip" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[190,300][350,344]" />
+  </node>
+</hierarchy>

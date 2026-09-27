@@ -21,12 +21,25 @@ data class StartMonitorRequest(
 
     val fromLatest: Boolean? = null,
 
-    val startFromId: Int? = null
+    val startFromId: Int? = null,
+
+    /** Emulator instance the panel addresses; this API drives a single emulator. */
+    val deviceId: String? = null,
 )
 
 @Serializable
 data class EnableMonitorGroupRequest(
     val fromLatest: Boolean? = null,
+
+    /**
+     * The group's global Viber id (`conversations.group_id`). The panel's
+     * local id may come from another account; when this is set, the group is
+     * looked up by it on this emulator instead.
+     */
+    val groupKey: String? = null,
+
+    /** Emulator instance the panel addresses; this API drives a single emulator. */
+    val deviceId: String? = null,
 )
 
 @Serializable

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   defaultNumbersSyncTimeoutMs,
   parseSyncedCount,
-} from '../../src/automation/lifecycle/viber-lifecycle.service.js';
+} from '../../src/platform/viber-lifecycle.service.js';
 
 describe('parseSyncedCount', () => {
   it('reads the count from the line after the PRAGMA echo', () => {

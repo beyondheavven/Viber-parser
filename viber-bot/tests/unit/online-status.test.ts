@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeLastSeenTimestamp } from '../../src/automation/frida/online-status.service.js';
+import { normalizeLastSeenTimestamp } from '../../src/features/participants/online-status.service.js';
 
 describe('normalizeLastSeenTimestamp', () => {
   it('preserves epoch milliseconds returned by current Viber builds', () => {

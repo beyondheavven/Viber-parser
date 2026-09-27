@@ -1,5 +1,6 @@
 package com.viber.routes
 
+import com.viber.routes.docs.describeGetGroupUsers
 import com.viber.routes.docs.describeListUsers
 import com.viber.routes.docs.describeSyncAllUsers
 import com.viber.routes.docs.describeSyncGroupUsers
@@ -33,6 +34,11 @@ fun Route.usersRoutes(usersSyncService: UsersSyncService) {
 
         post("/sync/all", describeSyncAllUsers) {
             call.respond(HttpStatusCode.OK, usersSyncService.syncAll())
+        }
+
+        get("/group/{id}", describeGetGroupUsers) {
+            val id = call.parameters["id"]!!
+            call.respond(HttpStatusCode.OK, usersSyncService.getGroupUsers(id))
         }
 
         post("/sync/group/{id}", describeSyncGroupUsers) {

@@ -3,14 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
   abiToFridaArch,
   checkServerVersion,
-  formatIntentSummary,
   fridaReleaseUrl,
   fridaServerAssetName,
   parseClientVersion,
   parseServerVersion,
-  type CapturedIntent,
-  type SummaryMeta,
-} from '../../src/intercept/frida-assets.js';
+} from '../../src/platform/frida/frida-assets.js';
 
 describe('abiToFridaArch', () => {
   it('maps the emulator abi x86_64', () => {
@@ -147,82 +144,5 @@ describe('checkServerVersion', () => {
 
   it('does not trip over whitespace differences', () => {
     expect(checkServerVersion('17.17.0', '  17.17.0  ').ok).toBe(true);
-  });
-});
-
-describe('formatIntentSummary', () => {
-  const meta: SummaryMeta = {
-    device: '127.0.0.1:5555',
-    package: 'com.viber.voip',
-    clientVersion: '16.7.19',
-    serverVersion: '16.7.19',
-    mode: 'attach',
-    capturedAt: '2026-09-05T10-30-00-000Z',
-  };
-
-  it('says so when nothing was captured', () => {
-    const out = formatIntentSummary([], meta);
-    expect(out).toContain('# Viber ConversationActivity intent trace');
-    expect(out).toContain('`127.0.0.1:5555`');
-    expect(out).toContain('client `16.7.19`');
-    expect(out).toContain('No intents captured');
-  });
-
-  it('renders one intent with its action, flags and an extras table', () => {
-    const intents: CapturedIntent[] = [
-      {
-        hook: 'onNewIntent',
-        activity: 'com.viber.voip.messages.ui.ConversationActivity',
-        action: 'com.viber.voip.action.CONVERSATION',
-        dataString: null,
-        flags: '0x10000000',
-        component: 'com.viber.voip/.messages.ui.ConversationActivity',
-        extras: [
-          { key: 'conversation_id', type: 'java.lang.Long', value: '778899' },
-          { key: 'is_channel', type: 'java.lang.Boolean', value: 'false' },
-        ],
-      },
-    ];
-    const out = formatIntentSummary(intents, meta);
-    expect(out).toContain('## Intent 1 — onNewIntent');
-    expect(out).toContain('`com.viber.voip.action.CONVERSATION`');
-    expect(out).toContain('0x10000000');
-    // extras rendered as a table, one row per key
-    expect(out).toContain('| conversation_id | java.lang.Long | 778899 |');
-    expect(out).toContain('| is_channel | java.lang.Boolean | false |');
-  });
-
-  it('marks an intent that carried no extras', () => {
-    const intents: CapturedIntent[] = [
-      {
-        hook: 'onCreate',
-        activity: 'com.viber.voip.messages.ui.ConversationActivity',
-        action: null,
-        dataString: null,
-        flags: '0x0',
-        component: null,
-        extras: [],
-      },
-    ];
-    const out = formatIntentSummary(intents, meta);
-    expect(out).toContain('## Intent 1 — onCreate');
-    expect(out).toContain('_(no extras)_');
-  });
-
-  it('escapes pipes and newlines in extra values so the table stays intact', () => {
-    const intents: CapturedIntent[] = [
-      {
-        hook: 'onCreate',
-        activity: 'com.viber.voip.messages.ui.ConversationActivity',
-        action: null,
-        dataString: null,
-        flags: '0x0',
-        component: null,
-        extras: [{ key: 'k', type: 'java.lang.String', value: 'a|b\nc' }],
-      },
-    ];
-    const out = formatIntentSummary(intents, meta);
-    expect(out).toContain('| k | java.lang.String | a\\|b c |');
-    expect(out).not.toContain('a|b');
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { scanInfoPanelSource } from '../../src/pages/group-info.page.js';
+import { scanInfoPanelSource } from '../../src/viber/pages/group-info.page.js';
 
 /** A chat-info header row: a section title with its trailing action. */
 function header(title: string, action: string, top: number): string {

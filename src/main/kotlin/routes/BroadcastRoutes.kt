@@ -1,6 +1,6 @@
 package com.viber.routes
 
-import com.viber.clients.ViberBotClient
+import com.viber.bot.ViberBotClient
 import com.viber.models.CreateCampaignRequest
 import com.viber.models.UpdateCampaignRequest
 import com.viber.routes.docs.describeBroadcastHistory

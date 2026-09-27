@@ -7,7 +7,7 @@ import {
   isMediaOnly,
   mergeMediaWithText,
   normalizeStoredMedia,
-} from '../../src/messages/message-media.util.js';
+} from '../../src/features/messages/message-media.util.js';
 
 function msg(overrides: Partial<Message> & Pick<Message, 'id' | 'body' | 'date'>): Message {
   return {

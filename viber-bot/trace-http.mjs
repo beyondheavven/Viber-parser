@@ -17,7 +17,7 @@ const SERIAL = process.env.ANDROID_SERIAL ?? 'android-emulator:5555';
 const PKG = 'com.viber.voip';
 
 function compileAgent(name) {
-  const entry = join(process.cwd(), 'src', 'automation', 'frida', 'scripts', `${name}.js`);
+  const entry = join(process.cwd(), 'src', 'platform', 'frida', 'scripts', `${name}.js`);
   const outPath = join(process.cwd(), '.frida', `${name}.compiled.js`);
   const cli = join(process.cwd(), 'node_modules', 'frida-compile', 'dist', 'cli.js');
   mkdirSync(join(process.cwd(), '.frida'), { recursive: true });

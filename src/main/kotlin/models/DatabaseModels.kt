@@ -1,5 +1,6 @@
 package com.viber.models
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -32,7 +33,9 @@ data class DecodeRequest(
 
     val restartApp: Boolean = true,
 
-    val waitForSyncSeconds: Int = 10
+    val waitForSyncSeconds: Int = 10,
+
+    val includeSelf: Boolean = false,
 )
 
 @Serializable
@@ -65,4 +68,12 @@ data class DecodeResult(
     val sampleDecoded: List<DecodedItem>? = null,
 
     val restartedApp: Boolean? = null
+)
+
+@Serializable
+data class SupabaseGroupMemberJoin(
+    val role: Int? = null,
+    val active: Boolean = true,
+    @SerialName("viber_users")
+    val user: ViberUserRow? = null,
 )

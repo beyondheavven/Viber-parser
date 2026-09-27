@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shouldIngestMessageWrite } from '../../src/automation/frida/message-watch.service.js';
+import { shouldIngestMessageWrite } from '../../src/features/messages/message-watch.service.js';
 
 describe('shouldIngestMessageWrite', () => {
   const enabled = new Set([20, 22]);

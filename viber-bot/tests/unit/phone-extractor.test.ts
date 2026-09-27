@@ -3,7 +3,7 @@ import {
   extractPhones,
   extractPrimaryPhone,
   normalizePhoneNumber,
-} from '../../src/messages/phone-extractor.util.js';
+} from '../../src/features/messages/phone-extractor.util.js';
 
 describe('Phone Extractor Utility', () => {
   describe('normalizePhoneNumber', () => {

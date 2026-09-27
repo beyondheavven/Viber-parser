@@ -17,8 +17,15 @@ data class ViberStartResponse(
 )
 
 @Serializable
+data class ViberAccountInfo(
+    val phoneNumber: String? = null,
+    val displayName: String? = null,
+    val isAuthorized: Boolean = false,
+)
+
+@Serializable
 data class ViberStatusResponse(
     val isRunning: Boolean,
     val pid: Int? = null,
-) {
-}
+    val account: ViberAccountInfo? = null,
+)

@@ -4,6 +4,9 @@ import com.viber.models.CodeRequest
 import com.viber.models.ErrorResponse
 import com.viber.models.LoginRequest
 import com.viber.models.LoginResponse
+import com.viber.models.QrStartRequest
+import com.viber.models.QrStartResponse
+import com.viber.models.QrStatus
 import io.github.smiley4.ktoropenapi.config.RouteConfig
 import io.ktor.http.HttpStatusCode
 
@@ -25,6 +28,64 @@ val describeLogin: RouteConfig.() -> Unit = {
         code(HttpStatusCode.BadRequest) {
             description = "Неверный формат или ошибка Frida"
             body<ErrorResponse>()
+        }
+    }
+}
+
+val describeStartQrLogin: RouteConfig.() -> Unit = {
+    operationId = "startQrLogin"
+    tags = listOf("Authentication")
+    summary = "Вход в Viber по QR-коду (вторым устройством)"
+    description = "Открывает в Viber экран активации вторым устройством и запускает фоновое слежение за QR-кодом. " +
+            "SMS не отправляется: номер нужен только чтобы Viber нашёл существующий аккаунт, подтверждение " +
+            "приходит с основного телефона. Ответ приходит сразу, сам код — через GET /api/auth/qr/status."
+    request {
+        body<QrStartRequest> {
+            description = "phoneNumber (напр. '+48123456789', по умолчанию VIBER_DEFAULT_PHONE), countryCode ('48') — " +
+                    "если номер без '+', clearData — очистить данные Viber перед входом, userName — имя профиля, если Viber спросит."
+            required = false
+        }
+    }
+    response {
+        code(HttpStatusCode.OK) {
+            description = "Сессия запущена"
+            body<QrStartResponse>()
+        }
+        code(HttpStatusCode.BadRequest) {
+            description = "Номер не указан или некорректен"
+            body<ErrorResponse>()
+        }
+        code(HttpStatusCode.Conflict) {
+            description = "Вход по QR уже идёт или эмулятор занят другой задачей"
+            body<ErrorResponse>()
+        }
+    }
+}
+
+val describeGetQrLoginStatus: RouteConfig.() -> Unit = {
+    operationId = "getQrLoginStatus"
+    tags = listOf("Authentication")
+    summary = "Состояние входа по QR-коду"
+    description = "Отдаёт состояние сессии (idle, starting, qr_ready, scanned, finishing, ready, error, unknown_screen) " +
+            "и текущий QR-код: qr.svg — перерисованный вектор, qr.pngBase64 — вырезка со скриншота. " +
+            "Опрашивайте раз в пару секунд: Viber может сменить код. При unknown_screen приходит скриншот экрана."
+    response {
+        code(HttpStatusCode.OK) {
+            description = "Состояние сессии"
+            body<QrStatus>()
+        }
+    }
+}
+
+val describeCancelQrLogin: RouteConfig.() -> Unit = {
+    operationId = "cancelQrLogin"
+    tags = listOf("Authentication")
+    summary = "Отменить вход по QR-коду"
+    description = "Останавливает фоновое слежение, возвращает исходную плотность экрана и освобождает эмулятор."
+    response {
+        code(HttpStatusCode.OK) {
+            description = "Сессия остановлена"
+            body<QrStartResponse>()
         }
     }
 }

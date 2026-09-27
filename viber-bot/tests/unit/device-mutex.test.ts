@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DeviceMutexService } from '../../src/common/mutex/device-mutex.service.js';
+import { DeviceMutexService } from '../../src/platform/mutex/device-mutex.service.js';
 
 describe('DeviceMutexService', () => {
   it('acquires and releases exclusive lock', () => {

@@ -1,7 +1,7 @@
 import {Inject, Injectable, Logger} from "@nestjs/common";
 import {ClientProxy} from "@nestjs/microservices";
-import {MonitoredMessageDto} from "../messages/dto/monitored-message.dto.js";
-import {TaskEvent} from "../tasks/entities/task.entity.js";
+import {MonitoredMessageDto} from "../features/messages/dto/monitored-message.dto.js";
+import {TaskEvent} from "../features/tasks/entities/task.entity.js";
 
 @Injectable()
 export class RabbitMqPublisher {

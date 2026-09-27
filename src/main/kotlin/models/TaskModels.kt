@@ -24,7 +24,6 @@ data class TaskSummary(
 
     val completedAt: String? = null,
 
-    /** Текст ошибки, если статус error. */
     val error: String? = null,
 )
 
@@ -115,4 +114,10 @@ data class TaskDetail(
     val error: String? = null,
 
     val result: TaskCollectionResult? = null
+)
+
+@Serializable
+data class TaskSyncView(
+    val status: String,
+    val result: TaskCollectionResult? = null,
 )

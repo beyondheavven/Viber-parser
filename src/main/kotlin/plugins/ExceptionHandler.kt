@@ -1,11 +1,13 @@
 package com.viber.plugins
 
-import com.viber.clients.MicroserviceException
+import com.viber.infrastructure.rabbitmq.MicroserviceException
 import com.viber.models.ErrorResponse
 import com.viber.models.ErrorType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
+import io.ktor.server.plugins.BadRequestException
+import io.ktor.server.plugins.NotFoundException
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.path
 import io.ktor.server.request.uri
@@ -30,6 +32,32 @@ fun Application.configureException() {
                     success = false,
                     errorType = type,
                     message = cause.message ?: "Ошибка внутри бота",
+                    path = call.request.path(),
+                    timestamp = Instant.now().toString()
+                )
+            )
+        }
+
+        exception<BadRequestException> { call, cause ->
+            call.respond(
+                HttpStatusCode.BadRequest,
+                ErrorResponse(
+                    success = false,
+                    errorType = ErrorType.VALIDATION_ERROR,
+                    message = cause.message ?: "Некорректный запрос",
+                    path = call.request.path(),
+                    timestamp = Instant.now().toString()
+                )
+            )
+        }
+
+        exception<NotFoundException> { call, cause ->
+            call.respond(
+                HttpStatusCode.NotFound,
+                ErrorResponse(
+                    success = false,
+                    errorType = ErrorType.NOT_FOUND,
+                    message = cause.message ?: "Не найдено",
                     path = call.request.path(),
                     timestamp = Instant.now().toString()
                 )

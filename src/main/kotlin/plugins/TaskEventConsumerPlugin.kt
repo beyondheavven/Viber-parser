@@ -1,8 +1,8 @@
 package com.viber.plugins
 
-import com.viber.clients.RabbitMqRpcClient
-import com.viber.clients.TaskEventConsumer
-import com.viber.clients.ViberBotClient
+import com.viber.infrastructure.rabbitmq.RabbitMqRpcClient
+import com.viber.consumers.TaskEventConsumer
+import com.viber.bot.ViberBotClient
 import com.viber.config.RabbitMqSettings
 import com.viber.config.util.ConfigUtil
 import com.viber.services.UsersSyncService
@@ -24,7 +24,7 @@ fun Application.configureTaskEventConsumer() {
 
     val settings = RabbitMqSettings.from(environment.config)
     val rpcClient = RabbitMqRpcClient(settings)
-    val usersSync = UsersSyncService(ViberBotClient(rpcClient)) { supabaseClient }
+    val usersSync = UsersSyncService(ViberBotClient(rpcClient, settings.queue)) { supabaseClient }
 
     val consumer = TaskEventConsumer(settings) { taskId ->
         val result = usersSync.syncTask(taskId)

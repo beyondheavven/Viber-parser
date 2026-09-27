@@ -1,6 +1,6 @@
 package com.viber.routes
 
-import com.viber.clients.ViberBotClient
+import com.viber.bot.ViberBotClient
 import com.viber.models.CollectParticipantsRequest
 import com.viber.models.QueryOnlineStatusRequest
 import com.viber.routes.docs.describeCollectParticipants
@@ -9,6 +9,7 @@ import io.ktor.server.routing.Route
 import io.github.smiley4.ktoropenapi.post
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
@@ -19,6 +20,11 @@ fun Route.participantsRoutes(viberBotClient: ViberBotClient){
     route("/participants") {
         post("/collect", describeCollectParticipants){
             val request = call.receive<CollectParticipantsRequest>()
+            // The bot resolves a blank name to whichever conversation comes
+            // first and starts collecting it.
+            if (request.group.isBlank()) {
+                throw BadRequestException("Поле group не может быть пустым")
+            }
             val result = viberBotClient.collectParticipants(request)
 
             call.respond(HttpStatusCode.Accepted, result)

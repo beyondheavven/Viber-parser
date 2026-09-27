@@ -4,7 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { Logger } from '@nestjs/common';
 import { AppModule } from './app.module.js';
-import { AllExceptionsFilter } from './common/filters/rpc-exception.filter.js';
+import { AllExceptionsFilter } from './rabbitmq/rpc-exception.filter.js';
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');

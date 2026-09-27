@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { AdbError } from '../../src/device/adb.js';
-import { restartViberApp, type RestartViberDeps } from '../../src/device/restart-viber.js';
+import { AdbError } from '../../src/platform/adb.js';
+import { restartViberApp, type RestartViberDeps } from '../../src/platform/restart-viber.js';
 
 const PACKAGE = 'com.viber.voip';
 const FOCUS_DUMP = `  mCurrentFocus=Window{a1b2 u0 ${PACKAGE}/${PACKAGE}.WelcomeActivity}`;

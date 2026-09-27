@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pickMessage, shuffledIndices } from '../../src/broadcast/rotation.js';
+import { pickMessage, shuffledIndices } from '../../src/features/broadcast/rotation.js';
 
 describe('pickMessage', () => {
   const messages = ['alpha', 'beta', 'gamma'];

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseRosterPageSource } from '../../src/pages/participants.page.js';
+import { parseRosterPageSource } from '../../src/viber/pages/participants.page.js';
 
 describe('parseRosterPageSource', () => {
   it('extracts the header count and physical rows from one hierarchy snapshot', () => {

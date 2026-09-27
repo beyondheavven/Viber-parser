@@ -1,11 +1,12 @@
 package com.viber.services
 
-import com.viber.clients.RosterClient
+import com.viber.bot.RosterClient
 import com.viber.models.GroupDetail
 import com.viber.models.GroupSummary
 import com.viber.models.GroupSyncStatus
 import com.viber.models.ParticipantModel
-import com.viber.models.TaskCollectionResult
+import com.viber.models.SupabaseGroupMemberJoin
+import com.viber.models.TaskSyncView
 import com.viber.models.UsersPage
 import com.viber.models.UsersSyncAllResult
 import com.viber.models.UsersSyncFailure
@@ -20,7 +21,6 @@ import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Count
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.CancellationException
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.time.Instant
@@ -134,9 +134,6 @@ class UsersSyncService(
     }
 
     suspend fun syncTask(taskId: String): UsersSyncResult {
-        // Only `status` and `result` are read. This slim view (with
-        // ignoreUnknownKeys) skips stepHistory, whose progress map holds numbers
-        // under keys the full TaskDetail types as String — those fail to parse.
         val task: TaskSyncView = json.decodeFromString(viberBotClient.getTask(taskId))
         val result = task.result
             ?: throw IllegalArgumentException("Задача $taskId ещё не завершена (статус ${task.status})")
@@ -144,12 +141,6 @@ class UsersSyncService(
             json.decodeFromString(viberBotClient.getTaskParticipants(taskId))
         return sync(result.group, result.conversationId, result.groupId, participants)
     }
-
-    @Serializable
-    private data class TaskSyncView(
-        val status: String,
-        val result: TaskCollectionResult? = null,
-    )
 
     private suspend fun sync(
         groupName: String?,
@@ -260,8 +251,8 @@ class UsersSyncService(
                     conversationId = group.conversationId,
                     name = group.name,
                     participantCount = group.participantCount,
-                    activeMembers = id?.let { countMembers(client, it, active = true) },
-                    inactiveMembers = id?.let { countMembers(client, it, active = false) },
+                    activeMembers = if (conversationId != null) id?.let { countMembers(client, it, active = true) } else null,
+                    inactiveMembers = if (conversationId != null) id?.let { countMembers(client, it, active = false) } else null,
                     lastSyncedAt = group.lastSyncedAt,
                 )
             }
@@ -339,4 +330,71 @@ class UsersSyncService(
             items = result.decodeList<ViberUserRow>(),
         )
     }
+
+    suspend fun getGroupUsers(targetId: String): List<ParticipantModel> {
+        val client = supabase() ?: throw SupabaseDisabledException()
+        val convId = targetId.toIntOrNull()
+
+        var group: ViberGroupRow? = null
+        if (convId != null) {
+            group = client.from("viber_groups").select(Columns.ALL) {
+                filter { eq("conversation_id", convId) }
+                limit(1)
+            }.decodeList<ViberGroupRow>().firstOrNull()
+        }
+        if (group == null) {
+            group = client.from("viber_groups").select(Columns.ALL) {
+                filter { eq("group_key", targetId) }
+                limit(1)
+            }.decodeList<ViberGroupRow>().firstOrNull()
+        }
+        if (group == null) {
+            group = client.from("viber_groups").select(Columns.ALL) {
+                filter { eq("viber_group_id", targetId) }
+                limit(1)
+            }.decodeList<ViberGroupRow>().firstOrNull()
+        }
+
+        val groupId = group?.id ?: return emptyList()
+
+        val allMembers = mutableListOf<SupabaseGroupMemberJoin>()
+        var offset = 0L
+        val pageSize = 1000L
+        while (true) {
+            val batch = client.from("viber_group_members").select(Columns.raw("role, active, viber_users(*)")) {
+                filter { eq("group_id", groupId) }
+                order("user_id", Order.ASCENDING)
+                range(offset, offset + pageSize - 1)
+            }.decodeList<SupabaseGroupMemberJoin>()
+            allMembers.addAll(batch)
+            if (batch.size < pageSize) break
+            offset += pageSize
+        }
+
+        return allMembers.mapIndexedNotNull { idx, item ->
+            val user = item.user ?: return@mapIndexedNotNull null
+            val rawNumber = user.phone ?: user.memberId?.let { "em:$it" } ?: ""
+            val role = item.role
+            val roleLabel = when (role) {
+                1 -> "superadmin"
+                2 -> "admin"
+                else -> "member"
+            }
+            ParticipantModel(
+                id = (user.id ?: (idx + 1).toLong()).toInt(),
+                memberId = user.memberId ?: user.identityKey,
+                number = rawNumber,
+                name = user.name,
+                contactName = null,
+                viberName = user.viberName,
+                groupRole = role,
+                roleLabel = roleLabel,
+                active = item.active,
+                isSelf = false,
+                isOnline = user.isOnline,
+                lastSeen = user.lastSeenAt,
+            )
+        }
+    }
 }
+

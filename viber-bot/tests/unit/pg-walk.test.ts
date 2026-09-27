@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { PgWalk } from '../../src/intercept/pg-walk.js';
+import { PgWalk } from '../../src/features/participants/pg-walk.js';
 
 const OUR_GROUP = '5907779393516782372';
 const OTHER_GROUP = '111222333444555666';

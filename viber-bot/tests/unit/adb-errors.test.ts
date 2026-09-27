@@ -1,7 +1,7 @@
 import { createServer } from 'node:net';
 import { describe, expect, it } from 'vitest';
 
-import { AdbError, describeSpawnFailure, isRecoverable, probeTcp } from '../../src/device/adb.js';
+import { AdbError, describeSpawnFailure, isRecoverable, probeTcp } from '../../src/platform/adb.js';
 
 function errno(code: string): NodeJS.ErrnoException {
   const error = new Error(code) as NodeJS.ErrnoException;

@@ -2,12 +2,12 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BroadcastService } from '../../src/broadcast/broadcast.service.js';
-import { abortableSleep } from '../../src/broadcast/sleep.js';
-import { DeviceMutexService } from '../../src/common/mutex/device-mutex.service.js';
-import type { ViberNavigationService } from '../../src/automation/navigation/viber-navigation.service.js';
-import type { GroupsService } from '../../src/groups/groups.service.js';
-import type { GroupDetailDto } from '../../src/groups/dto/group-response.dto.js';
+import { BroadcastService } from '../../src/features/broadcast/broadcast.service.js';
+import { abortableSleep } from '../../src/features/broadcast/sleep.js';
+import { DeviceMutexService } from '../../src/platform/mutex/device-mutex.service.js';
+import type { ViberNavigationService } from '../../src/viber/navigation.js';
+import type { GroupsService } from '../../src/features/groups/groups.service.js';
+import type { GroupDetailDto } from '../../src/features/groups/dto/group-response.dto.js';
 
 const hangUntilAborted: ViberNavigationService['sendGroupMessage'] = async (
   _groupName,

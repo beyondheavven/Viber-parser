@@ -18,6 +18,20 @@ data class CollectParticipantsRequest(
     val syncLiveDbAfter: Boolean = false,
 
     val fetchOnlineStatus: Boolean = true,
+
+    val twoPass: Boolean = true,
+    val passesCount: Int? = null,
+
+    // Paging knobs the OnixData panel sends. The collector always reads the
+    // whole roster fresh from Viber, so there is nothing for them to tune.
+    val pageLimit: Int? = null,
+
+    val scrollPages: Int? = null,
+
+    val forceRefresh: Boolean? = null,
+
+    /** Emulator instance the panel addresses; this API drives a single emulator. */
+    val deviceId: String? = null,
 )
 
 @Serializable

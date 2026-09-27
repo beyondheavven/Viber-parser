@@ -19,19 +19,33 @@ services:
     volumes:
       - android-data:/data
       - ./emulator/first-boot.sh:/overrides/first-boot.sh:ro
+      - ./emulator/entrypoint.sh:/overrides/entrypoint.sh:ro
+      - ./emulator/setup-device-profile.sh:/overrides/setup-device-profile.sh:ro
     command:
       - sh
       - -c
-      - "tr -d '\\r' < /overrides/first-boot.sh > /root/first-boot.sh && chmod +x /root/first-boot.sh && exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf"
+      - "tr -d '\\r' < /overrides/entrypoint.sh > /root/entrypoint.sh && chmod +x /root/entrypoint.sh && exec /root/entrypoint.sh"
     environment:
       - GAPPS_SETUP=${GAPPS_SETUP:-true}
       - ROOT_SETUP=${ROOT_SETUP:-true}
+      - DEVICE_PROFILE=${DEVICE_PROFILE:-samsung-tab-s7}
       - SCREEN_RESOLUTION=${EMULATOR_SCREEN_RESOLUTION:-1280x720}
       - SCREEN_DENSITY=${EMULATOR_SCREEN_DENSITY:-240}
       - RAM_SIZE=${EMULATOR_RAM_SIZE:-3072}
+      - PROXY_HOST=${PROXY_HOST:-}
+      - PROXY_PORT=${PROXY_PORT:-50101}
+      - PROXY_USER=${PROXY_USER:-}
+      - PROXY_PASS=${PROXY_PASS:-}
+      - PROXY_TYPE=${PROXY_TYPE:-socks5}
     depends_on:
       kvm-init:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "adb shell 'test \"$(getprop sys.boot_completed)\" = 1 && test -f /data/local/tmp/.viber-device-profile-ready-v1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 120
+      start_period: 10s
     restart: unless-stopped
 
   scrcpy-web:
@@ -46,6 +60,41 @@ services:
     command: >
       sh -c "adb connect $${ADB_HOST:-android-emulator}:$${ADB_PORT:-5555} && npm start"
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  emulator-agent:
+    build:
+      context: services/emulator-agent
+      dockerfile: Dockerfile
+    container_name: viber-emulator-agent
+    restart: unless-stopped
+    ports:
+      - "${AGENT_PORT:-9000}:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /dev/kvm:/dev/kvm
+      - /lib/modules:/lib/modules:ro
+    environment:
+      - PORT=9000
+      - AGENT_SECRET=${VPS_AGENT_SECRET:-viber-secret-agent-token}
+      - HOST_PUBLIC_IP=${HOST_PUBLIC_IP:-136.92.24.88}
+      - HOST_PROJECT_DIR=${HOST_PROJECT_DIR:-/home/kkurzau/Viber-parser}
+      - EMULATOR_IMAGE=${EMULATOR_IMAGE:-shmayro/dockerify-android:1.0.0}
+      - ADB_PORT_START=5556
+      - ADB_PORT_END=5599
+      - VNC_PORT_START=6081
+      - VNC_PORT_END=6120
+      - SCRCPY_PORT=8000
+      - COMPANION_NETWORK=${COMPANION_NETWORK:-viber-parser_default}
+      - COMPANION_APPIUM_IMAGE=${COMPANION_APPIUM_IMAGE:-appium/appium:latest}
+      - COMPANION_BOT_IMAGE=${COMPANION_BOT_IMAGE:-viber-parser-bot}
+      - COMPANION_RABBITMQ_URL=amqp://${RABBITMQ_USER:-viber}:${RABBITMQ_PASS:-viber_secret}@rabbitmq:5672?heartbeat=60
+      - VIBER_DEFAULT_PHONE=${VIBER_DEFAULT_PHONE:-}
+      - VIBER_DEFAULT_COUNTRY=${VIBER_DEFAULT_COUNTRY:-}
+      - VIBER_DEFAULT_NAME=${VIBER_DEFAULT_NAME:-Maks}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   appium:
     image: appium/appium:latest
@@ -94,6 +143,7 @@ services:
       - VIBER_MESSAGES_DB=/data/data/com.viber.voip/databases/viber_messages
       - VIBER_DEFAULT_PHONE=${VIBER_DEFAULT_PHONE:-}
       - VIBER_DEFAULT_COUNTRY=${VIBER_DEFAULT_COUNTRY:-}
+      - VIBER_DEFAULT_NAME=${VIBER_DEFAULT_NAME:-Maks}
     volumes:
       - viber-bot-data:/app/data
     depends_on:
@@ -121,8 +171,9 @@ services:
       - PORT=8080
       - ADB_HOST=${ADB_HOST:-android-emulator}
       - ADB_PORT=${ADB_PORT:-5555}
-      - RABBITMQ_HOST=${RABBITMQ_HOST:-rabbitmq}
-      - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
+      - DEVICE_PROFILE=${DEVICE_PROFILE:-samsung-tab-s7}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
       - RABBITMQ_USER=${RABBITMQ_USER:-viber}
       - RABBITMQ_PASS=${RABBITMQ_PASS:-viber_secret}
       - SUPABASE_URL=${SUPABASE_URL:-}
