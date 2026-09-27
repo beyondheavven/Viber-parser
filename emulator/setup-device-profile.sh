@@ -194,5 +194,6 @@ if [ "$CURRENT_MODEL" != "$MODEL" ]; then
   exit 1
 fi
 
+"$ADB" shell "wm density 240" >/dev/null 2>&1 || true
 "$ADB" shell "touch $READY_MARKER"
 echo "[device-profile] Physical tablet profile is ready: $MODEL"

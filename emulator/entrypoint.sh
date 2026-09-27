@@ -87,20 +87,43 @@ EOF
   iptables -t filter -I OUTPUT 1 -p tcp --dport 853 -m owner ! --uid-owner redsocks -j REJECT --reject-with tcp-reset
 
   # The configured SOCKS exit can be rejected by Viber's CloudFront policy.
-  # Keep only the registration endpoint on the VM's direct egress and refresh
-  # its rotating addresses without logging proxy credentials.
+  # Keep only the registration endpoint and CloudFront CDN on the VM's direct egress
+  # and refresh rotating addresses without logging proxy credentials.
+  # Note: rules inside VIBER_DIRECT must use -j ACCEPT (not -j RETURN) so they terminate
+  # NAT evaluation and exit before hitting REDIRECT --to-ports 12345 in REDSOCKS.
   refresh_direct_host_ips() {
     local host="$1"
     local ip resolved_ips
-    resolved_ips=$(getent ahostsv4 "$host" | awk '{print $1}' | sort -u)
+    resolved_ips=$(getent ahostsv4 "$host" 2>/dev/null | awk '{print $1}' | sort -u)
     [ -n "$resolved_ips" ] || return 0
 
-    iptables -w -t nat -F VIBER_DIRECT
     for ip in $resolved_ips; do
-      iptables -w -t nat -A VIBER_DIRECT -d "$ip" -j RETURN
+      iptables -w -t nat -C VIBER_DIRECT -d "$ip" -j ACCEPT 2>/dev/null || \
+        iptables -w -t nat -I VIBER_DIRECT 1 -d "$ip" -j ACCEPT
     done
   }
 
+  load_cloudfront_ranges() {
+    python3 -c '
+import json, urllib.request, subprocess
+prefixes = ["18.64.0.0/14", "65.8.0.0/16", "52.222.0.0/15", "54.192.0.0/12", "54.230.0.0/15", "52.84.0.0/15"]
+try:
+    res = urllib.request.urlopen("https://ip-ranges.amazonaws.com/ip-ranges.json", timeout=3)
+    data = json.loads(res.read().decode())
+    prefixes = [p["ip_prefix"] for p in data["prefixes"] if p.get("service") == "CLOUDFRONT"]
+except Exception:
+    pass
+
+lines = ["*nat", ":VIBER_DIRECT - [0:0]"]
+for p in prefixes:
+    lines.append(f"-A VIBER_DIRECT -d {p} -j ACCEPT")
+lines.append("COMMIT\n")
+subprocess.run(["iptables-restore", "-n"], input="\n".join(lines).encode(), check=False)
+' 2>/dev/null || true
+  }
+
+  iptables -t nat -N VIBER_DIRECT 2>/dev/null || true
+  load_cloudfront_ranges
   iptables -t nat -A REDSOCKS -p tcp --dport 443 -j VIBER_DIRECT
   refresh_direct_host_ips "secure.viber.com"
 
