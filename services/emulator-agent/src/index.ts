@@ -54,7 +54,7 @@ function checkKvm(): boolean {
 // Helper: Build Scrcpy-Web Stream URL
 function buildScrcpyUrl(publicIp: string, port: number, adbPort: number | null): string | null {
   if (!adbPort) return null;
-  const udid = `host.docker.internal:${adbPort}`;
+  const udid = adbPort === 5555 ? 'android-emulator:5555' : `host.docker.internal:${adbPort}`;
   const wsUrl = `ws://${publicIp}:${port}/`;
   const hash = `#!action=stream&udid=${encodeURIComponent(udid)}&player=mse&ws=${encodeURIComponent(wsUrl)}`;
   return `http://${publicIp}:${port}/${hash}`;
@@ -72,6 +72,17 @@ async function ensureScrcpyConnected(adbPort: number): Promise<void> {
     if (!scrcpyInfo) return;
 
     const scrcpyContainer = docker.getContainer(scrcpyInfo.Id);
+    if (adbPort === 5555) {
+      // android-emulator is connected directly; disconnect duplicate host.docker.internal:5555
+      const exec = await scrcpyContainer.exec({
+        Cmd: ['adb', 'disconnect', 'host.docker.internal:5555'],
+        AttachStdout: true,
+        AttachStderr: true,
+      });
+      await exec.start({});
+      return;
+    }
+
     const exec = await scrcpyContainer.exec({
       Cmd: ['adb', 'connect', `host.docker.internal:${adbPort}`],
       AttachStdout: true,
@@ -331,6 +342,15 @@ async function handleListEmulators(_req: Request, res: Response): Promise<void> 
           }
         }
 
+        const setupStatus = bootCompleted
+          ? {
+              state: 'ready' as const,
+              stage: 'complete',
+              updatedAt: new Date().toISOString(),
+              exitCode: 0,
+            }
+          : null;
+
         return {
           id: c.Id,
           name,
@@ -344,6 +364,7 @@ async function handleListEmulators(_req: Request, res: Response): Promise<void> 
           bootCompleted,
           viberRunning,
           adbOnline: isOnline,
+          setupStatus,
         };
       })
     );

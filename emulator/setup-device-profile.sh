@@ -195,5 +195,23 @@ if [ "$CURRENT_MODEL" != "$MODEL" ]; then
 fi
 
 "$ADB" shell "wm density 240" >/dev/null 2>&1 || true
+
+# Install persistent Magisk autorun boot service
+"$ADB" shell "mkdir -p /data/adb/service.d"
+"$ADB" shell "cat << 'AUTORUN_EOF' > /data/adb/service.d/99-viber-autorun.sh
+#!/system/bin/sh
+while [ \"\$(getprop sys.boot_completed)\" != \"1\" ]; do
+  sleep 2
+done
+while ! pm path com.viber.voip >/dev/null 2>&1; do
+  sleep 2
+done
+sleep 3
+if ! pidof com.viber.voip >/dev/null 2>&1; then
+  am start -n com.viber.voip/com.viber.voip.WelcomeActivity >/dev/null 2>&1 || \
+    monkey -p com.viber.voip -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
+fi
+AUTORUN_EOF
+chmod 755 /data/adb/service.d/99-viber-autorun.sh"
 "$ADB" shell "touch $READY_MARKER"
 echo "[device-profile] Physical tablet profile is ready: $MODEL"

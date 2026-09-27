@@ -315,5 +315,26 @@ fi
 apply_settings
 copy_extras
 
+start_viber_autorun() {
+  echo "--> [AUTORUN] Checking Viber installation and launching into foreground..."
+  local max_retries=30
+  local count=0
+  while [ $count -lt $max_retries ]; do
+    if adb shell pm path com.viber.voip >/dev/null 2>&1; then
+      break
+    fi
+    sleep 2
+    count=$((count + 1))
+  done
+
+  if adb shell pm path com.viber.voip >/dev/null 2>&1; then
+    echo "--> [AUTORUN] Starting com.viber.voip (Viber)..."
+    adb shell am start -n com.viber.voip/com.viber.voip.WelcomeActivity >/dev/null 2>&1 || \
+      adb shell monkey -p com.viber.voip -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 || true
+    echo "--> [AUTORUN] Viber launched successfully."
+  fi
+}
+start_viber_autorun
+
 touch /data/.first-boot-done
 echo "Success !!"
