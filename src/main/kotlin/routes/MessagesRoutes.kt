@@ -24,8 +24,33 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.route
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 
 private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+private fun enrichMonitorStatusWithDevice(rawJson: String, deviceId: String?): String {
+    if (deviceId == null) return rawJson
+    return try {
+        val jsonEl = json.parseToJsonElement(rawJson).jsonObject
+        val groups = jsonEl["groups"]?.jsonArray?.map { g ->
+            val gObj = g.jsonObject
+            JsonObject(gObj + ("deviceId" to JsonPrimitive(deviceId)))
+        }
+        val enriched = buildJsonObject {
+            jsonEl.forEach { (k, v) -> put(k, v) }
+            put("deviceId", JsonPrimitive(deviceId))
+            if (groups != null) put("groups", JsonArray(groups))
+        }
+        enriched.toString()
+    } catch (_: Exception) {
+        rawJson
+    }
+}
 
 fun Route.messageRoutes(
     viberBotClient: ViberBotClient,
@@ -84,22 +109,34 @@ fun Route.messageRoutes(
             post("/start", describeStartMonitor) {
                 val request = call.receiveNullable<StartMonitorRequest>() ?: StartMonitorRequest()
                 val deviceId = request.deviceId ?: call.request.queryParameters["deviceId"]
-                call.respondText(viberBotClient.startMonitor(request, deviceId), ContentType.Application.Json)
+                val raw = viberBotClient.startMonitor(request, deviceId)
+                call.respondText(enrichMonitorStatusWithDevice(raw, deviceId), ContentType.Application.Json)
             }
 
             post("/stop", describeStopMonitor) {
                 val deviceId = call.request.queryParameters["deviceId"]
-                call.respondText(viberBotClient.stopMonitor(deviceId), ContentType.Application.Json)
+                val raw = viberBotClient.stopMonitor(deviceId)
+                call.respondText(enrichMonitorStatusWithDevice(raw, deviceId), ContentType.Application.Json)
             }
 
             get("/status", describeGetMonitorStatus) {
                 val deviceId = call.request.queryParameters["deviceId"]
-                call.respondText(viberBotClient.getMonitorStatus(deviceId), ContentType.Application.Json)
+                val raw = viberBotClient.getMonitorStatus(deviceId)
+                call.respondText(enrichMonitorStatusWithDevice(raw, deviceId), ContentType.Application.Json)
             }
 
             get("/groups", describeGetMonitoredGroups) {
                 val deviceId = call.request.queryParameters["deviceId"]
-                call.respondText(viberBotClient.getMonitoredGroups(deviceId), ContentType.Application.Json)
+                val raw = viberBotClient.getMonitoredGroups(deviceId)
+                if (deviceId != null) {
+                    val groups = try {
+                        val arr = json.parseToJsonElement(raw).jsonArray
+                        JsonArray(arr.map { g -> JsonObject(g.jsonObject + ("deviceId" to JsonPrimitive(deviceId))) }).toString()
+                    } catch (_: Exception) { raw }
+                    call.respondText(groups, ContentType.Application.Json)
+                } else {
+                    call.respondText(raw, ContentType.Application.Json)
+                }
             }
 
             post("/groups/{id}/enable", describeEnableMonitorGroup) {
@@ -112,13 +149,15 @@ fun Route.messageRoutes(
                     viberBotClient.findConversationIdByGroupKey(groupKey, deviceId)
                         ?: throw NotFoundException("Группа с groupKey $groupKey не найдена на этом эмуляторе")
                 }
-                call.respondText(viberBotClient.enableMonitorGroup(id, request, deviceId), ContentType.Application.Json)
+                val raw = viberBotClient.enableMonitorGroup(id, request, deviceId)
+                call.respondText(enrichMonitorStatusWithDevice(raw, deviceId), ContentType.Application.Json)
             }
 
             post("/groups/{id}/disable", describeDisableMonitorGroup) {
                 val id = call.parameters["id"]!!.toInt()
                 val deviceId = call.request.queryParameters["deviceId"]
-                call.respondText(viberBotClient.disableMonitorGroup(id, deviceId), ContentType.Application.Json)
+                val raw = viberBotClient.disableMonitorGroup(id, deviceId)
+                call.respondText(enrichMonitorStatusWithDevice(raw, deviceId), ContentType.Application.Json)
             }
         }
     }
