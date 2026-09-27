@@ -7,7 +7,13 @@ services:
     restart: "no"
     command: >
       nsenter -t 1 -m -u -i -n -p --
-      sh -c "modprobe kvm_amd 2>/dev/null || modprobe kvm_intel 2>/dev/null || true; ls -l /dev/kvm"
+            sh -c "
+              [ -d /dev/kvm ] && rm -rf /dev/kvm;
+              modprobe kvm_amd 2>/dev/null || modprobe kvm_intel 2>/dev/null || true;
+              [ ! -c /dev/kvm ] && [ -e /sys/class/misc/kvm ] && mknod /dev/kvm c 10 232;
+              chmod 666 /dev/kvm 2>/dev/null || true;
+              ls -l /dev/kvm
+            "
 
   android-emulator:
     image: shmayro/dockerify-android:1.0.0
