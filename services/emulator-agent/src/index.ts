@@ -163,19 +163,26 @@ function requireCompanionConfig(): void {
   }
 }
 
-function routingIdFor(adbPort: number): string {
-  return `${hostPublicIp}:${adbPort}`;
+function routingIdFor(adbPort: number, instanceName?: string): string {
+  const ids = new Set<string>();
+  if (instanceName) ids.add(instanceName);
+  ids.add(`${hostPublicIp}:${adbPort}`);
+  if (hostPublicIp !== 'localhost') {
+    ids.add(`localhost:${adbPort}`);
+  }
+  return Array.from(ids).join(',');
 }
 
-async function reconcileCompanionStack(deviceId: string, adbPort: number): Promise<void> {
+async function reconcileCompanionStack(deviceId: string, adbPort: number, instanceName?: string): Promise<void> {
   requireCompanionConfig();
-  await companions.reconcileRunning(deviceId, adbPort, routingIdFor(adbPort));
+  await companions.reconcileRunning(deviceId, adbPort, routingIdFor(adbPort, instanceName));
 }
 
 async function inspectManagedEmulator(container: Docker.Container): Promise<{
   deviceId: string;
   adbPort: number;
   dynamic: boolean;
+  name: string;
   inspect: Docker.ContainerInspectInfo;
 }> {
   const inspect = await container.inspect();
@@ -184,10 +191,11 @@ async function inspectManagedEmulator(container: Docker.Container): Promise<{
   if (dynamic && inspect.Config?.Labels?.app !== 'viber-emulator' && !name.startsWith('viber-emu-')) {
     throw new Error('Container is not a Viber emulator');
   }
+  const instanceName = inspect.Config?.Labels?.instance || name.replace(/^viber-emu-/, '');
   const adbBinding = inspect.HostConfig?.PortBindings?.['5555/tcp'];
   const adbPort = adbBinding?.[0]?.HostPort ? Number(adbBinding[0].HostPort) : (dynamic ? 0 : 5555);
   if (!adbPort) throw new Error('Emulator has no published ADB port');
-  return { deviceId: inspect.Id, adbPort, dynamic, inspect };
+  return { deviceId: inspect.Id, adbPort, dynamic, name: instanceName, inspect };
 }
 
 // Parse proxy URL (http://user:pass@host:port or socks5://...)
@@ -313,7 +321,7 @@ async function buildAndStartEmulator(config: EmulatorConfig) {
 
   return {
     id: container.id,
-    deviceId: routingIdFor(adbPort),
+    deviceId: instanceName,
     name: instanceName,
     containerName,
     adbPort,
@@ -375,10 +383,10 @@ async function handleListEmulators(_req: Request, res: Response): Promise<void> 
         const name = c.Labels?.instance || rawName.replace(/^viber-emu-/, '');
         const adbPortBinding = c.Ports.find((p: any) => p.PrivatePort === 5555);
         const adbPort = adbPortBinding?.PublicPort || (rawName === 'android-emulator' ? 5555 : null);
-        const adbSerial = adbPort ? routingIdFor(adbPort) : null;
+        const adbSerial = adbPort ? `${hostPublicIp}:${adbPort}` : null;
 
         if (rawName !== 'android-emulator' && adbPort && c.State === 'running') {
-          await reconcileCompanionStack(c.Id, adbPort);
+          await reconcileCompanionStack(c.Id, adbPort, name);
         }
 
         let bootCompleted = false;
@@ -416,7 +424,7 @@ async function handleListEmulators(_req: Request, res: Response): Promise<void> 
 
         return {
           id: c.Id,
-          deviceId: rawName === 'android-emulator' ? null : adbSerial,
+          deviceId: rawName === 'android-emulator' ? null : name,
           name,
           containerName: rawName,
           status: statusText,
@@ -477,7 +485,7 @@ async function handleCreateEmulator(req: Request, res: Response): Promise<void> 
       proxyUrl,
       deviceProfile: deviceProfile || 'samsung-tab-s7',
     });
-    await companions.provisionNew(result.id, result.adbPort, result.deviceId, async () => {
+    await companions.provisionNew(result.id, result.adbPort, routingIdFor(result.adbPort, name), async () => {
       const createdEmulator = docker.getContainer(result.id);
       if (await createdEmulator.inspect().catch(() => null)) {
         await createdEmulator.remove({ force: true });
@@ -509,7 +517,7 @@ async function handleStartEmulator(req: Request, res: Response): Promise<void> {
       }
       if (fresh.dynamic) {
         requireCompanionConfig();
-        await companions.reconcileRunningLocked(fresh.deviceId, fresh.adbPort, routingIdFor(fresh.adbPort));
+        await companions.reconcileRunningLocked(fresh.deviceId, fresh.adbPort, routingIdFor(fresh.adbPort, fresh.name));
       }
       void ensureScrcpyConnected(fresh.adbPort);
     });
@@ -549,7 +557,7 @@ async function handleRestartEmulator(req: Request, res: Response): Promise<void>
       fresh = await inspectManagedEmulator(container);
       if (fresh.dynamic) {
         requireCompanionConfig();
-        await companions.reconcileRunningLocked(fresh.deviceId, fresh.adbPort, routingIdFor(fresh.adbPort));
+        await companions.reconcileRunningLocked(fresh.deviceId, fresh.adbPort, routingIdFor(fresh.adbPort, fresh.name));
       }
       void ensureScrcpyConnected(fresh.adbPort);
     });

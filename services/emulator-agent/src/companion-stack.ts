@@ -6,10 +6,16 @@ const VALID_HOST_LABEL = /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/;
 
 export function commandQueueName(deviceId?: string, baseQueue = DEFAULT_QUEUE): string {
   if (deviceId === undefined) return baseQueue;
-  if (!isValidRoutingId(deviceId)) {
+  if (!deviceId.trim()) {
     throw new Error('deviceId must be a safe instance id or hostname:port (maximum 64 characters)');
   }
-  return `${baseQueue}.device.${deviceId}`;
+  const ids = deviceId.split(',').map((id) => id.trim()).filter(Boolean);
+  for (const id of ids) {
+    if (!isValidRoutingId(id)) {
+      throw new Error('deviceId must be a safe instance id or hostname:port (maximum 64 characters)');
+    }
+  }
+  return ids.map((id) => `${baseQueue}.device.${id}`).join(',');
 }
 
 export interface CompanionRuntimeConfig {

@@ -23,6 +23,10 @@ test('command queue naming matches the API contract and rejects unsafe ids', () 
   assert.equal(commandQueueName(deviceId), `viber_commands_queue.device.${deviceId}`);
   assert.equal(commandQueueName('worker_1'), 'viber_commands_queue.device.worker_1');
   assert.equal(commandQueueName(routingId), `viber_commands_queue.device.${routingId}`);
+  assert.equal(
+    commandQueueName(`worker_1,${routingId}`),
+    `viber_commands_queue.device.worker_1,viber_commands_queue.device.${routingId}`,
+  );
 
   for (const invalid of ['', '../worker', 'worker.name', 'worker name', 'host:0', 'host:65536', 'a'.repeat(65)]) {
     assert.throws(() => commandQueueName(invalid), /deviceId/);
