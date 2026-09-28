@@ -96,16 +96,17 @@ class UsersSyncService(
     private val batchSize = 500
 
     suspend fun syncGroup(conversationId: Int, instanceId: String = "default"): UsersSyncResult {
-        val group: GroupDetail = json.decodeFromString(viberBotClient.getGroup(conversationId))
+        val group: GroupDetail = json.decodeFromString(viberBotClient.getGroup(conversationId, instanceId))
         val participants: List<ParticipantModel> =
-            json.decodeFromString(viberBotClient.getGroupParticipants(conversationId))
+            json.decodeFromString(viberBotClient.getGroupParticipants(conversationId, instanceId))
         return sync(group.name, conversationId, group.groupId, participants, instanceId)
     }
 
     suspend fun syncAll(instanceId: String = "default"): UsersSyncAllResult {
         val client = supabase() ?: throw SupabaseDisabledException()
         val startedAt = Instant.now().toString()
-        val groups: List<GroupSummary> = json.decodeFromString(viberBotClient.getGroups(includeAll = false))
+        val groups: List<GroupSummary> =
+            json.decodeFromString(viberBotClient.getGroups(includeAll = false, deviceId = instanceId))
 
         val synced = mutableListOf<UsersSyncResult>()
         val failed = mutableListOf<UsersSyncFailure>()
@@ -145,11 +146,11 @@ class UsersSyncService(
     }
 
     suspend fun syncTask(taskId: String, instanceId: String = "default"): UsersSyncResult {
-        val task: TaskSyncView = json.decodeFromString(viberBotClient.getTask(taskId))
+        val task: TaskSyncView = json.decodeFromString(viberBotClient.getTask(taskId, instanceId))
         val result = task.result
             ?: throw IllegalArgumentException("Задача $taskId ещё не завершена (статус ${task.status})")
         val participants: List<ParticipantModel> =
-            json.decodeFromString(viberBotClient.getTaskParticipants(taskId))
+            json.decodeFromString(viberBotClient.getTaskParticipants(taskId, instanceId))
         return sync(result.group, result.conversationId, result.groupId, participants, instanceId)
     }
 

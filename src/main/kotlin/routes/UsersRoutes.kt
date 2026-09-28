@@ -1,5 +1,6 @@
 package com.viber.routes
 
+import com.viber.bot.DeviceQueueRouting
 import com.viber.routes.docs.describeDeleteGroup
 import com.viber.routes.docs.describeGetGroupUsers
 import com.viber.routes.docs.describeListUsers
@@ -12,6 +13,7 @@ import io.github.smiley4.ktoropenapi.delete
 import io.github.smiley4.ktoropenapi.get
 import io.github.smiley4.ktoropenapi.post
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.route
@@ -55,7 +57,8 @@ fun Route.usersRoutes(usersSyncService: UsersSyncService, parserSecret: String?)
         }
 
         post("/sync/all", describeSyncAllUsers) {
-            call.respond(HttpStatusCode.OK, usersSyncService.syncAll())
+            val deviceId = validatedSyncDeviceId(call.request.queryParameters["deviceId"])
+            call.respond(HttpStatusCode.OK, usersSyncService.syncAll(deviceId))
         }
 
         get("/group/{id}", describeGetGroupUsers) {
@@ -65,14 +68,25 @@ fun Route.usersRoutes(usersSyncService: UsersSyncService, parserSecret: String?)
 
         post("/sync/group/{id}", describeSyncGroupUsers) {
             val id = call.parameters["id"]!!.toInt()
-            call.respond(HttpStatusCode.OK, usersSyncService.syncGroup(id))
+            val deviceId = validatedSyncDeviceId(call.request.queryParameters["deviceId"])
+            call.respond(HttpStatusCode.OK, usersSyncService.syncGroup(id, deviceId))
         }
 
         post("/sync/task/{id}", describeSyncTaskUsers) {
             val id = call.parameters["id"]!!
-            call.respond(HttpStatusCode.OK, usersSyncService.syncTask(id))
+            val deviceId = validatedSyncDeviceId(call.request.queryParameters["deviceId"])
+            call.respond(HttpStatusCode.OK, usersSyncService.syncTask(id, deviceId))
         }
     }
+}
+
+private fun validatedSyncDeviceId(deviceId: String?): String {
+    try {
+        DeviceQueueRouting.validate(deviceId)
+    } catch (error: IllegalArgumentException) {
+        throw BadRequestException(error.message ?: "Invalid deviceId", error)
+    }
+    return deviceId ?: "default"
 }
 
 private fun matchesParserSecret(configured: String?, provided: String?): Boolean {
