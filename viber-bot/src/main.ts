@@ -11,29 +11,11 @@ async function bootstrap(): Promise<void> {
   const rmqUrl = process.env['RABBITMQ_URL'] ?? 'amqp://viber:viber_secret@localhost:5672';
   const queueEnv = process.env['RABBITMQ_QUEUE'] ?? 'viber_commands_queue';
   const queueNames = queueEnv.split(',').map((q) => q.trim()).filter(Boolean);
+  const queues = queueNames.length > 0 ? queueNames : ['viber_commands_queue'];
 
-  if (queueNames.length <= 1) {
-    const queue = queueNames[0] ?? 'viber_commands_queue';
-    const app = await NestFactory.createMicroservice<MicroserviceOptions>(AppModule, {
-      transport: Transport.RMQ,
-      options: {
-        urls: [rmqUrl],
-        queue,
-        queueOptions: {
-          durable: true,
-        },
-        prefetchCount: 1,
-      },
-    });
-
-    app.useGlobalFilters(new AllExceptionsFilter());
-    await app.listen();
-    logger.log(`Viber Bot Microservice started. Listening queue: ${queue}`);
-  } else {
-    const app = await NestFactory.create(AppModule, { logger: ['log', 'warn', 'error'] });
-
-    for (const queue of queueNames) {
-      app.connectMicroservice<MicroserviceOptions>({
+  await Promise.all(
+    queues.map(async (queue) => {
+      const app = await NestFactory.createMicroservice<MicroserviceOptions>(AppModule, {
         transport: Transport.RMQ,
         options: {
           urls: [rmqUrl],
@@ -44,12 +26,14 @@ async function bootstrap(): Promise<void> {
           prefetchCount: 1,
         },
       });
-    }
 
-    app.useGlobalFilters(new AllExceptionsFilter());
-    await app.startAllMicroservices();
-    logger.log(`Viber Bot Microservice started. Listening queues: ${queueNames.join(', ')}`);
-  }
+      app.useGlobalFilters(new AllExceptionsFilter());
+      await app.listen();
+      logger.log(`Viber Bot Microservice listening queue: ${queue}`);
+    }),
+  );
+
+  logger.log(`Viber Bot Microservice fully initialized for: ${queues.join(', ')}`);
 }
 
 void bootstrap();
