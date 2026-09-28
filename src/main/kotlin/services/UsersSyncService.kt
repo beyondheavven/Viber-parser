@@ -2,6 +2,7 @@ package com.viber.services
 
 import com.viber.bot.RosterClient
 import com.viber.models.GroupDetail
+import com.viber.models.GroupDeleteResult
 import com.viber.models.GroupSummary
 import com.viber.models.GroupSyncStatus
 import com.viber.models.ParticipantModel
@@ -79,6 +80,13 @@ class UsersSyncService(
     private val supabase: () -> SupabaseClient?,
     private val groupPersistence: (SupabaseClient) -> ViberGroupPersistenceService = {
         ViberGroupPersistenceService(SupabaseViberGroupRepository(it))
+    },
+    private val deleteGroupById: suspend (Long) -> ViberGroupRow? = { id ->
+        val client = supabase() ?: throw SupabaseDisabledException()
+        client.from("viber_groups").delete {
+            select()
+            filter { eq("id", id) }
+        }.decodeList<ViberGroupRow>().singleOrNull()
     },
 ) {
     private val logger = LoggerFactory.getLogger(UsersSyncService::class.java)
@@ -242,14 +250,16 @@ class UsersSyncService(
             }.decodeList<ViberGroupRow>()
 
             val groupStatuses = groups.map { group ->
-                val id = group.id
+                val id = requireNotNull(group.id) { "Supabase returned a group without its database id" }
                 GroupSyncStatus(
+                    id = id.toString(),
+                    instanceId = group.instanceId,
                     groupKey = group.groupKey,
                     conversationId = group.conversationId,
                     name = group.name,
                     participantCount = group.participantCount,
-                    activeMembers = if (conversationId != null) id?.let { countMembers(client, it, active = true) } else null,
-                    inactiveMembers = if (conversationId != null) id?.let { countMembers(client, it, active = false) } else null,
+                    activeMembers = if (conversationId != null) countMembers(client, id, active = true) else null,
+                    inactiveMembers = if (conversationId != null) countMembers(client, id, active = false) else null,
                     lastSyncedAt = group.lastSyncedAt,
                 )
             }
@@ -287,6 +297,19 @@ class UsersSyncService(
                 checkedAt = checkedAt,
             )
         }
+    }
+
+    suspend fun deleteGroup(id: Long): GroupDeleteResult? {
+        val group = deleteGroupById(id) ?: return null
+        return GroupDeleteResult(
+            success = true,
+            id = requireNotNull(group.id).toString(),
+            instanceId = group.instanceId,
+            groupKey = group.groupKey,
+            conversationId = group.conversationId,
+            name = group.name,
+            message = "Группа удалена из Supabase",
+        )
     }
 
     private suspend fun countRows(client: SupabaseClient, table: String): Int? =

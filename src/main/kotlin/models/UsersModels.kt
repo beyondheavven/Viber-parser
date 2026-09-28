@@ -130,6 +130,10 @@ data class UsersSyncAllResult(
 
 @Serializable
 data class GroupSyncStatus(
+    val id: String,
+
+    val instanceId: String,
+
     val groupKey: String,
 
     val conversationId: Int? = null,
@@ -143,6 +147,23 @@ data class GroupSyncStatus(
     val inactiveMembers: Int? = null,
 
     val lastSyncedAt: String? = null,
+)
+
+@Serializable
+data class GroupDeleteResult(
+    val success: Boolean,
+
+    val id: String,
+
+    val instanceId: String,
+
+    val groupKey: String,
+
+    val conversationId: Int? = null,
+
+    val name: String? = null,
+
+    val message: String,
 )
 
 @Serializable

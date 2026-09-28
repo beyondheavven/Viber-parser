@@ -10,6 +10,7 @@ import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -109,6 +110,7 @@ class UsersSyncIntegrationTest {
                 val status = service2.syncStatus(conversationId)
                 assertTrue(status.configured && status.reachable, status.message)
                 val group = status.groups.single()
+                assertTrue(group.id.toLong() > 0)
                 assertEquals(conversationId, group.conversationId)
                 assertEquals(1, group.participantCount)
                 assertEquals(1, group.activeMembers)
@@ -124,6 +126,19 @@ class UsersSyncIntegrationTest {
                 val missing = service2.syncStatus(conversationId - 1)
                 assertEquals(emptyList(), missing.groups)
                 assertTrue(missing.message.contains("ещё не записывалась"), missing.message)
+
+                val deleted = assertNotNull(service2.deleteGroup(group.id.toLong()))
+                assertEquals(group.id, deleted.id)
+                val remainingUsers = client.from("viber_users").select {
+                    filter {
+                        or {
+                            eq("identity_key", "it-member-a")
+                            eq("identity_key", "phone:375291112222")
+                        }
+                    }
+                }.decodeList<ViberUserRow>()
+                assertEquals(2, remainingUsers.size)
+                assertEquals(emptyList(), service2.syncStatus(conversationId).groups)
             } finally {
                 client.from("viber_groups").delete { filter { eq("group_key", "conv:$conversationId") } }
                 client.from("viber_users").delete {
