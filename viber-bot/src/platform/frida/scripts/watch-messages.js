@@ -52,13 +52,23 @@ Java.perform(function () {
 
   try {
     var SQLiteDatabase = Java.use('android.database.sqlite.SQLiteDatabase');
+    var inInsert = false;
+    var inUpdate = false;
 
     SQLiteDatabase.insertWithOnConflict.implementation = function (table, nullColumnHack, values, conflict) {
-      var id = this.insertWithOnConflict(table, nullColumnHack, values, conflict);
-      if (isWatchedTable(table)) {
-        report('insert', table, id, values);
+      if (inInsert) {
+        return this.insertWithOnConflict(table, nullColumnHack, values, conflict);
       }
-      return id;
+      inInsert = true;
+      try {
+        var id = this.insertWithOnConflict(table, nullColumnHack, values, conflict);
+        if (isWatchedTable(table)) {
+          report('insert', table, id, values);
+        }
+        return id;
+      } finally {
+        inInsert = false;
+      }
     };
     hooked.push('insertWithOnConflict');
 
@@ -69,11 +79,19 @@ Java.perform(function () {
       whereArgs,
       conflict,
     ) {
-      var count = this.updateWithOnConflict(table, values, whereClause, whereArgs, conflict);
-      if (isWatchedTable(table) && count > 0) {
-        report('update', table, null, values);
+      if (inUpdate) {
+        return this.updateWithOnConflict(table, values, whereClause, whereArgs, conflict);
       }
-      return count;
+      inUpdate = true;
+      try {
+        var count = this.updateWithOnConflict(table, values, whereClause, whereArgs, conflict);
+        if (isWatchedTable(table) && count > 0) {
+          report('update', table, null, values);
+        }
+        return count;
+      } finally {
+        inUpdate = false;
+      }
     };
     hooked.push('updateWithOnConflict');
   } catch (e) {

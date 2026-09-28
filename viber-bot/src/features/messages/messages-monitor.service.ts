@@ -73,6 +73,8 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
   private contactSyncRestartRunning = false;
   private lastContactSyncRestartAt = 0;
   private lastLiveWatchAttemptAt = 0;
+  private readonly disableFridaWatch =
+    process.env['MONITOR_DISABLE_FRIDA_WATCH'] === 'true';
   private readonly contactSyncBatchMs = Math.max(
     500,
     int('MONITOR_CONTACT_SYNC_BATCH_MS', DEFAULT_CONTACT_SYNC_BATCH_MS),
@@ -85,9 +87,9 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
   private readonly groups = new Map<number, TrackedGroup>();
   private readonly heldMessages: Message[] = [];
   private readonly recordedKeys = new Set<string>();
-  private readonly updatedParticipantIds = new Set<number>();
-  private readonly writingParticipantIds = new Set<number>();
-  private readonly pendingContactSyncParticipantIds = new Set<number>();
+  private readonly updatedParticipantTargets = new Set<number | string>();
+  private readonly writingParticipantTargets = new Set<number | string>();
+  private readonly pendingContactSyncTargets = new Set<number | string>();
   private participantWriteQueue: Promise<void> = Promise.resolve();
 
   private readonly ringBuffer: MonitoredMessageDto[] = [];
@@ -372,16 +374,25 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    const rawEmToken =
+      msg.senderNumber?.startsWith('em:')
+        ? msg.senderNumber.trim()
+        : 'senderMemberId' in msg && msg.senderMemberId?.startsWith('em:')
+          ? msg.senderMemberId.trim()
+          : null;
+
     if (
       !attachedPhone &&
       !msg.outgoing &&
-      msg.senderId !== null &&
-      msg.senderId !== undefined &&
       msg.senderId !== 1 &&
       effectiveMemberId &&
       this.isDecodedMemberId(effectiveMemberId)
     ) {
-      void this.queueParticipantUpdateInLiveDb(msg.senderId, effectiveMemberId);
+      if (msg.senderId !== null && msg.senderId !== undefined) {
+        void this.queueParticipantUpdateInLiveDb(msg.senderId, effectiveMemberId);
+      } else if (rawEmToken) {
+        void this.queueParticipantUpdateInLiveDb(rawEmToken, effectiveMemberId);
+      }
     }
 
     this.processedMessagesCount += 1;
@@ -414,45 +425,52 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     return /^[A-Za-z0-9+/]{11}=$/.test(memberId) && Buffer.from(memberId, 'base64').length === 8;
   }
 
-  private queueParticipantUpdateInLiveDb(senderId: number, memberId: string): Promise<void> {
-    if (this.updatedParticipantIds.has(senderId) || this.writingParticipantIds.has(senderId)) {
+  private queueParticipantUpdateInLiveDb(
+    target: number | string,
+    memberId: string,
+  ): Promise<void> {
+    if (this.updatedParticipantTargets.has(target) || this.writingParticipantTargets.has(target)) {
       return Promise.resolve();
     }
-    this.writingParticipantIds.add(senderId);
+    this.writingParticipantTargets.add(target);
     const queued = this.participantWriteQueue.then(() =>
-      this.updateParticipantInLiveDb(senderId, memberId),
+      this.updateParticipantInLiveDb(target, memberId),
     );
     this.participantWriteQueue = queued
       .catch(() => undefined)
       .finally(() => {
-        this.writingParticipantIds.delete(senderId);
+        this.writingParticipantTargets.delete(target);
       });
     return queued;
   }
 
   private async updateParticipantInLiveDb(
-    senderId: number,
+    target: number | string,
     memberId: string,
     heldLockId?: string,
   ): Promise<void> {
-    const lockId = heldLockId ?? `message-monitor-contact:${String(senderId)}`;
+    const lockId = heldLockId ?? `message-monitor-contact:${String(target)}`;
     const ownsLock = heldLockId === undefined;
     if (ownsLock && this.deviceMutex && !this.deviceMutex.tryLock(lockId)) return;
     try {
       const { db } = await this.getDeviceContext();
       const escapedMemberId = memberId.replace(/'/g, "''");
+      const whereClause =
+        typeof target === 'number'
+          ? `_id = ${String(target)}`
+          : `(encrypted_member_id = '${target.replace(/'/g, "''")}' OR member_id = '${target.replace(/'/g, "''")}')`;
       db.updateLiveRow(
         `PRAGMA busy_timeout=${String(LIVE_WRITE_TIMEOUT_MS)}; ` +
           `UPDATE participants_info SET member_id = '${escapedMemberId}', participant_type = 1, ` +
           `safe_contact = 0, number = CASE WHEN number LIKE 'em:%' THEN NULL ELSE number END ` +
-          `WHERE _id = ${String(senderId)} AND _id != 1 AND coalesce(participant_type, 1) != 0;`,
+          `WHERE ${whereClause} AND _id != 1 AND coalesce(participant_type, 1) != 0;`,
         { appPackage: loadViberConfig().appPackage, timeout: LIVE_WRITE_TIMEOUT_MS },
       );
-      this.updatedParticipantIds.add(senderId);
-      this.pendingContactSyncParticipantIds.add(senderId);
+      this.updatedParticipantTargets.add(target);
+      this.pendingContactSyncTargets.add(target);
       this.scheduleContactSyncRestart();
     } catch (error) {
-      this.logger.debug(`Could not update participant ${String(senderId)} in live DB: ${String(error)}`);
+      this.logger.debug(`Could not update participant ${String(target)} in live DB: ${String(error)}`);
       this.deviceContext = null;
       this.deviceContextPromise = null;
     } finally {
@@ -460,12 +478,12 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private scheduleContactSyncRestart(delayMs?: number): void {
-    if (!this.isRunning || this.pendingContactSyncParticipantIds.size === 0) return;
+  private scheduleContactSyncRestart(delayMs?: number, isRetry = false): void {
+    if (!this.isRunning || this.pendingContactSyncTargets.size === 0) return;
     if (this.contactSyncRestartTimer || this.contactSyncRestartRunning) return;
     const elapsed = Date.now() - this.lastContactSyncRestartAt;
-    const rateLimitDelay = Math.max(0, this.contactSyncMinRestartMs - elapsed);
-    const delay = delayMs ?? Math.max(this.contactSyncBatchMs, rateLimitDelay);
+    const rateLimitDelay = isRetry ? 0 : Math.max(0, this.contactSyncMinRestartMs - elapsed);
+    const delay = Math.max(delayMs ?? this.contactSyncBatchMs, rateLimitDelay);
     this.contactSyncRestartTimer = setTimeout(() => {
       this.contactSyncRestartTimer = null;
       void this.restartViberForContactSync();
@@ -473,30 +491,64 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async restartViberForContactSync(): Promise<void> {
-    if (!this.isRunning || this.pendingContactSyncParticipantIds.size === 0) return;
-    if (this.contactSyncRestartRunning || this.isPolling || this.writingParticipantIds.size > 0) {
-      this.scheduleContactSyncRestart(DEVICE_RETRY_MS);
+    if (!this.isRunning || this.pendingContactSyncTargets.size === 0) return;
+    if (this.contactSyncRestartRunning || this.isPolling || this.writingParticipantTargets.size > 0) {
+      this.scheduleContactSyncRestart(DEVICE_RETRY_MS, true);
       return;
     }
 
     const lockId = 'message-monitor-contact-sync';
     if (this.deviceMutex && !this.deviceMutex.tryLock(lockId)) {
-      this.scheduleContactSyncRestart(DEVICE_RETRY_MS);
+      this.scheduleContactSyncRestart(DEVICE_RETRY_MS, true);
       return;
     }
 
     this.contactSyncRestartRunning = true;
-    const batch = [...this.pendingContactSyncParticipantIds];
+    const batch = [...this.pendingContactSyncTargets];
     let restarted = false;
     try {
       await this.messageWatch?.detach();
-      const { adb } = await this.getDeviceContext();
+      const { adb, db } = await this.getDeviceContext();
       if (!this.isRunning) return;
+
+      // Batch transform any pending encrypted participants before restart
+      try {
+        const rowsToDecode = db
+          .query(
+            `SELECT _id, encrypted_member_id FROM participants_info ` +
+              `WHERE (number LIKE 'em:%' OR member_id LIKE 'em:%') ` +
+              `AND encrypted_member_id LIKE 'em:%' AND _id != 1 AND coalesce(participant_type, 1) != 0;`,
+            ['id', 'encryptedMemberId'],
+          )
+          .map((r) => ({ id: Number(r['id']), enc: String(r['encryptedMemberId'] ?? '') }));
+
+        for (const row of rowsToDecode) {
+          if (!row.id || !row.enc) continue;
+          try {
+            const decodedKey = extractEmKey(row.enc);
+            if (this.isDecodedMemberId(decodedKey)) {
+              db.updateLiveRow(
+                `PRAGMA busy_timeout=${String(LIVE_WRITE_TIMEOUT_MS)}; ` +
+                  `UPDATE participants_info SET member_id = '${decodedKey.replace(/'/g, "''")}', ` +
+                  `participant_type = 1, safe_contact = 0, number = NULL ` +
+                  `WHERE _id = ${String(row.id)} AND _id != 1;`,
+                { appPackage: loadViberConfig().appPackage, timeout: LIVE_WRITE_TIMEOUT_MS },
+              );
+              this.updatedParticipantTargets.add(row.id);
+            }
+          } catch {
+            // ignore malformed
+          }
+        }
+      } catch (err) {
+        this.logger.debug(`Pre-restart participants scan skipped: ${String(err)}`);
+      }
+
       restarted =
         (await this.viberLifecycle?.restartApp(adb, loadViberConfig())) ?? false;
-      this.lastContactSyncRestartAt = Date.now();
       if (restarted) {
-        for (const senderId of batch) this.pendingContactSyncParticipantIds.delete(senderId);
+        this.lastContactSyncRestartAt = Date.now();
+        for (const target of batch) this.pendingContactSyncTargets.delete(target);
         this.lastContactRefreshAt = 0;
         this.logger.log(
           `Restarted only Viber for a batch of ${String(batch.length)} decoded participants.`,
@@ -516,8 +568,8 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
           await this.ensureLiveWatch();
           if (this.isRunning) this.requestImmediateIngest();
         }
-        if (this.pendingContactSyncParticipantIds.size > 0) {
-          this.scheduleContactSyncRestart(DEVICE_RETRY_MS);
+        if (this.pendingContactSyncTargets.size > 0) {
+          this.scheduleContactSyncRestart(DEVICE_RETRY_MS, !restarted);
         }
       }
     }
@@ -552,6 +604,7 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     this.lastContactRefreshAt = Date.now();
 
     const phonesByParticipant = new Map<string, string>();
+    const phonesByMemberId = new Map<string, string>();
     let writes = 0;
     for (const row of rows) {
       const rawNumber = row.number?.trim();
@@ -569,13 +622,16 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
       }
 
       if (phone) {
-        this.pendingContactSyncParticipantIds.delete(row.id);
+        this.pendingContactSyncTargets.delete(row.id);
+        if (row.encryptedMemberId) this.pendingContactSyncTargets.delete(row.encryptedMemberId);
         for (const identity of [row.memberId, row.encryptedMemberId]) {
           const stableIdentity = this.stableMemberId(identity);
           if (stableIdentity) {
             phonesByParticipant.set(this.participantPhoneKey(row.id, stableIdentity), phone);
+            phonesByMemberId.set(stableIdentity, phone);
           }
         }
+        if (memberId) phonesByMemberId.set(memberId, phone);
         this.contactEnrichment?.learn(memberId, name, phone);
         this.contactEnrichment?.learn(row.encryptedMemberId, name, phone);
         continue;
@@ -588,20 +644,20 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
         this.isDecodedMemberId(memberId)
       ) {
         if (row.memberId !== memberId || row.participantType !== 1 || row.safeContact !== 0) {
-          this.updatedParticipantIds.delete(row.id);
+          this.updatedParticipantTargets.delete(row.id);
         }
-        if (writes < CONTACT_WRITES_PER_REFRESH && !this.updatedParticipantIds.has(row.id)) {
-          this.writingParticipantIds.add(row.id);
+        if (writes < CONTACT_WRITES_PER_REFRESH && !this.updatedParticipantTargets.has(row.id)) {
+          this.writingParticipantTargets.add(row.id);
           try {
             await this.updateParticipantInLiveDb(row.id, memberId, heldLockId);
           } finally {
-            this.writingParticipantIds.delete(row.id);
+            this.writingParticipantTargets.delete(row.id);
           }
           writes += 1;
         }
       }
     }
-    this.enrichAndPersistBuffer(phonesByParticipant);
+    this.enrichAndPersistBuffer(phonesByParticipant, phonesByMemberId);
   }
 
   private async pollTick(): Promise<void> {
@@ -800,6 +856,7 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async ensureLiveWatch(): Promise<void> {
+    if (this.disableFridaWatch) return;
     if (!this.isRunning || this.messageWatch === undefined) return;
     if (this.messageWatch.isAttached()) return;
     if (Date.now() - this.lastLiveWatchAttemptAt < 60_000) return;
@@ -1021,15 +1078,19 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     return memberId !== message.senderMemberId ? { ...message, senderMemberId: memberId } : message;
   }
 
-  private enrichAndPersistBuffer(phonesByParticipant = new Map<string, string>()): void {
+  private enrichAndPersistBuffer(
+    phonesByParticipant = new Map<string, string>(),
+    phonesByMemberId = new Map<string, string>(),
+  ): void {
     const replacements = new Map<string, MonitoredMessageDto>();
     for (let index = 0; index < this.ringBuffer.length; index += 1) {
       const original = this.ringBuffer[index]!;
       const stableMemberId = this.stableMemberId(original.senderMemberId);
       const profilePhone =
-        original.senderId !== null && stableMemberId
+        (original.senderId !== null && stableMemberId
           ? phonesByParticipant.get(this.participantPhoneKey(original.senderId, stableMemberId))
-          : undefined;
+          : undefined) ??
+        (stableMemberId ? phonesByMemberId.get(stableMemberId) : undefined);
       const enriched = this.enrichExistingMessage(
         original,
         profilePhone,
