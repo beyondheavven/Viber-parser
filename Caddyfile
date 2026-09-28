@@ -1,0 +1,13 @@
+136.92.24.88.sslip.io {
+    # Swagger документация Ktor API
+    handle /swagger* {
+        reverse_proxy viber-parser-api:8080
+    }
+    handle /api.json {
+        reverse_proxy viber-parser-api:8080
+    }
+    # ВСЁ остальное (включая /api/* и веб-интерфейс) обрабатывает Next.js (onixdata-client)
+    handle {
+        reverse_proxy onixdata-client:3000
+    }
+}

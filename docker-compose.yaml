@@ -1,4 +1,27 @@
 services:
+  onixdata-client:
+    build:
+      context: /home/kkurzau/onixdata-app
+      dockerfile: Dockerfile
+    container_name: onixdata-client
+    restart: unless-stopped
+    environment:
+      - /home/kkurzau/onixdata-app/.env
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - viber-parser-api
+      - onixdata-client
+
   kvm-init:
     image: alpine:3
     container_name: viber-kvm-init
@@ -59,7 +82,7 @@ services:
     container_name: scrcpy-web
     privileged: true
     ports:
-      - "${BIND_IP:-127.0.0.1}:${SCRCPY_WEB_PORT:-8000}:8000"
+      - "${SCRCPY_WEB_PORT:-8000}:8000"
     depends_on:
       android-emulator:
         condition: service_healthy
@@ -173,7 +196,7 @@ services:
       rabbitmq:
         condition: service_healthy
     ports:
-      - "${PORT:-8080}:8080"
+      - "0.0.0.0:8080:8080"
     environment:
       - PORT=8080
       - ADB_HOST=${ADB_HOST:-android-emulator}
@@ -231,6 +254,8 @@ volumes:
   android-data:
   viber-bot-data:
   rabbitmq_data:
+  caddy_data:
+  caddy_config:
   loki_data:
   grafana_data:
 
