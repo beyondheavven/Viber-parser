@@ -44,13 +44,17 @@ export interface CompanionSpecs {
   bot: CompanionSpec;
 }
 
+export function botDataVolumeName(deviceId: string): string {
+  return `viber-bot-data-${deviceId.slice(0, 12).toLowerCase()}`;
+}
+
 export function buildCompanionSpecs(config: CompanionConfig): CompanionSpecs {
   const queue = commandQueueName(config.routingId);
   const instanceId = config.routingId.split(',')[0].trim();
   const suffix = config.deviceId.slice(0, 12).toLowerCase();
   const appiumName = `viber-appium-${suffix}`;
   const botName = `viber-bot-${suffix}`;
-  const botDataVolume = `viber-bot-data-${suffix}`;
+  const botDataVolume = botDataVolumeName(config.deviceId);
   const adbTarget = `host.docker.internal:${config.adbPort}`;
   const labels = {
     app: 'viber-emulator-companion',
@@ -163,9 +167,13 @@ export class CompanionController {
         await this.reconcileRunningLocked(deviceId, adbPort, routingId);
       } catch (cause) {
         try {
-          await this.removeCompanionsLocked(deviceId);
+          try {
+            await this.removeCompanionsLocked(deviceId);
+          } finally {
+            await rollbackEmulator();
+          }
         } finally {
-          await rollbackEmulator();
+          await this.removeBotDataVolume(deviceId);
         }
         throw cause;
       }
@@ -199,6 +207,14 @@ export class CompanionController {
   async removeCompanionsLocked(deviceId: string): Promise<void> {
     const companions = await this.listCompanions(deviceId);
     await Promise.all(companions.map((info) => this.docker.getContainer(info.Id).remove({ force: true })));
+  }
+
+  async removeBotDataVolume(deviceId: string): Promise<void> {
+    try {
+      await this.docker.getVolume(botDataVolumeName(deviceId)).remove();
+    } catch (error: any) {
+      if (error?.statusCode !== 404) throw error;
+    }
   }
 
   private async ensureCurrentAndRunning(spec: CompanionSpec, deviceId: string): Promise<boolean> {

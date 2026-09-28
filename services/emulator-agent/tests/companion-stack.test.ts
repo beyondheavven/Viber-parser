@@ -205,6 +205,7 @@ test('new emulator provisioning rolls back partial companions and the emulator o
   docker.images.set('appium/appium:latest', 'sha256:appium');
   docker.images.set('viber-parser-bot', 'sha256:bot');
   docker.addEmulator(deviceId, true);
+  docker.volumes.add('viber-bot-data-aaaaaaaaaaaa');
   docker.failCreate.add('viber-bot-aaaaaaaaaaaa');
   const controller = new CompanionController(docker as never, runtimeConfig);
   let rolledBack = false;
@@ -221,6 +222,29 @@ test('new emulator provisioning rolls back partial companions and the emulator o
   assert.equal(docker.has(deviceId), false);
   assert.equal(docker.has('viber-appium-aaaaaaaaaaaa'), false);
   assert.equal(docker.has('viber-bot-aaaaaaaaaaaa'), false);
+  assert.deepEqual(docker.removedVolumes, ['viber-bot-data-aaaaaaaaaaaa']);
+});
+
+test('explicit data deletion removes bot data volume while ordinary deletion preserves it', async () => {
+  const preservingDocker = new FakeDocker();
+  preservingDocker.volumes.add('viber-bot-data-aaaaaaaaaaaa');
+  const preservingController = new CompanionController(preservingDocker as never, runtimeConfig);
+
+  await preservingController.removeCompanionsLocked(deviceId);
+
+  assert.equal(preservingDocker.volumes.has('viber-bot-data-aaaaaaaaaaaa'), true);
+  assert.deepEqual(preservingDocker.removedVolumes, []);
+
+  const deletingDocker = new FakeDocker();
+  deletingDocker.volumes.add('viber-bot-data-aaaaaaaaaaaa');
+  const deletingController = new CompanionController(deletingDocker as never, runtimeConfig);
+
+  await deletingController.removeCompanionsLocked(deviceId);
+  await deletingController.removeBotDataVolume(deviceId);
+  await deletingController.removeBotDataVolume(deviceId);
+
+  assert.equal(deletingDocker.volumes.has('viber-bot-data-aaaaaaaaaaaa'), false);
+  assert.deepEqual(deletingDocker.removedVolumes, ['viber-bot-data-aaaaaaaaaaaa']);
 });
 
 interface FakeContainerConfig {
@@ -281,6 +305,8 @@ class FakeDocker {
   readonly created: string[] = [];
   readonly removed: string[] = [];
   readonly failCreate = new Set<string>();
+  readonly volumes = new Set<string>();
+  readonly removedVolumes: string[] = [];
   private readonly containers = new Map<string, FakeContainer>();
 
   addEmulator(id: string, running: boolean): void {
@@ -305,6 +331,18 @@ class FakeDocker {
 
   getImage(name: string) {
     return { inspect: async () => ({ Id: this.images.get(name) }) };
+  }
+
+  getVolume(name: string) {
+    return {
+      remove: async () => {
+        if (!this.volumes.has(name)) {
+          throw Object.assign(new Error('volume not found'), { statusCode: 404 });
+        }
+        this.volumes.delete(name);
+        this.removedVolumes.push(name);
+      },
+    };
   }
 
   async createContainer(options: any): Promise<FakeContainer> {

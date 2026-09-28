@@ -626,6 +626,9 @@ async function handleDeleteEmulator(req: Request, res: Response): Promise<void> 
         await companions.removeCompanionsLocked(fresh.deviceId);
       }
       await container.remove({ force: true });
+      if (deleteVolumes && fresh.dynamic) {
+        await companions.removeBotDataVolume(fresh.deviceId);
+      }
       accountCache.invalidate(inspect.Id);
     });
 
