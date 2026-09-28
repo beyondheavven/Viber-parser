@@ -10,6 +10,7 @@ import com.viber.models.LoginResponse
 import com.viber.models.QrStartRequest
 import com.viber.plugins.configureException
 import com.viber.routes.authRoutes
+import com.viber.routes.tasksRoutes
 import com.viber.services.AuthService
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -96,6 +97,53 @@ class DeviceQueueRoutingTest {
         }
 
         assertEquals(HttpStatusCode.BadRequest, client.get("/auth/qr/status?deviceId=..%2Fqueue").status)
+    }
+
+    @Test
+    fun `task routes forward device id to the selected queue`() = testApplication {
+        val rpc = RecordingRpcClient()
+        application {
+            routing { tasksRoutes(ViberBotClient(rpc, "viber_commands_queue")) }
+        }
+
+        assertEquals(HttpStatusCode.OK, client.get("/tasks?deviceId=136.92.24.88%3A5556").status)
+        assertEquals(HttpStatusCode.OK, client.get("/tasks/task-1?deviceId=136.92.24.88%3A5556").status)
+        assertEquals(
+            HttpStatusCode.OK,
+            client.get("/tasks/task-1/participants?deviceId=136.92.24.88%3A5556").status
+        )
+        assertEquals(
+            HttpStatusCode.OK,
+            client.post("/tasks/task-1/stop?deviceId=136.92.24.88%3A5556").status
+        )
+
+        assertEquals(List(4) { expectedRoutingQueue }, rpc.queues)
+    }
+
+    @Test
+    fun `task routes without device id keep using the default queue`() = testApplication {
+        val rpc = RecordingRpcClient()
+        application {
+            routing { tasksRoutes(ViberBotClient(rpc, "viber_commands_queue")) }
+        }
+
+        assertEquals(HttpStatusCode.OK, client.get("/tasks").status)
+        assertEquals(HttpStatusCode.OK, client.get("/tasks/task-1").status)
+        assertEquals(HttpStatusCode.OK, client.get("/tasks/task-1/participants").status)
+        assertEquals(HttpStatusCode.OK, client.post("/tasks/task-1/stop").status)
+
+        assertEquals(List(4) { "viber_commands_queue" }, rpc.queues)
+    }
+
+    @Test
+    fun `task routes reject unsafe device id`() = testApplication {
+        application {
+            install(ContentNegotiation) { json() }
+            configureException()
+            routing { tasksRoutes(ViberBotClient(RecordingRpcClient(), "viber_commands_queue")) }
+        }
+
+        assertEquals(HttpStatusCode.BadRequest, client.get("/tasks?deviceId=..%2Fqueue").status)
     }
 
     private class RecordingRpcClient : RpcClient {
