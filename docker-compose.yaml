@@ -193,8 +193,7 @@ services:
     image: grafana/loki:3.1.0
     container_name: viber-parser-loki
     restart: unless-stopped
-    command:
-      - config.file=/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml
     volumes:
       - ./monitoring/loki/loki-config.yaml:/etc/loki/local-config.yaml
       - loki_data:/loki
@@ -203,8 +202,7 @@ services:
     image: grafana/promtail:3.1.0
     container_name: viber-parser-promtail
     restart: unless-stopped
-    command:
-      - config.file=/etc/promtail/config.yaml
+    command: -config.file=/etc/promtail/config.yaml
     depends_on:
       - loki
     volumes:
