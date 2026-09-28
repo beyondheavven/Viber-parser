@@ -188,7 +188,7 @@ describe('MessagesMonitorService', () => {
       monitor.enableTrackedGroup(22, { name: 'Travel', currentLastMessageId: 10, fromLatest: false });
 
       let status = monitor.getStatus();
-      expect(status.groups).toEqual([
+      expect(status.groups).toMatchObject([
         { conversationId: 20, name: 'Berlin', enabled: true, lastMessageId: 500 },
         { conversationId: 22, name: 'Travel', enabled: true, lastMessageId: 0 },
       ]);

@@ -29,8 +29,9 @@ Java.perform(function () {
     return out;
   }
 
-  function isMessagesTable(table) {
-    return String(table || '').replace(/"/g, '').toLowerCase() === 'messages';
+  function isWatchedTable(table) {
+    var t = String(table || '').replace(/"/g, '').toLowerCase();
+    return t === 'messages' || t === 'public_accounts' || t === 'conversations';
   }
 
   function report(op, table, rowId, values) {
@@ -54,7 +55,7 @@ Java.perform(function () {
 
     SQLiteDatabase.insertWithOnConflict.implementation = function (table, nullColumnHack, values, conflict) {
       var id = this.insertWithOnConflict(table, nullColumnHack, values, conflict);
-      if (isMessagesTable(table)) {
+      if (isWatchedTable(table)) {
         report('insert', table, id, values);
       }
       return id;
@@ -69,7 +70,7 @@ Java.perform(function () {
       conflict,
     ) {
       var count = this.updateWithOnConflict(table, values, whereClause, whereArgs, conflict);
-      if (isMessagesTable(table) && count > 0) {
+      if (isWatchedTable(table) && count > 0) {
         report('update', table, null, values);
       }
       return count;

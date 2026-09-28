@@ -25,8 +25,13 @@ function delay(ms: number): Promise<void> {
 export function shouldIngestMessageWrite(
   values: Readonly<Record<string, string | null | undefined>>,
   enabledConversationIds: ReadonlySet<number>,
+  table?: string,
 ): boolean {
   if (enabledConversationIds.size === 0) return false;
+  const t = (table || '').toLowerCase();
+  if (t === 'public_accounts' || t === 'conversations') {
+    return true;
+  }
   const raw = values['conversation_id'] ?? values['conversationId'];
   if (raw === undefined || raw === null || raw === '') return true;
   const conversationId = Number(raw);
