@@ -190,8 +190,46 @@ services:
     volumes:
       - ./apk:/apk:ro
 
+  loki:
+    image: grafana/loki:3.1.0
+    container_name: viber-parser-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./monitoring/loki/loki-config.yaml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+
+  promtail:
+    image: grafana/promtail:3.1.0
+    container_name: viber-parser-promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/config.yaml
+    depends_on:
+      - loki
+    volumes:
+      - ./monitoring/promtail/promtail-config.yaml:/etc/promtail/config.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: viber-parser-grafana
+    restart: unless-stopped
+    depends_on:
+      - loki
+    ports:
+      - "${BIND_IP:-127.0.0.1}:${GRAFANA_PORT:-3000}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=${GF_USERS_ALLOW_SIGN_UP:-false}
+    volumes:
+      - grafana_data:/var/lib/grafana
+
 volumes:
   android-data:
   viber-bot-data:
   rabbitmq_data:
+  loki_data:
+  grafana_data:
 
