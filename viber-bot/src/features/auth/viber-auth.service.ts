@@ -143,7 +143,7 @@ export class ViberAuthService {
               : 'Profile screen detected, name filled in and continued.',
           );
         }
-        return page.isActivated(8_000);
+        return page.isActivated(15_000);
       }).catch((error: unknown) => {
         this.logger.warn(`Could not inspect the screen after the code: ${String(error)}`);
         return false;

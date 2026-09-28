@@ -419,7 +419,11 @@ export class ViberQrService implements OnModuleDestroy {
           'Maks';
         if (!profileFilled) {
           this.logger.log(`Filling in the profile name: "${nameToSet}".`);
-          await device.replaceText(selectors.profile.nameInput, nameToSet);
+          try {
+            await device.replaceText(selectors.profile.nameInput, nameToSet);
+          } catch (err) {
+            this.logger.warn(`Could not set profile name via replaceText: ${describeError(err)}; continuing...`);
+          }
           await device.hideKeyboard();
           profileFilled = true;
           const fresh = await this.readScreen(device, runtime);

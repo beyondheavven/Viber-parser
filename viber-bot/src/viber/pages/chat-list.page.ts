@@ -13,6 +13,15 @@ export class ChatListPage extends BasePage {
   async waitUntilLoaded(): Promise<void> {
     await this.activateViber();
     for (let attempt = 0; attempt < 6; attempt += 1) {
+      try {
+        const maybeLater = await this.driver.$(selectors.callerId.maybeLaterButton);
+        if (await maybeLater.isExisting()) {
+          await maybeLater.click().catch(() => undefined);
+          await this.driver.pause(500);
+        }
+      } catch {
+        // ignore
+      }
       if (await this.isPresent(selectors.chatList.root, 1_500)) return;
       await this.driver.back().catch(() => undefined);
       await this.activateViber();

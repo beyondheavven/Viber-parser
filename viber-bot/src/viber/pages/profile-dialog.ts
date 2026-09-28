@@ -57,20 +57,22 @@ export async function handleProfileModalPrompt(
       }
 
       // Look for name input field
-      const nameInput = await driver.$(
-        `android=new UiSelector().resourceId("${selectors.profile.nameInput}").className("android.widget.EditText")`,
-      );
-      const fallbackInput = await driver.$('android.widget.EditText');
+      const nameInput = await driver.$(selectors.profile.nameInput);
+      const fallbackInput = await driver.$('//android.widget.EditText');
 
       const targetInput = (await nameInput.isExisting()) ? nameInput : (await fallbackInput.isExisting()) ? fallbackInput : null;
 
       if (targetInput !== null) {
-        await targetInput.click();
-        await targetInput.clearValue();
-        await targetInput.setValue(defaultName);
+        try {
+          await targetInput.click();
+          await targetInput.clearValue();
+          await targetInput.setValue(defaultName);
+        } catch (e) {
+          logger.warn(`Could not set profile name in modal: ${String(e)}`);
+        }
         await delay(300);
 
-        if (await driver.isKeyboardShown()) {
+        if (await driver.isKeyboardShown().catch(() => false)) {
           await driver.execute('mobile: hideKeyboard').catch(async () => driver.back());
           await delay(400);
         }
@@ -104,15 +106,28 @@ export async function handleProfileModalPrompt(
     }
 
     // 2. Direct check if profile name input is already showing on screen
-    const directNameInput = await driver.$(`android=new UiSelector().resourceId("${selectors.profile.nameInput}")`);
-    if (await directNameInput.isExisting()) {
+    const directNameInput = (await (await driver.$(selectors.profile.nameInput)).isExisting())
+      ? await driver.$(selectors.profile.nameInput)
+      : (await (await driver.$('//android.widget.EditText')).isExisting())
+      ? await driver.$('//android.widget.EditText')
+      : null;
+
+    if (directNameInput !== null) {
       logger.log(`Direct profile name field detected on screen. Filling with "${defaultName}"...`);
-      await directNameInput.setValue(defaultName);
-      if (await driver.isKeyboardShown()) {
+      try {
+        await directNameInput.click();
+        await directNameInput.clearValue();
+        await directNameInput.setValue(defaultName);
+      } catch (err) {
+        logger.warn(`Could not set value directly on EditText: ${String(err)}`);
+      }
+      if (await driver.isKeyboardShown().catch(() => false)) {
         await driver.execute('mobile: hideKeyboard').catch(async () => driver.back());
         await delay(400);
       }
-      const continueBtn = await driver.$(`android=new UiSelector().resourceId("${selectors.profile.continueButton}")`);
+      const continueBtn = await driver.$(
+        `android=new UiSelector().resourceId("${selectors.profile.continueButton}")`,
+      );
       if (await continueBtn.isExisting()) {
         await continueBtn.click();
         await delay(800);

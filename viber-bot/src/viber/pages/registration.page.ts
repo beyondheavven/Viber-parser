@@ -182,23 +182,106 @@ export class RegistrationPage extends BasePage {
    */
   async completeProfile(name?: string, timeout = 6_000): Promise<boolean> {
     if (!(await this.isPresent(selectors.profile.continueButton, timeout))) return false;
-    const targetName = name ?? loadViberConfig().defaultName ?? 'Maks';
-    if (await this.isPresent(selectors.profile.nameInput, 1_000)) {
-      const field = await this.waitFor(selectors.profile.nameInput);
-      await field.clearValue();
-      await field.setValue(targetName);
-      if (await this.driver.isKeyboardShown()) {
-        await this.driver.execute('mobile: hideKeyboard').catch(() => this.driver.back());
-        await this.driver.pause(400);
+    const targetName = name?.trim() || loadViberConfig().defaultName || 'Maks';
+
+    // Try to enter user name if field is editable, but NEVER fail the flow on input errors
+    try {
+      let field = await this.driver.$(selectors.profile.nameInput);
+      if (!(await field.isExisting())) {
+        field = await this.driver.$('//android.widget.EditText');
       }
+      if (await field.isExisting()) {
+        await field.click().catch(() => {});
+        await field.clearValue().catch(() => {});
+        await field.setValue(targetName);
+      }
+    } catch {
+      // Input might already be filled (e.g. Google profile sync) or not directly editable; continue to button
     }
-    await this.tap(selectors.profile.continueButton);
+
+    if (await this.driver.isKeyboardShown().catch(() => false)) {
+      await this.driver.execute('mobile: hideKeyboard').catch(() => this.driver.back());
+      await this.driver.pause(400);
+    }
+
+    // Always tap the continue / done button
+    try {
+      await this.tap(selectors.profile.continueButton);
+    } catch {
+      // Fallback: IME action / Enter keyevent 66
+      await this.driver
+        .execute('mobile: shell', { command: 'input', args: ['keyevent', '66'] })
+        .catch(() => {});
+    }
+
     return true;
   }
 
+  /**
+   * Dismisses post-activation popups like Caller ID, GDPR ads consent, permissions, etc.
+   */
+  async dismissPostActivationPrompts(): Promise<boolean> {
+    let dismissed = false;
+
+    // 1. Caller ID dialog ("Maybe later" / "Позже")
+    try {
+      const maybeLater = await this.driver.$(selectors.callerId.maybeLaterButton);
+      if (await maybeLater.isExisting()) {
+        await maybeLater.click();
+        await this.driver.pause(600);
+        dismissed = true;
+      }
+    } catch {
+      // ignore
+    }
+
+    // 2. GDPR Ads consent ("Allow all and continue")
+    try {
+      if (await this.isPresent(selectors.adsConsent.allowButton, 1_000)) {
+        await this.tap(selectors.adsConsent.allowButton);
+        await this.driver.pause(600);
+        dismissed = true;
+      }
+    } catch {
+      // ignore
+    }
+
+    // 3. Activation success dialog ("Continue")
+    try {
+      if (await this.isPresent(selectors.activationSuccess.continueButton, 1_000)) {
+        await this.tap(selectors.activationSuccess.continueButton);
+        await this.driver.pause(600);
+        dismissed = true;
+      }
+    } catch {
+      // ignore
+    }
+
+    // 4. Android system runtime permissions
+    try {
+      const granted = await this.allowSystemPermissions(2);
+      if (granted.length > 0) dismissed = true;
+    } catch {
+      // ignore
+    }
+
+    return dismissed;
+  }
+
   /** True once Viber is past activation and showing the conversation list. */
-  async isActivated(timeout = 2_000): Promise<boolean> {
-    return this.isPresent(selectors.chatList.root, timeout);
+  async isActivated(timeout = 15_000): Promise<boolean> {
+    const deadline = Date.now() + timeout;
+    while (Date.now() < deadline) {
+      await this.dismissPostActivationPrompts();
+
+      if (await this.isPresent(selectors.chatList.root, 1_000)) {
+        await this.dismissPostActivationPrompts();
+        return true;
+      }
+
+      await this.driver.pause(600);
+    }
+    return this.isPresent(selectors.chatList.root, 2_000);
   }
 
   /** Text of whatever is on screen — the evidence an unexpected state needs. */

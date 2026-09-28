@@ -25,12 +25,49 @@ export function isMediaUri(value: string | null | undefined): boolean {
   return MEDIA_URI_RE.test(trimmed) || HTTP_IMAGE_RE.test(trimmed);
 }
 
+export function parseRichMediaBody(body: string | null | undefined): { text: string | null; mediaUris: string[] } | null {
+  const trimmed = body?.trim() ?? '';
+  if (!trimmed.startsWith('[') || !trimmed.endsWith(']')) return null;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    const texts: string[] = [];
+    const mediaUris: string[] = [];
+    for (const item of parsed) {
+      if (!item || typeof item !== 'object') continue;
+      const imageUrl = typeof item.ImageUrl === 'string' ? item.ImageUrl.trim() : typeof item.MediaUrl === 'string' ? item.MediaUrl.trim() : '';
+      if (imageUrl && isMediaUri(imageUrl) && !mediaUris.includes(imageUrl)) {
+        mediaUris.push(imageUrl);
+      }
+      const text = typeof item.Text === 'string' ? item.Text.trim() : '';
+      if (text) {
+        texts.push(text);
+      } else if (typeof item.PushText === 'string' && item.PushText.trim() && texts.length === 0) {
+        texts.push(item.PushText.trim());
+      }
+    }
+    const uniqueTexts = Array.from(new Set(texts));
+    return {
+      text: uniqueTexts.length > 0 ? uniqueTexts.join('\n\n') : null,
+      mediaUris,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function extractMediaUris(msg: Pick<Message, 'body' | 'mediaUri'>): string[] {
   const uris: string[] = [];
   const mediaUri = msg.mediaUri?.trim() ?? '';
   if (isMediaUri(mediaUri)) uris.push(mediaUri);
   const body = msg.body?.trim() ?? '';
   if (isMediaUri(body) && !uris.includes(body)) uris.push(body);
+  const rich = parseRichMediaBody(body);
+  if (rich) {
+    for (const uri of rich.mediaUris) {
+      if (!uris.includes(uri)) uris.push(uri);
+    }
+  }
   return uris;
 }
 
@@ -68,6 +105,8 @@ export function extractTextBody(msg: Pick<Message, 'body'>): string | null {
   const raw = msg.body ?? '';
   const trimmed = raw.trim();
   if (trimmed.length === 0 || isMediaUri(trimmed)) return null;
+  const rich = parseRichMediaBody(trimmed);
+  if (rich) return rich.text;
   return raw;
 }
 

@@ -17,6 +17,9 @@ describe('Phone Extractor Utility', () => {
       expect(normalizePhoneNumber('+380501234567')).toBe('+380501234567');
       expect(normalizePhoneNumber('380501234567')).toBe('+380501234567');
       expect(normalizePhoneNumber('+38 (050) 123-45-67')).toBe('+380501234567');
+      expect(normalizePhoneNumber('+380759726478')).toBe('+380759726478');
+      expect(normalizePhoneNumber('0759726478')).toBe('+380759726478');
+      expect(normalizePhoneNumber('+380771234567')).toBe('+380771234567');
     });
 
     it('normalizes Polish numbers', () => {

@@ -151,9 +151,18 @@ export const selectors = {
    * accepted. Ids seen in `dumpsys activity top` on Viber 20.1.
    */
   profile: {
-    nameInput: id('userNameTextInput'),
+    nameInput: `${id('userNameTextInput')}//android.widget.EditText`,
+    nameInputContainer: id('userNameTextInput'),
     nameInputHolder: id('nameInputHolder'),
     continueButton: id('continueButtonView'),
+  },
+
+  /** "Introducing Caller ID" bottom sheet shown right after activation. */
+  callerId: {
+    dialog: id('caller_id_fragment'),
+    turnOnButton: id('turn_on'),
+    maybeLaterButton:
+      '//*[@text="Maybe later" or @text="Позже" or @text="Не сейчас" or @text="Напомнить позже" or contains(@text, "Maybe later") or contains(@text, "Позже")]',
   },
 
   /** Conversation list — the screen Viber opens on. */
