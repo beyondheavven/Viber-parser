@@ -46,6 +46,7 @@ export interface CompanionSpecs {
 
 export function buildCompanionSpecs(config: CompanionConfig): CompanionSpecs {
   const queue = commandQueueName(config.routingId);
+  const instanceId = config.routingId.split(',')[0].trim();
   const suffix = config.deviceId.slice(0, 12).toLowerCase();
   const appiumName = `viber-appium-${suffix}`;
   const botName = `viber-bot-${suffix}`;
@@ -66,7 +67,7 @@ export function buildCompanionSpecs(config: CompanionConfig): CompanionSpecs {
     `APPIUM_HOST=${appiumName}`,
     'APPIUM_PORT=4723',
     `ANDROID_SERIAL=${adbTarget}`,
-    `VIBER_INSTANCE_ID=${config.deviceId}`,
+    `VIBER_INSTANCE_ID=${instanceId}`,
     'ADB_BIN=adb',
     'VIBER_PACKAGE=com.viber.voip',
     'VIBER_MESSAGES_DB=/data/data/com.viber.voip/databases/viber_messages',

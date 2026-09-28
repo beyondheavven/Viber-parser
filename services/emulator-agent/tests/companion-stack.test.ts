@@ -54,7 +54,18 @@ test('companion specs isolate appium and bot for the selected emulator', () => {
   assert.ok(specs.bot.createOptions.Env?.includes(`RABBITMQ_QUEUE=viber_commands_queue.device.${routingId}`));
   assert.ok(specs.bot.createOptions.Env?.includes('APPIUM_HOST=viber-appium-aaaaaaaaaaaa'));
   assert.ok(specs.bot.createOptions.Env?.includes('ANDROID_SERIAL=host.docker.internal:5556'));
-  assert.ok(specs.bot.createOptions.Env?.includes(`VIBER_INSTANCE_ID=${deviceId}`));
+  assert.ok(specs.bot.createOptions.Env?.includes(`VIBER_INSTANCE_ID=${routingId}`));
+});
+
+test('companion specs publish the primary routing id for task result synchronization', () => {
+  const specs = buildCompanionSpecs({
+    deviceId,
+    routingId: `viber-worker-03,${routingId},localhost:5556`,
+    adbPort: 5556,
+    ...runtimeConfig,
+  });
+
+  assert.ok(specs.bot.createOptions.Env?.includes('VIBER_INSTANCE_ID=viber-worker-03'));
 });
 
 test('reconciliation replaces companions when image, environment or network drifted', async () => {
