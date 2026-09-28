@@ -17,6 +17,9 @@ export class MonitoredGroupDto {
   /** Последний обработанный ID сообщения в этой группе. После рестарта эмулятора опрос продолжается отсюда. */
   lastMessageId!: number;
 
+  /** Последний обработанный server_message_id в public_accounts (для сообществ). */
+  lastServerMessageId?: number;
+
   /** Глобальный ключ группы Viber (conversations.group_id). */
   groupKey?: string | null;
 

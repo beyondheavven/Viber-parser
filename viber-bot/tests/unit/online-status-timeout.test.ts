@@ -3,7 +3,7 @@ import type { Adb } from '../../src/platform/adb.js';
 
 const mocks = vi.hoisted(() => ({ createFridaRuntime: vi.fn() }));
 
-vi.mock('../../src/intercept/frida-runtime.js', () => ({
+vi.mock('../../src/platform/frida/frida-runtime.js', () => ({
   createFridaRuntime: mocks.createFridaRuntime,
 }));
 

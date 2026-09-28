@@ -25,6 +25,8 @@ interface FakeContext {
   query: ReturnType<typeof vi.fn>;
   updateLiveRow: ReturnType<typeof vi.fn>;
   messagesSince: ReturnType<typeof vi.fn>;
+  communityMessagesSince: ReturnType<typeof vi.fn>;
+  lastServerMessageId: ReturnType<typeof vi.fn>;
 }
 
 function fakeContext(): FakeContext {
@@ -32,12 +34,14 @@ function fakeContext(): FakeContext {
   const query = vi.fn(() => []);
   const updateLiveRow = vi.fn();
   const messagesSince = vi.fn(() => []);
+  const communityMessagesSince = vi.fn(() => []);
+  const lastServerMessageId = vi.fn(() => 0);
   const context = {
     adb: {},
     db: { refresh, query, updateLiveRow },
-    viber: { messagesSince },
+    viber: { messagesSince, communityMessagesSince, lastServerMessageId },
   } as unknown as DeviceContext;
-  return { context, refresh, query, updateLiveRow, messagesSince };
+  return { context, refresh, query, updateLiveRow, messagesSince, communityMessagesSince, lastServerMessageId };
 }
 
 function message(overrides: Partial<Message> = {}): Message {
@@ -476,5 +480,39 @@ describe('watcher lifecycle', () => {
     await attaching;
 
     expect(watch.detach).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('community message monitoring', () => {
+  it('ingests messages from communityMessagesSince and advances lastServerMessageId', async () => {
+    const fake = fakeContext();
+    fake.messagesSince.mockReturnValue([]);
+    fake.communityMessagesSince.mockReturnValueOnce([
+      message({
+        id: 289585,
+        conversationId: 18,
+        token: null,
+        body: 'Потрібні вантажники 0981234567',
+        senderName: 'Олег',
+        senderMemberId: null,
+        senderNumber: '+380981234567',
+      }),
+    ]);
+    openDevice.mockResolvedValue(fake.context);
+    const out = publisher();
+    const service = createService({ publisher: out });
+    service.enableTrackedGroup(18, { fromLatest: false });
+
+    await runOneTick(service);
+
+    expect(out.publishMessage).toHaveBeenCalledTimes(1);
+    const published = out.publishMessage.mock.calls[0]![0];
+    expect(published).toMatchObject({
+      id: 289585,
+      conversationId: 18,
+      body: 'Потрібні вантажники 0981234567',
+      attachedPhone: '+380981234567',
+    });
+    expect(service.getStatus().groups.find((g) => g.conversationId === 18)?.lastServerMessageId).toBe(289585);
   });
 });

@@ -17,6 +17,10 @@ val describeBroadcastStatus: RouteConfig.() -> Unit = {
     summary = "Текущая запущенная кампания рассылки"
     description = "Одновременно рассылает не больше одной кампании — эмулятор один."
 
+    request {
+        queryParameter<String>("deviceId") { description = "ID экземпляра эмулятора" }
+    }
+
     response {
         code(HttpStatusCode.OK) {
             description = "Статус рассылки"
@@ -32,6 +36,7 @@ val describeBroadcastHistory: RouteConfig.() -> Unit = {
     description = "Попытки отправки, новые сверху. Неудачные попытки тоже сохраняются — с текстом ошибки."
 
     request {
+        queryParameter<String>("deviceId") { description = "ID экземпляра эмулятора" }
         queryParameter<Int>("conversationId") { description = "Оставить только отправки в эту беседу" }
         queryParameter<String>("campaignId") { description = "Оставить только отправки этой кампании" }
         queryParameter<Int>("limit") { description = "Сколько записей вернуть, по умолчанию 100" }
@@ -51,6 +56,10 @@ val describeBroadcastLastSends: RouteConfig.() -> Unit = {
     summary = "Последняя отправка в каждую беседу"
     description = "По одной записи на беседу: какая кампания, какой текст и когда отправила последней."
 
+    request {
+        queryParameter<String>("deviceId") { description = "ID экземпляра эмулятора" }
+    }
+
     response {
         code(HttpStatusCode.OK) {
             description = "Последние отправки"
@@ -63,6 +72,10 @@ val describeListCampaigns: RouteConfig.() -> Unit = {
     operationId = "listCampaigns"
     tags = listOf(BROADCAST_TAG)
     summary = "Список кампаний рассылки"
+
+    request {
+        queryParameter<String>("deviceId") { description = "ID экземпляра эмулятора" }
+    }
 
     response {
         code(HttpStatusCode.OK) {
@@ -78,6 +91,7 @@ val describeGetCampaign: RouteConfig.() -> Unit = {
     summary = "Кампания по ID"
 
     request {
+        queryParameter<String>("deviceId") { description = "ID экземпляра эмулятора" }
         pathParameter<String>("id") { description = "ID кампании" }
     }
 
@@ -97,6 +111,7 @@ val describeCreateCampaign: RouteConfig.() -> Unit = {
     description = "Кампания создаётся остановленной. Рассылка начнётся только после вызова /start."
 
     request {
+        queryParameter<String>("deviceId") { description = "ID экземпляра эмулятора" }
         body<CreateCampaignRequest> {
             description = "Беседы, варианты текста и расписание"
             required = true
@@ -119,6 +134,7 @@ val describeUpdateCampaign: RouteConfig.() -> Unit = {
     description = "Менять можно только остановленную кампанию. Переданы будут лишь указанные поля."
 
     request {
+        queryParameter<String>("deviceId") { description = "ID экземпляра эмулятора" }
         pathParameter<String>("id") { description = "ID кампании" }
         body<UpdateCampaignRequest> {
             description = "Поля, которые нужно изменить"
@@ -143,6 +159,7 @@ val describeDeleteCampaign: RouteConfig.() -> Unit = {
     description = "История отправок удалённой кампании сохраняется."
 
     request {
+        queryParameter<String>("deviceId") { description = "ID экземпляра эмулятора" }
         pathParameter<String>("id") { description = "ID кампании" }
     }
 
@@ -164,6 +181,7 @@ val describeStartCampaign: RouteConfig.() -> Unit = {
             "Если заданы рабочие часы, вне окна рассылка ждёт."
 
     request {
+        queryParameter<String>("deviceId") { description = "ID экземпляра эмулятора" }
         pathParameter<String>("id") { description = "ID кампании" }
     }
 
@@ -184,6 +202,7 @@ val describeStopCampaign: RouteConfig.() -> Unit = {
     description = "Текущая отправка досылается, следующая не начинается. История сохраняется."
 
     request {
+        queryParameter<String>("deviceId") { description = "ID экземпляра эмулятора" }
         pathParameter<String>("id") { description = "ID кампании" }
     }
 

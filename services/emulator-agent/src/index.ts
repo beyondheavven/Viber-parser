@@ -2,8 +2,16 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import Docker from 'dockerode';
 import fs from 'node:fs';
+import { VersionedAccountCache } from './account-cache.js';
 import { runContainerCommand } from './container-command.js';
 import { CompanionController } from './companion-stack.js';
+import { logoutViber } from './viber-logout.js';
+import {
+  HEALTH_CHECK_CMD,
+  parseContainerHealthOutput,
+  type ContainerHealthResult,
+  type ViberAccountInfo,
+} from './health-check.js';
 
 const app = express();
 const port = Number(process.env.PORT || 9000);
@@ -331,18 +339,29 @@ async function buildAndStartEmulator(config: EmulatorConfig) {
   };
 }
 
-async function checkContainerHealth(containerId: string): Promise<{ bootCompleted: boolean; viberRunning: boolean }> {
+const accountCache = new VersionedAccountCache<ViberAccountInfo>();
+
+async function checkContainerHealth(containerId: string): Promise<ContainerHealthResult> {
+  const cacheGeneration = accountCache.capture(containerId);
   try {
     const container = docker.getContainer(containerId);
     const result = await runContainerCommand(container, {
-      Cmd: ['sh', '-c', 'adb shell "getprop sys.boot_completed; pidof com.viber.voip || true" 2>/dev/null || true'],
-    }, 3000);
-    const lines = (result.exitCode === 0 ? result.output : '').trim().split('\n');
-    const bootCompleted = lines.some((l) => l.trim() === '1');
-    const viberRunning = lines.some((l) => /\b\d{2,}\b/.test(l.trim()));
-    return { bootCompleted, viberRunning };
+      Cmd: ['sh', '-c', HEALTH_CHECK_CMD],
+    }, 4000);
+    const parsed = parseContainerHealthOutput(result.exitCode === 0 ? result.output : '');
+    if (parsed.viberAccount) {
+      const accepted = accountCache.setIfCurrent(containerId, cacheGeneration, parsed.viberAccount);
+      if (!accepted) parsed.viberAccount = accountCache.get(containerId) || null;
+    } else if (parsed.viberRunning) {
+      parsed.viberAccount = accountCache.get(containerId) || null;
+    }
+    return parsed;
   } catch {
-    return { bootCompleted: false, viberRunning: false };
+    return {
+      bootCompleted: false,
+      viberRunning: false,
+      viberAccount: accountCache.get(containerId) || null,
+    };
   }
 }
 
@@ -391,11 +410,13 @@ async function handleListEmulators(_req: Request, res: Response): Promise<void> 
 
         let bootCompleted = false;
         let viberRunning = false;
+        let viberAccount: ViberAccountInfo | null = accountCache.get(c.Id) || null;
 
         if (c.State === 'running') {
           const h = await checkContainerHealth(c.Id);
           bootCompleted = h.bootCompleted;
           viberRunning = h.viberRunning;
+          viberAccount = accountCache.get(c.Id) || h.viberAccount || null;
           if (adbPort) {
             void ensureScrcpyConnected(adbPort);
           }
@@ -437,6 +458,8 @@ async function handleListEmulators(_req: Request, res: Response): Promise<void> 
           viberRunning,
           adbOnline: isOnline,
           setupStatus,
+          viberAccount,
+          supportsViberLogout: true,
         };
       })
     );
@@ -499,6 +522,9 @@ async function handleCreateEmulator(req: Request, res: Response): Promise<void> 
       bootCompleted: false,
       viberRunning: false,
       adbOnline: true,
+      setupStatus: null,
+      viberAccount: null,
+      supportsViberLogout: true,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -567,6 +593,26 @@ async function handleRestartEmulator(req: Request, res: Response): Promise<void>
   }
 }
 
+async function handleLogoutViber(req: Request, res: Response): Promise<void> {
+  try {
+    const container = docker.getContainer(req.params.id);
+    const emulator = await inspectManagedEmulator(container);
+
+    await companions.runExclusive(emulator.deviceId, async () => {
+      const fresh = await inspectManagedEmulator(container);
+      if (!fresh.inspect.State.Running) {
+        throw new Error('Инстанс остановлен');
+      }
+      await logoutViber(container);
+      accountCache.invalidate(fresh.inspect.Id);
+    });
+
+    res.json({ success: true, message: 'Выход из Viber выполнен' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
 async function handleDeleteEmulator(req: Request, res: Response): Promise<void> {
   try {
     const container = docker.getContainer(req.params.id);
@@ -580,6 +626,10 @@ async function handleDeleteEmulator(req: Request, res: Response): Promise<void> 
         await companions.removeCompanionsLocked(fresh.deviceId);
       }
       await container.remove({ force: true });
+      if (deleteVolumes && fresh.dynamic) {
+        await companions.removeBotDataVolume(fresh.deviceId);
+      }
+      accountCache.invalidate(inspect.Id);
     });
 
     if (deleteVolumes && inspect) {
@@ -631,6 +681,9 @@ app.post('/api/emulators/:id/stop', handleStopEmulator);
 
 app.post('/emulators/:id/restart', handleRestartEmulator);
 app.post('/api/emulators/:id/restart', handleRestartEmulator);
+
+app.post('/emulators/:id/viber/logout', handleLogoutViber);
+app.post('/api/emulators/:id/viber/logout', handleLogoutViber);
 
 app.delete('/emulators/:id', handleDeleteEmulator);
 app.delete('/api/emulators/:id', handleDeleteEmulator);

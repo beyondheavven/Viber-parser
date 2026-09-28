@@ -10,10 +10,17 @@ import com.viber.models.LoginResponse
 import com.viber.models.QrStartRequest
 import com.viber.plugins.configureException
 import com.viber.routes.authRoutes
+import com.viber.routes.broadcastRoutes
+import com.viber.routes.tasksRoutes
 import com.viber.services.AuthService
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
@@ -96,6 +103,140 @@ class DeviceQueueRoutingTest {
         }
 
         assertEquals(HttpStatusCode.BadRequest, client.get("/auth/qr/status?deviceId=..%2Fqueue").status)
+    }
+
+    @Test
+    fun `task routes forward device id to the selected queue`() = testApplication {
+        val rpc = RecordingRpcClient()
+        application {
+            routing { tasksRoutes(ViberBotClient(rpc, "viber_commands_queue")) }
+        }
+
+        assertEquals(HttpStatusCode.OK, client.get("/tasks?deviceId=136.92.24.88%3A5556").status)
+        assertEquals(HttpStatusCode.OK, client.get("/tasks/task-1?deviceId=136.92.24.88%3A5556").status)
+        assertEquals(
+            HttpStatusCode.OK,
+            client.get("/tasks/task-1/participants?deviceId=136.92.24.88%3A5556").status
+        )
+        assertEquals(
+            HttpStatusCode.OK,
+            client.post("/tasks/task-1/stop?deviceId=136.92.24.88%3A5556").status
+        )
+
+        assertEquals(List(4) { expectedRoutingQueue }, rpc.queues)
+    }
+
+    @Test
+    fun `task routes without device id keep using the default queue`() = testApplication {
+        val rpc = RecordingRpcClient()
+        application {
+            routing { tasksRoutes(ViberBotClient(rpc, "viber_commands_queue")) }
+        }
+
+        assertEquals(HttpStatusCode.OK, client.get("/tasks").status)
+        assertEquals(HttpStatusCode.OK, client.get("/tasks/task-1").status)
+        assertEquals(HttpStatusCode.OK, client.get("/tasks/task-1/participants").status)
+        assertEquals(HttpStatusCode.OK, client.post("/tasks/task-1/stop").status)
+
+        assertEquals(List(4) { "viber_commands_queue" }, rpc.queues)
+    }
+
+    @Test
+    fun `task routes reject unsafe device id`() = testApplication {
+        application {
+            install(ContentNegotiation) { json() }
+            configureException()
+            routing { tasksRoutes(ViberBotClient(RecordingRpcClient(), "viber_commands_queue")) }
+        }
+
+        assertEquals(HttpStatusCode.BadRequest, client.get("/tasks?deviceId=..%2Fqueue").status)
+    }
+
+    @Test
+    fun `all broadcast routes forward device id to the selected queue`() = testApplication {
+        val rpc = RecordingRpcClient()
+        application {
+            install(ContentNegotiation) { json() }
+            routing { broadcastRoutes(ViberBotClient(rpc, "viber_commands_queue")) }
+        }
+        val query = "deviceId=136.92.24.88%3A5556"
+
+        assertEquals(HttpStatusCode.OK, client.get("/broadcast/status?$query").status)
+        assertEquals(HttpStatusCode.OK, client.get("/broadcast/history/last?$query").status)
+        assertEquals(HttpStatusCode.OK, client.get("/broadcast/history?$query").status)
+        assertEquals(HttpStatusCode.OK, client.get("/broadcast/campaigns?$query").status)
+        assertEquals(HttpStatusCode.Created, client.post("/broadcast/campaigns?$query") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"conversationIds":[1],"messages":["hello"],"intervalMs":5000}""")
+        }.status)
+        assertEquals(HttpStatusCode.OK, client.get("/broadcast/campaigns/campaign-1?$query").status)
+        assertEquals(HttpStatusCode.OK, client.patch("/broadcast/campaigns/campaign-1?$query") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"name":"updated"}""")
+        }.status)
+        assertEquals(HttpStatusCode.OK, client.delete("/broadcast/campaigns/campaign-1?$query").status)
+        assertEquals(HttpStatusCode.OK, client.post("/broadcast/campaigns/campaign-1/start?$query").status)
+        assertEquals(HttpStatusCode.OK, client.post("/broadcast/campaigns/campaign-1/stop?$query").status)
+
+        assertEquals(List(10) { expectedRoutingQueue }, rpc.queues)
+    }
+
+    @Test
+    fun `broadcast routes without device id keep using the default queue`() = testApplication {
+        val rpc = RecordingRpcClient()
+        application {
+            install(ContentNegotiation) { json() }
+            routing { broadcastRoutes(ViberBotClient(rpc, "viber_commands_queue")) }
+        }
+
+        assertEquals(HttpStatusCode.OK, client.get("/broadcast/status").status)
+        assertEquals(HttpStatusCode.OK, client.get("/broadcast/history/last").status)
+        assertEquals(HttpStatusCode.OK, client.get("/broadcast/history").status)
+        assertEquals(HttpStatusCode.OK, client.get("/broadcast/campaigns").status)
+        assertEquals(HttpStatusCode.Created, client.post("/broadcast/campaigns") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"conversationIds":[1],"messages":["hello"],"intervalMs":5000}""")
+        }.status)
+        assertEquals(HttpStatusCode.OK, client.get("/broadcast/campaigns/campaign-1").status)
+        assertEquals(HttpStatusCode.OK, client.patch("/broadcast/campaigns/campaign-1") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"name":"updated"}""")
+        }.status)
+        assertEquals(HttpStatusCode.OK, client.delete("/broadcast/campaigns/campaign-1").status)
+        assertEquals(HttpStatusCode.OK, client.post("/broadcast/campaigns/campaign-1/start").status)
+        assertEquals(HttpStatusCode.OK, client.post("/broadcast/campaigns/campaign-1/stop").status)
+
+        assertEquals(List(10) { "viber_commands_queue" }, rpc.queues)
+    }
+
+    @Test
+    fun `broadcast routes reject unsafe device id before rpc`() = testApplication {
+        val rpc = RecordingRpcClient()
+        application {
+            install(ContentNegotiation) { json() }
+            configureException()
+            routing { broadcastRoutes(ViberBotClient(rpc, "viber_commands_queue")) }
+        }
+        val query = "deviceId=..%2Fqueue"
+
+        assertEquals(HttpStatusCode.BadRequest, client.get("/broadcast/status?$query").status)
+        assertEquals(HttpStatusCode.BadRequest, client.get("/broadcast/history/last?$query").status)
+        assertEquals(HttpStatusCode.BadRequest, client.get("/broadcast/history?$query").status)
+        assertEquals(HttpStatusCode.BadRequest, client.get("/broadcast/campaigns?$query").status)
+        assertEquals(HttpStatusCode.BadRequest, client.post("/broadcast/campaigns?$query") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"conversationIds":[1],"messages":["hello"],"intervalMs":5000}""")
+        }.status)
+        assertEquals(HttpStatusCode.BadRequest, client.get("/broadcast/campaigns/campaign-1?$query").status)
+        assertEquals(HttpStatusCode.BadRequest, client.patch("/broadcast/campaigns/campaign-1?$query") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"name":"updated"}""")
+        }.status)
+        assertEquals(HttpStatusCode.BadRequest, client.delete("/broadcast/campaigns/campaign-1?$query").status)
+        assertEquals(HttpStatusCode.BadRequest, client.post("/broadcast/campaigns/campaign-1/start?$query").status)
+        assertEquals(HttpStatusCode.BadRequest, client.post("/broadcast/campaigns/campaign-1/stop?$query").status)
+
+        assertEquals(emptyList(), rpc.queues)
     }
 
     private class RecordingRpcClient : RpcClient {

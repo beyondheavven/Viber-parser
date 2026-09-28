@@ -176,6 +176,22 @@ const MESSAGE_EXPRS: Readonly<Record<string, string>> = {
   unread: 'm.unread',
 };
 
+const COMMUNITY_MESSAGE_EXPRS: Readonly<Record<string, string>> = {
+  id: 'pa.server_message_id',
+  conversationId: 'c._id',
+  token: 'cast(null as text)',
+  date: 'c.date',
+  body: 'pa.last_msg_text',
+  senderId: 'cast(null as integer)',
+  senderMemberId: "case when pa.sender_phone like 'em:%' then pa.sender_phone else null end",
+  senderName: 'pa.sender_name',
+  senderNumber: "case when pa.sender_phone not like 'em:%' then pa.sender_phone else null end",
+  senderType: '1',
+  extraMime: 'pa.last_media_type',
+  mediaUri: 'cast(null as text)',
+  unread: '1',
+};
+
 const PARTICIPANT_EXPRS: Readonly<Record<string, string>> = {
   id: 'pi._id',
   memberId: 'pi.member_id',
@@ -285,6 +301,35 @@ export class ViberRepository {
     const sql =
       `select ${selectList(MESSAGE_COLUMNS, MESSAGE_EXPRS)} ${MESSAGE_JOIN}` +
       ` where m.deleted = 0 and (${clauses.join(' or ')}) order by m._id asc${limit};`;
+    return this.db.query(sql, MESSAGE_COLUMNS).map(toMessage);
+  }
+
+  /** Highest server_message_id for a conversation in public_accounts, or 0. */
+  lastServerMessageId(conversationId: number): number {
+    const sql = `select pa.server_message_id as id from conversations c join public_accounts pa on c.group_id = pa.group_id where c._id = ${String(conversationId)} limit 1;`;
+    const rows = this.db.query(sql, [{ name: 'id', kind: 'int' }]);
+    return rows.length > 0 && typeof rows[0]?.['id'] === 'number' ? (rows[0]['id'] as number) : 0;
+  }
+
+  /**
+   * Latest messages for communities directly from public_accounts, where messages
+   * are posted without being synced into the `messages` table until the chat is opened.
+   */
+  communityMessagesSince(
+    cursors: ReadonlyArray<{ conversationId: number; sinceServerId: number }>,
+  ): Message[] {
+    const clauses = cursors.flatMap((cursor) => {
+      if (!Number.isInteger(cursor.conversationId) || !Number.isInteger(cursor.sinceServerId)) return [];
+      return [
+        `(c._id = ${String(cursor.conversationId)} and pa.server_message_id > ${String(cursor.sinceServerId)})`,
+      ];
+    });
+    if (clauses.length === 0) return [];
+    const sql =
+      `select ${selectList(MESSAGE_COLUMNS, COMMUNITY_MESSAGE_EXPRS)} ` +
+      `from conversations c join public_accounts pa on c.group_id = pa.group_id ` +
+      `where pa.server_message_id > 0 and pa.last_msg_text is not null and length(pa.last_msg_text) > 0 ` +
+      `and (${clauses.join(' or ')}) order by pa.server_message_id asc;`;
     return this.db.query(sql, MESSAGE_COLUMNS).map(toMessage);
   }
 

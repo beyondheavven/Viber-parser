@@ -1,5 +1,6 @@
 package com.viber.routes.docs
 
+import com.viber.models.GroupDeleteResult
 import com.viber.models.ParticipantModel
 import com.viber.models.UsersPage
 import com.viber.models.UsersSyncAllResult
@@ -7,6 +8,34 @@ import com.viber.models.UsersSyncResult
 import com.viber.models.UsersSyncStatus
 import io.github.smiley4.ktoropenapi.config.RouteConfig
 import io.ktor.http.HttpStatusCode
+
+val describeDeleteGroup: RouteConfig.() -> Unit = {
+    operationId = "deleteSupabaseGroup"
+    tags = listOf("Users")
+    summary = "Удалить сохранённую группу из Supabase"
+    description = "Удаляет одну строку viber_groups строго по её database id. Каскадно удаляются " +
+            "связи участников и сохранённые сообщения мониторинга; строки viber_users сохраняются."
+
+    request {
+        pathParameter<Long>("id") {
+            description = "Первичный ключ viber_groups.id"
+            required = true
+        }
+    }
+
+    response {
+        code(HttpStatusCode.OK) {
+            description = "Удалённая группа"
+            body<GroupDeleteResult>()
+        }
+        code(HttpStatusCode.NotFound) {
+            description = "Группа с таким database id не найдена"
+        }
+        code(HttpStatusCode.BadRequest) {
+            description = "Некорректный database id"
+        }
+    }
+}
 
 val describeListUsers: RouteConfig.() -> Unit = {
     operationId = "listUsers"

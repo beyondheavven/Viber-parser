@@ -384,11 +384,8 @@ export function createFridaRuntime(options: FridaRuntimeOptions): FridaRuntime {
         return await device.attach(currentPid);
       } catch (error) {
         lastError = error;
-        log(`Failed to attach to pid ${currentPid} (${String(error)}). Force-stopping and restarting ${pkg}...`);
-        adbShell(`am force-stop ${pkg}`);
+        log(`Failed to attach to pid ${currentPid} (${String(error)}). Attempt ${attempt}/${maxAttempts}`);
         await delay(1000);
-        adbShell(`am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n ${pkg}/.WelcomeActivity`);
-        await delay(2000);
         const fresh = await resolveViberPid(device);
         if (fresh !== undefined) {
           currentPid = fresh;

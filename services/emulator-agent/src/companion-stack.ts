@@ -44,11 +44,17 @@ export interface CompanionSpecs {
   bot: CompanionSpec;
 }
 
+export function botDataVolumeName(deviceId: string): string {
+  return `viber-bot-data-${deviceId.slice(0, 12).toLowerCase()}`;
+}
+
 export function buildCompanionSpecs(config: CompanionConfig): CompanionSpecs {
   const queue = commandQueueName(config.routingId);
+  const instanceId = config.routingId.split(',')[0].trim();
   const suffix = config.deviceId.slice(0, 12).toLowerCase();
   const appiumName = `viber-appium-${suffix}`;
   const botName = `viber-bot-${suffix}`;
+  const botDataVolume = botDataVolumeName(config.deviceId);
   const adbTarget = `host.docker.internal:${config.adbPort}`;
   const labels = {
     app: 'viber-emulator-companion',
@@ -66,7 +72,7 @@ export function buildCompanionSpecs(config: CompanionConfig): CompanionSpecs {
     `APPIUM_HOST=${appiumName}`,
     'APPIUM_PORT=4723',
     `ANDROID_SERIAL=${adbTarget}`,
-    `VIBER_INSTANCE_ID=${config.deviceId}`,
+    `VIBER_INSTANCE_ID=${instanceId}`,
     'ADB_BIN=adb',
     'VIBER_PACKAGE=com.viber.voip',
     'VIBER_MESSAGES_DB=/data/data/com.viber.voip/databases/viber_messages',
@@ -95,7 +101,10 @@ export function buildCompanionSpecs(config: CompanionConfig): CompanionSpecs {
         Image: config.botImage,
         Labels: { ...labels, 'viber.companion.role': 'bot' },
         Env: botEnv,
-        HostConfig: hostConfig,
+        HostConfig: {
+          ...hostConfig,
+          Binds: [`${botDataVolume}:/app/data`],
+        },
       },
     },
   };
@@ -158,9 +167,13 @@ export class CompanionController {
         await this.reconcileRunningLocked(deviceId, adbPort, routingId);
       } catch (cause) {
         try {
-          await this.removeCompanionsLocked(deviceId);
+          try {
+            await this.removeCompanionsLocked(deviceId);
+          } finally {
+            await rollbackEmulator();
+          }
         } finally {
-          await rollbackEmulator();
+          await this.removeBotDataVolume(deviceId);
         }
         throw cause;
       }
@@ -194,6 +207,14 @@ export class CompanionController {
   async removeCompanionsLocked(deviceId: string): Promise<void> {
     const companions = await this.listCompanions(deviceId);
     await Promise.all(companions.map((info) => this.docker.getContainer(info.Id).remove({ force: true })));
+  }
+
+  async removeBotDataVolume(deviceId: string): Promise<void> {
+    try {
+      await this.docker.getVolume(botDataVolumeName(deviceId)).remove();
+    } catch (error: any) {
+      if (error?.statusCode !== 404) throw error;
+    }
   }
 
   private async ensureCurrentAndRunning(spec: CompanionSpec, deviceId: string): Promise<boolean> {
@@ -233,6 +254,7 @@ export class CompanionController {
   ): boolean {
     if (inspect.Image !== desiredImageId) return false;
     if (inspect.HostConfig.NetworkMode !== spec.createOptions.HostConfig?.NetworkMode) return false;
+    if (!sameStrings(inspect.HostConfig.Binds, spec.createOptions.HostConfig?.Binds)) return false;
 
     const actualEnv = envMap(inspect.Config.Env ?? []);
     const desiredEnv = envMap(spec.createOptions.Env ?? []);
@@ -271,6 +293,13 @@ function envMap(entries: string[]): Map<string, string> {
     const separator = entry.indexOf('=');
     return separator === -1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)];
   }));
+}
+
+function sameStrings(actual?: string[] | null, desired?: string[] | null): boolean {
+  const actualValues = actual ?? [];
+  const desiredValues = desired ?? [];
+  return actualValues.length === desiredValues.length
+    && actualValues.every((value, index) => value === desiredValues[index]);
 }
 
 function isValidRoutingId(deviceId: string): boolean {

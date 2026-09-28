@@ -28,6 +28,10 @@ fun Application.configureRouting() {
     val viberSystemService = ViberSystemService(adbClient)
     val usersSyncService = UsersSyncService(viberBotClient, supabase = { supabaseClient })
     val monitoredMessageQueryService = MonitoredMessageQueryService(supabase = { supabaseClient })
+    val parserSecret = appConfig.propertyOrNull("security.parserSecret")
+        ?.getString()
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
 
     routing {
         route("api.json") {
@@ -47,7 +51,7 @@ fun Application.configureRouting() {
             databaseRoutes(viberBotClient)
             messageRoutes(viberBotClient, monitoredMessageQueryService)
             broadcastRoutes(viberBotClient)
-            usersRoutes(usersSyncService)
+            usersRoutes(usersSyncService, parserSecret)
         }
     }
 }

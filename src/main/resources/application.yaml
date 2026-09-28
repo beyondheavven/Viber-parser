@@ -33,3 +33,6 @@ supabase:
 users:
   # Auto-upload every finished collect task to Supabase. false disables it.
   autosync: "$USERS_AUTOSYNC:true"
+
+security:
+  parserSecret: "$VPS_AGENT_SECRET:"
