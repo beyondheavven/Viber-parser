@@ -50,6 +50,7 @@ export function buildCompanionSpecs(config: CompanionConfig): CompanionSpecs {
   const suffix = config.deviceId.slice(0, 12).toLowerCase();
   const appiumName = `viber-appium-${suffix}`;
   const botName = `viber-bot-${suffix}`;
+  const botDataVolume = `viber-bot-data-${suffix}`;
   const adbTarget = `host.docker.internal:${config.adbPort}`;
   const labels = {
     app: 'viber-emulator-companion',
@@ -96,7 +97,10 @@ export function buildCompanionSpecs(config: CompanionConfig): CompanionSpecs {
         Image: config.botImage,
         Labels: { ...labels, 'viber.companion.role': 'bot' },
         Env: botEnv,
-        HostConfig: hostConfig,
+        HostConfig: {
+          ...hostConfig,
+          Binds: [`${botDataVolume}:/app/data`],
+        },
       },
     },
   };
@@ -234,6 +238,7 @@ export class CompanionController {
   ): boolean {
     if (inspect.Image !== desiredImageId) return false;
     if (inspect.HostConfig.NetworkMode !== spec.createOptions.HostConfig?.NetworkMode) return false;
+    if (!sameStrings(inspect.HostConfig.Binds, spec.createOptions.HostConfig?.Binds)) return false;
 
     const actualEnv = envMap(inspect.Config.Env ?? []);
     const desiredEnv = envMap(spec.createOptions.Env ?? []);
@@ -272,6 +277,13 @@ function envMap(entries: string[]): Map<string, string> {
     const separator = entry.indexOf('=');
     return separator === -1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)];
   }));
+}
+
+function sameStrings(actual?: string[] | null, desired?: string[] | null): boolean {
+  const actualValues = actual ?? [];
+  const desiredValues = desired ?? [];
+  return actualValues.length === desiredValues.length
+    && actualValues.every((value, index) => value === desiredValues[index]);
 }
 
 function isValidRoutingId(deviceId: string): boolean {

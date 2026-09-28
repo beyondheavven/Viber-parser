@@ -1,5 +1,6 @@
 package com.viber.routes
 
+import com.viber.bot.DeviceQueueRouting
 import com.viber.bot.ViberBotClient
 import com.viber.models.CreateCampaignRequest
 import com.viber.models.UpdateCampaignRequest
@@ -20,6 +21,7 @@ import io.github.smiley4.ktoropenapi.post
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
+import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.route
@@ -27,64 +29,74 @@ import io.ktor.server.routing.route
 fun Route.broadcastRoutes(viberBotClient: ViberBotClient) {
     route("/broadcast") {
         get("/status", describeBroadcastStatus) {
-            call.respondText(viberBotClient.getBroadcastStatus(), ContentType.Application.Json)
+            val deviceId = validatedBroadcastDeviceId(call.request.queryParameters["deviceId"])
+            call.respondText(viberBotClient.getBroadcastStatus(deviceId), ContentType.Application.Json)
         }
 
         get("/history/last", describeBroadcastLastSends) {
-            call.respondText(viberBotClient.getBroadcastLastSends(), ContentType.Application.Json)
+            val deviceId = validatedBroadcastDeviceId(call.request.queryParameters["deviceId"])
+            call.respondText(viberBotClient.getBroadcastLastSends(deviceId), ContentType.Application.Json)
         }
 
         get("/history", describeBroadcastHistory) {
+            val deviceId = validatedBroadcastDeviceId(call.request.queryParameters["deviceId"])
             val conversationId = call.request.queryParameters["conversationId"]?.toIntOrNull()
             val campaignId = call.request.queryParameters["campaignId"]
             val limit = call.request.queryParameters["limit"]?.toIntOrNull()
             call.respondText(
-                viberBotClient.getBroadcastHistory(conversationId, campaignId, limit),
+                viberBotClient.getBroadcastHistory(conversationId, campaignId, limit, deviceId),
                 ContentType.Application.Json,
             )
         }
 
         route("/campaigns") {
             get("", describeListCampaigns) {
-                call.respondText(viberBotClient.listCampaigns(), ContentType.Application.Json)
+                val deviceId = validatedBroadcastDeviceId(call.request.queryParameters["deviceId"])
+                call.respondText(viberBotClient.listCampaigns(deviceId), ContentType.Application.Json)
             }
 
             post("", describeCreateCampaign) {
+                val deviceId = validatedBroadcastDeviceId(call.request.queryParameters["deviceId"])
                 val request = call.receive<CreateCampaignRequest>()
                 call.respondText(
-                    viberBotClient.createCampaign(request),
+                    viberBotClient.createCampaign(request, deviceId),
                     ContentType.Application.Json,
                     HttpStatusCode.Created,
                 )
             }
 
             get("/{id}", describeGetCampaign) {
+                val deviceId = validatedBroadcastDeviceId(call.request.queryParameters["deviceId"])
                 val id = call.requireCampaignId()
-                call.respondText(viberBotClient.getCampaign(id), ContentType.Application.Json)
+                call.respondText(viberBotClient.getCampaign(id, deviceId), ContentType.Application.Json)
             }
 
             patch("/{id}", describeUpdateCampaign) {
+                val deviceId = validatedBroadcastDeviceId(call.request.queryParameters["deviceId"])
                 val id = call.requireCampaignId()
                 val request = call.receive<UpdateCampaignRequest>()
                 call.respondText(
-                    viberBotClient.updateCampaign(id, request),
+                    viberBotClient.updateCampaign(id, request, deviceId),
                     ContentType.Application.Json,
                 )
             }
 
             delete("/{id}", describeDeleteCampaign) {
+                val deviceId = validatedBroadcastDeviceId(call.request.queryParameters["deviceId"])
                 val id = call.requireCampaignId()
-                call.respondText(viberBotClient.deleteCampaign(id), ContentType.Application.Json)
+                call.respondText(viberBotClient.deleteCampaign(id, deviceId), ContentType.Application.Json)
             }
 
             post("/{id}/start", describeStartCampaign) {
+                val deviceId = validatedBroadcastDeviceId(call.request.queryParameters["deviceId"])
                 val id = call.requireCampaignId()
-                call.respondText(viberBotClient.startCampaign(id), ContentType.Application.Json)
+                call.respondText(viberBotClient.startCampaign(id, deviceId), ContentType.Application.Json)
             }
 
             post("/{id}/stop", describeStopCampaign) {
+                val deviceId = validatedBroadcastDeviceId(call.request.queryParameters["deviceId"])
                 val id = call.requireCampaignId()
-                call.respondText(viberBotClient.stopCampaign(id), ContentType.Application.Json)
+                call.respondText(viberBotClient.stopCampaign(id, deviceId), ContentType.Application.Json)
             }
         }
     }
@@ -92,3 +104,12 @@ fun Route.broadcastRoutes(viberBotClient: ViberBotClient) {
 
 private fun io.ktor.server.application.ApplicationCall.requireCampaignId(): String =
     parameters["id"] ?: throw IllegalArgumentException("Не указан ID кампании")
+
+private fun validatedBroadcastDeviceId(deviceId: String?): String? {
+    try {
+        DeviceQueueRouting.queueName(deviceId)
+    } catch (error: IllegalArgumentException) {
+        throw BadRequestException(error.message ?: "Invalid deviceId", error)
+    }
+    return deviceId
+}

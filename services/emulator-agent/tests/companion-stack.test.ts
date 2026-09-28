@@ -55,6 +55,36 @@ test('companion specs isolate appium and bot for the selected emulator', () => {
   assert.ok(specs.bot.createOptions.Env?.includes('APPIUM_HOST=viber-appium-aaaaaaaaaaaa'));
   assert.ok(specs.bot.createOptions.Env?.includes('ANDROID_SERIAL=host.docker.internal:5556'));
   assert.ok(specs.bot.createOptions.Env?.includes(`VIBER_INSTANCE_ID=${routingId}`));
+  assert.deepEqual(specs.bot.createOptions.HostConfig?.Binds, [
+    'viber-bot-data-aaaaaaaaaaaa:/app/data',
+  ]);
+  assert.equal(specs.appium.createOptions.HostConfig?.Binds, undefined);
+});
+
+test('bot data volumes are isolated between emulator instances', () => {
+  const first = buildCompanionSpecs({
+    deviceId,
+    routingId,
+    adbPort: 5556,
+    ...runtimeConfig,
+  });
+  const second = buildCompanionSpecs({
+    deviceId: 'b'.repeat(64),
+    routingId: '136.92.24.89:5556',
+    adbPort: 5557,
+    ...runtimeConfig,
+  });
+
+  assert.deepEqual(first.bot.createOptions.HostConfig?.Binds, [
+    'viber-bot-data-aaaaaaaaaaaa:/app/data',
+  ]);
+  assert.deepEqual(second.bot.createOptions.HostConfig?.Binds, [
+    'viber-bot-data-bbbbbbbbbbbb:/app/data',
+  ]);
+  assert.notDeepEqual(
+    first.bot.createOptions.HostConfig?.Binds,
+    second.bot.createOptions.HostConfig?.Binds,
+  );
 });
 
 test('companion specs publish the primary routing id for task result synchronization', () => {
@@ -102,6 +132,43 @@ test('reconciliation replaces companions when image, environment or network drif
   assert.equal(docker.container('viber-appium-aaaaaaaaaaaa').imageId, 'sha256:appium-new');
   assert.equal(docker.container('viber-bot-aaaaaaaaaaaa').imageId, 'sha256:bot-new');
   assert.equal(docker.container('viber-bot-aaaaaaaaaaaa').network, 'viber-parser_default');
+});
+
+test('reconciliation replaces bot companions when the data volume bind is missing or wrong', async () => {
+  for (const binds of [undefined, ['other-volume:/app/data']]) {
+    const docker = new FakeDocker();
+    docker.images.set('appium/appium:latest', 'sha256:appium');
+    docker.images.set('viber-parser-bot', 'sha256:bot');
+    docker.addEmulator(deviceId, true);
+    const specs = buildCompanionSpecs({
+      deviceId,
+      routingId,
+      adbPort: 5556,
+      ...runtimeConfig,
+    });
+    docker.addCompanion('viber-appium-aaaaaaaaaaaa', deviceId, 'appium', {
+      imageId: 'sha256:appium',
+      imageName: 'appium/appium:latest',
+      env: specs.appium.createOptions.Env ?? [],
+      network: 'viber-parser_default',
+    });
+    docker.addCompanion('viber-bot-aaaaaaaaaaaa', deviceId, 'bot', {
+      imageId: 'sha256:bot',
+      imageName: 'viber-parser-bot',
+      env: specs.bot.createOptions.Env ?? [],
+      network: 'viber-parser_default',
+      binds,
+    });
+
+    const controller = new CompanionController(docker as never, runtimeConfig);
+    await controller.reconcileRunning(deviceId, 5556, routingId);
+
+    assert.deepEqual(docker.removed, ['viber-bot-aaaaaaaaaaaa']);
+    assert.deepEqual(docker.created, ['viber-bot-aaaaaaaaaaaa']);
+    assert.deepEqual(docker.container('viber-bot-aaaaaaaaaaaa').binds, [
+      'viber-bot-data-aaaaaaaaaaaa:/app/data',
+    ]);
+  }
 });
 
 test('device operations are serialized and stopped emulators cannot recreate companions', async () => {
@@ -161,6 +228,7 @@ interface FakeContainerConfig {
   imageName: string;
   env: string[];
   network: string;
+  binds?: string[];
 }
 
 class FakeContainer {
@@ -175,6 +243,7 @@ class FakeContainer {
     readonly imageName: string,
     readonly env: string[],
     readonly network: string,
+    readonly binds?: string[],
   ) {}
 
   async inspect() {
@@ -184,7 +253,11 @@ class FakeContainer {
       Image: this.imageId,
       State: { Running: this.running },
       Config: { Image: this.imageName, Env: this.env, Labels: this.labels },
-      HostConfig: { NetworkMode: this.network, PortBindings: { '5555/tcp': [{ HostPort: '5556' }] } },
+      HostConfig: {
+        NetworkMode: this.network,
+        PortBindings: { '5555/tcp': [{ HostPort: '5556' }] },
+        Binds: this.binds,
+      },
     };
   }
 
@@ -221,7 +294,7 @@ class FakeDocker {
       app: 'viber-emulator-companion',
       'viber.emulator.id': emulatorId,
       'viber.companion.role': role,
-    }, config.imageId, config.imageName, config.env, config.network);
+    }, config.imageId, config.imageName, config.env, config.network, config.binds);
     container.running = true;
     this.store(container);
   }
@@ -245,6 +318,7 @@ class FakeDocker {
       options.Image,
       options.Env ?? [],
       options.HostConfig?.NetworkMode ?? '',
+      options.HostConfig?.Binds,
     );
     this.created.push(options.name);
     this.store(container);

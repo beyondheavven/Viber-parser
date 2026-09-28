@@ -186,51 +186,60 @@ class ViberBotClient(
     private fun authQueue(deviceId: String?): String = DeviceQueueRouting.queueName(deviceId, defaultQueue)
 
 
-    suspend fun getBroadcastStatus(): String {
-        return rpcClient.call("viber.broadcast.status")
+    suspend fun getBroadcastStatus(deviceId: String? = null): String {
+        return rpcClient.call("viber.broadcast.status", queueName = authQueue(deviceId))
     }
 
-    suspend fun getBroadcastHistory(conversationId: Int? = null, campaignId: String? = null, limit: Int? = null): String {
+    suspend fun getBroadcastHistory(
+        conversationId: Int? = null,
+        campaignId: String? = null,
+        limit: Int? = null,
+        deviceId: String? = null,
+    ): String {
         val payload = buildJsonObject {
             conversationId?.let { put("conversationId", it) }
             campaignId?.let { put("campaignId", it) }
             limit?.let { put("limit", it) }
         }
-        return rpcClient.call("viber.broadcast.history", payload)
+        return rpcClient.call("viber.broadcast.history", payload, queueName = authQueue(deviceId))
     }
 
-    suspend fun getBroadcastLastSends(): String {
-        return rpcClient.call("viber.broadcast.history.last")
+    suspend fun getBroadcastLastSends(deviceId: String? = null): String {
+        return rpcClient.call("viber.broadcast.history.last", queueName = authQueue(deviceId))
     }
 
-    suspend fun listCampaigns(): String {
-        return rpcClient.call("viber.broadcast.campaigns.list")
+    suspend fun listCampaigns(deviceId: String? = null): String {
+        return rpcClient.call("viber.broadcast.campaigns.list", queueName = authQueue(deviceId))
     }
 
-    suspend fun getCampaign(id: String): String {
-        return rpcClient.call("viber.broadcast.campaigns.get", mapOf("id" to id))
+    suspend fun getCampaign(id: String, deviceId: String? = null): String {
+        return rpcClient.call("viber.broadcast.campaigns.get", mapOf("id" to id), queueName = authQueue(deviceId))
     }
 
-    suspend fun createCampaign(request: CreateCampaignRequest): String {
-        return rpcClient.call("viber.broadcast.campaigns.create", sparseJson.encodeToString(request))
+    suspend fun createCampaign(request: CreateCampaignRequest, deviceId: String? = null): String {
+        return rpcClient.call(
+            "viber.broadcast.campaigns.create",
+            sparseJson.encodeToString(request),
+            queueName = authQueue(deviceId),
+        )
     }
 
-    suspend fun updateCampaign(id: String, request: UpdateCampaignRequest): String {
+    suspend fun updateCampaign(id: String, request: UpdateCampaignRequest, deviceId: String? = null): String {
         val changes = sparseJson.encodeToJsonElement(request) as JsonObject
         val payload = JsonObject(changes + ("id" to JsonPrimitive(id)))
-        return rpcClient.call("viber.broadcast.campaigns.update", payload)
+        return rpcClient.call("viber.broadcast.campaigns.update", payload, queueName = authQueue(deviceId))
     }
 
-    suspend fun deleteCampaign(id: String): String {
-        return rpcClient.call("viber.broadcast.campaigns.delete", mapOf("id" to id))
+    suspend fun deleteCampaign(id: String, deviceId: String? = null): String {
+        return rpcClient.call("viber.broadcast.campaigns.delete", mapOf("id" to id), queueName = authQueue(deviceId))
     }
 
-    suspend fun startCampaign(id: String): String {
-        return rpcClient.call("viber.broadcast.campaigns.start", mapOf("id" to id))
+    suspend fun startCampaign(id: String, deviceId: String? = null): String {
+        return rpcClient.call("viber.broadcast.campaigns.start", mapOf("id" to id), queueName = authQueue(deviceId))
     }
 
-    suspend fun stopCampaign(id: String): String {
-        return rpcClient.call("viber.broadcast.campaigns.stop", mapOf("id" to id))
+    suspend fun stopCampaign(id: String, deviceId: String? = null): String {
+        return rpcClient.call("viber.broadcast.campaigns.stop", mapOf("id" to id), queueName = authQueue(deviceId))
     }
 
 }
