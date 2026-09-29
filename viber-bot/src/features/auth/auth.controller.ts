@@ -22,6 +22,11 @@ export class AuthController {
     return this.authService.enterPhoneNumber(dto);
   }
 
+  @MessagePattern('viber.auth.call')
+  async requestCall(): Promise<AuthResponseDto> {
+    return this.authService.requestCall();
+  }
+
   @MessagePattern('viber.auth.code')
   async enterCode(@Payload() dto: ConfirmCodeDto): Promise<AuthResponseDto> {
     return this.authService.enterCode(dto);

@@ -5,8 +5,14 @@ services:
       dockerfile: Dockerfile
     container_name: onixdata-client
     restart: unless-stopped
-    environment:
+    # env_file, not environment: a path under `environment` declares a variable
+    # named like the path and never reads the file.
+    env_file:
       - /home/kkurzau/onixdata-app/.env
+    depends_on:
+      - viber-parser-api
+      - emulator-agent
+      - scrcpy-web
   caddy:
     image: caddy:2-alpine
     container_name: caddy-proxy

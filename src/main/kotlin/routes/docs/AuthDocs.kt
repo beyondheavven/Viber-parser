@@ -1,5 +1,6 @@
 package com.viber.routes.docs
 
+import com.viber.models.CallRequest
 import com.viber.models.CodeRequest
 import com.viber.models.ErrorResponse
 import com.viber.models.LoginRequest
@@ -13,10 +14,14 @@ import io.ktor.http.HttpStatusCode
 val describeLogin: RouteConfig.() -> Unit = {
     operationId = "Login"
     tags = listOf("Authentication")
-    description = "Выбирает страну из списка (по имени, напр. Belarus), вводит номер телефона и автоматически запрашивает звонок (Call me)."
+    description = "Выдаёт Viber все разрешения (pm grant), выбирает страну, вводит номер телефона и нажимает " +
+            "«Позвонить мне» (Call me): код — последние цифры номера, с которого позвонит Viber. " +
+            "verification в ответе: call — звонок запрошен, sms — кнопки не было."
     request {
         body<LoginRequest> {
-            description = "Данные для ввода номера: phoneNumber (напр. '+1234567890'), countryName (напр. 'Belarus') или countryCode ('BY'). Опционально, если заданы в переменных окружения VIBER_DEFAULT_PHONE и VIBER_DEFAULT_COUNTRY."
+            description = "phoneNumber (напр. '+48123456789' — страна берётся из кода номера), countryName (напр. 'Belarus'), " +
+                    "deviceId — инстанс, requestCall=false — не нажимать «Позвонить мне». " +
+                    "phoneNumber и страна по умолчанию — VIBER_DEFAULT_PHONE и VIBER_DEFAULT_COUNTRY."
             required = false
         }
     }
@@ -108,6 +113,29 @@ val describeEnterCode: RouteConfig.() -> Unit = {
         code(HttpStatusCode.BadRequest) {
             description = "Неверный код или ошибка"
             body<ErrorResponse>()
+        }
+    }
+}
+
+val describeRequestCall: RouteConfig.() -> Unit = {
+    operationId = "requestCall"
+    tags = listOf("Authentication")
+    summary = "Повторный звонок для подтверждения"
+    description = "Нажимает «Позвонить мне» на экране ввода кода — если первый звонок пропущен."
+    request {
+        body<CallRequest> {
+            description = "deviceId — инстанс"
+            required = false
+        }
+    }
+    response {
+        code(HttpStatusCode.OK) {
+            description = "Звонок запрошен"
+            body<LoginResponse>()
+        }
+        code(HttpStatusCode.BadRequest) {
+            description = "Кнопка «Позвонить мне» сейчас недоступна"
+            body<LoginResponse>()
         }
     }
 }

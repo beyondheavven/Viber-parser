@@ -23,6 +23,11 @@ export function byTextContains(part: string): string {
   return `android=new UiSelector().textContains(${quote(part)})`;
 }
 
+/** Whole-label match against a Java regex, e.g. `(?i)call me`. */
+export function byTextMatches(pattern: string): string {
+  return `android=new UiSelector().textMatches(${quote(pattern)})`;
+}
+
 export function byId(resourceId: string): string {
   return `android=new UiSelector().resourceId(${quote(resourceId)})`;
 }

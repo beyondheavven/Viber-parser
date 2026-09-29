@@ -6,6 +6,7 @@ import { VersionedAccountCache } from './account-cache.js';
 import { runContainerCommand } from './container-command.js';
 import { CompanionController } from './companion-stack.js';
 import { logoutViber } from './viber-logout.js';
+import { buildScrcpyUrl } from './scrcpy-url.js';
 import {
   HEALTH_CHECK_CMD,
   parseContainerHealthOutput,
@@ -74,15 +75,6 @@ function checkKvm(): boolean {
   } catch {
     return false;
   }
-}
-
-// Helper: Build Scrcpy-Web Stream URL
-function buildScrcpyUrl(publicIp: string, port: number, adbPort: number | null): string | null {
-  if (!adbPort) return null;
-  const udid = adbPort === 5555 ? 'android-emulator:5555' : `host.docker.internal:${adbPort}`;
-  const wsUrl = `ws://${publicIp}:${port}/`;
-  const hash = `#!action=stream&udid=${encodeURIComponent(udid)}&player=mse&ws=${encodeURIComponent(wsUrl)}`;
-  return `http://${publicIp}:${port}/${hash}`;
 }
 
 // Helper: Ensure scrcpy-web ADB container connects to device port

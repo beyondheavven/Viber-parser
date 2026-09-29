@@ -8,6 +8,9 @@
  * change them only here: nothing else in the codebase references a raw id.
  */
 
+import { CALL_ME_TEXT_PATTERN } from '../../features/auth/verification.js';
+import { byTextMatches } from './uiselector.js';
+
 const PACKAGE = 'com.viber.voip';
 
 const id = (name: string): string => `${PACKAGE}:id/${name}`;
@@ -107,6 +110,11 @@ export const selectors = {
     pinDigit: id('pin_digit'),
     codeInput: id('code_input'),
     verificationCode: id('verification_code'),
+    /**
+     * «Call me»: Viber rings the number and the code is the tail of the caller's
+     * number. Not captured with an id yet, so it is matched on its label.
+     */
+    callMeButton: byTextMatches(CALL_ME_TEXT_PATTERN),
   },
 
   /** Android's runtime permission dialog, `GrantPermissionsActivity`. */
