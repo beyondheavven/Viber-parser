@@ -35,7 +35,8 @@ fun Route.usersRoutes(usersSyncService: UsersSyncService, parserSecret: String?)
 
         get("/sync/status", describeUsersSyncStatus) {
             val conversationId = call.request.queryParameters["conversationId"]?.toIntOrNull()
-            call.respond(HttpStatusCode.OK, usersSyncService.syncStatus(conversationId))
+            val instanceId = scopedInstanceId(call.request.queryParameters["deviceId"])
+            call.respond(HttpStatusCode.OK, usersSyncService.syncStatus(conversationId, instanceId))
         }
 
         delete("/groups/{id}", describeDeleteGroup) {
@@ -63,7 +64,8 @@ fun Route.usersRoutes(usersSyncService: UsersSyncService, parserSecret: String?)
 
         get("/group/{id}", describeGetGroupUsers) {
             val id = call.parameters["id"]!!
-            call.respond(HttpStatusCode.OK, usersSyncService.getGroupUsers(id))
+            val instanceId = scopedInstanceId(call.request.queryParameters["deviceId"])
+            call.respond(HttpStatusCode.OK, usersSyncService.getGroupUsers(id, instanceId))
         }
 
         post("/sync/group/{id}", describeSyncGroupUsers) {
@@ -88,6 +90,13 @@ private fun validatedSyncDeviceId(deviceId: String?): String {
     }
     return deviceId ?: "default"
 }
+
+/**
+ * Instance filter for reads: none without `deviceId` (every instance, as
+ * before), otherwise the same id the sync endpoints write under.
+ */
+private fun scopedInstanceId(deviceId: String?): String? =
+    deviceId?.takeIf { it.isNotBlank() }?.let(::validatedSyncDeviceId)
 
 private fun matchesParserSecret(configured: String?, provided: String?): Boolean {
     val expected = configured?.takeIf { it.isNotBlank() } ?: return false

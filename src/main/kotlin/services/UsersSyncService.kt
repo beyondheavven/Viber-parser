@@ -235,7 +235,12 @@ class UsersSyncService(
         )
     }
 
-    suspend fun syncStatus(conversationId: Int? = null): UsersSyncStatus {
+    /**
+     * [instanceId] narrows the groups to one emulator: rows are written per
+     * instance and conversation ids repeat across emulators (every Viber
+     * numbers its chats from 1), so an unscoped read mixes their groups.
+     */
+    suspend fun syncStatus(conversationId: Int? = null, instanceId: String? = null): UsersSyncStatus {
         val checkedAt = Instant.now().toString()
         val client = supabase() ?: return UsersSyncStatus(
             configured = false,
@@ -246,7 +251,10 @@ class UsersSyncService(
 
         return try {
             val groups = client.from("viber_groups").select(Columns.ALL) {
-                conversationId?.let { id -> filter { eq("conversation_id", id) } }
+                filter {
+                    conversationId?.let { id -> eq("conversation_id", id) }
+                    instanceId?.let { id -> eq("instance_id", id) }
+                }
                 order("last_synced_at", Order.DESCENDING)
             }.decodeList<ViberGroupRow>()
 
@@ -352,26 +360,36 @@ class UsersSyncService(
         )
     }
 
-    suspend fun getGroupUsers(targetId: String): List<ParticipantModel> {
+    /** [instanceId] — the emulator whose copy of the group is read; see [syncStatus]. */
+    suspend fun getGroupUsers(targetId: String, instanceId: String? = null): List<ParticipantModel> {
         val client = supabase() ?: throw SupabaseDisabledException()
         val convId = targetId.toIntOrNull()
 
         var group: ViberGroupRow? = null
         if (convId != null) {
             group = client.from("viber_groups").select(Columns.ALL) {
-                filter { eq("conversation_id", convId) }
+                filter {
+                    eq("conversation_id", convId)
+                    instanceId?.let { id -> eq("instance_id", id) }
+                }
                 limit(1)
             }.decodeList<ViberGroupRow>().firstOrNull()
         }
         if (group == null) {
             group = client.from("viber_groups").select(Columns.ALL) {
-                filter { eq("group_key", targetId) }
+                filter {
+                    eq("group_key", targetId)
+                    instanceId?.let { id -> eq("instance_id", id) }
+                }
                 limit(1)
             }.decodeList<ViberGroupRow>().firstOrNull()
         }
         if (group == null) {
             group = client.from("viber_groups").select(Columns.ALL) {
-                filter { eq("viber_group_id", targetId) }
+                filter {
+                    eq("viber_group_id", targetId)
+                    instanceId?.let { id -> eq("instance_id", id) }
+                }
                 limit(1)
             }.decodeList<ViberGroupRow>().firstOrNull()
         }

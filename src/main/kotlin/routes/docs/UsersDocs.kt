@@ -89,6 +89,11 @@ val describeUsersSyncStatus: RouteConfig.() -> Unit = {
             description = "ID беседы (как в /api/groups), чтобы проверить только одну группу"
             required = false
         }
+        queryParameter<String>("deviceId") {
+            description = "Инстанс эмулятора (как при синхронизации): ID бесед у разных эмуляторов " +
+                    "совпадают, без него в ответ попадают группы всех инстансов"
+            required = false
+        }
     }
 
     response {
@@ -182,6 +187,10 @@ val describeGetGroupUsers: RouteConfig.() -> Unit = {
         pathParameter<String>("id") {
             description = "ID беседы (conversationId) или ключ группы (viberGroupId / groupKey)"
             required = true
+        }
+        queryParameter<String>("deviceId") {
+            description = "Инстанс эмулятора, чья копия группы нужна (как при синхронизации)"
+            required = false
         }
     }
 

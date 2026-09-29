@@ -123,6 +123,12 @@ class UsersSyncIntegrationTest {
                 )
                 assertTrue((status.usersTotal ?: 0) >= 2, status.toString())
 
+                // Rows are written per instance; reads scoped to another one see nothing.
+                assertEquals(group.id, service2.syncStatus(conversationId, "default").groups.single().id)
+                assertEquals(emptyList(), service2.syncStatus(conversationId, "other-instance").groups)
+                assertTrue(service2.getGroupUsers(conversationId.toString(), "default").isNotEmpty())
+                assertEquals(emptyList(), service2.getGroupUsers(conversationId.toString(), "other-instance"))
+
                 val missing = service2.syncStatus(conversationId - 1)
                 assertEquals(emptyList(), missing.groups)
                 assertTrue(missing.message.contains("ещё не записывалась"), missing.message)
