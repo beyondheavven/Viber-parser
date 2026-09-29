@@ -82,13 +82,19 @@ fun Route.usersRoutes(usersSyncService: UsersSyncService, parserSecret: String?)
     }
 }
 
+/**
+ * Instance id rows are stored under. Aliases of the main emulator
+ * ("android-emulator", "main", "worker"…) all mean the one bot on the default
+ * queue, so they collapse to "default" — otherwise the same group would be
+ * written and read under several names.
+ */
 private fun validatedSyncDeviceId(deviceId: String?): String {
     try {
         DeviceQueueRouting.validate(deviceId)
     } catch (error: IllegalArgumentException) {
         throw BadRequestException(error.message ?: "Invalid deviceId", error)
     }
-    return deviceId ?: "default"
+    return if (DeviceQueueRouting.isDefaultDevice(deviceId)) "default" else deviceId!!.trim()
 }
 
 /**

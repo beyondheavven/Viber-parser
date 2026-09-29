@@ -4,6 +4,7 @@ import com.viber.bot.RosterClient
 import com.viber.plugins.configureException
 import com.viber.routes.usersRoutes
 import com.viber.services.UsersSyncService
+import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -29,6 +30,30 @@ class UsersDeviceRoutingTest {
             listOf("group:viber-worker-03", "participants:viber-worker-03"),
             roster.calls,
         )
+    }
+
+    @Test
+    fun `aliases of the main emulator sync under the default instance`() = testApplication {
+        val roster = RecordingRoster()
+        application {
+            routing { usersRoutes(UsersSyncService(roster, supabase = { null }), parserSecret = null) }
+        }
+
+        client.post("/users/sync/group/13?deviceId=android-emulator")
+
+        assertEquals(listOf("group:default", "participants:default"), roster.calls)
+    }
+
+    @Test
+    fun `sync status reports the instance filter without a database`() = testApplication {
+        application {
+            install(ContentNegotiation) { json() }
+            configureException()
+            routing { usersRoutes(UsersSyncService(RecordingRoster(), supabase = { null }), parserSecret = null) }
+        }
+
+        assertEquals(HttpStatusCode.OK, client.get("/users/sync/status?deviceId=test-emulator").status)
+        assertEquals(HttpStatusCode.BadRequest, client.get("/users/sync/status?deviceId=..%2Fqueue").status)
     }
 
     @Test
