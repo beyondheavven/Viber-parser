@@ -3,6 +3,7 @@ import { ActivationRejectedError } from './errors.js';
 import { selectors } from './selectors.js';
 import { byIdAndTextContains, byTextContains } from './uiselector.js';
 import { loadViberConfig } from '../../config/env.js';
+import { readCallCodeLength } from '../../features/auth/verification.js';
 
 /** Where the registration flow currently stands, as read off the screen. */
 export type RegistrationScreen =
@@ -12,6 +13,7 @@ export type RegistrationScreen =
   | 'permission_rationale'
   | 'system_permission'
   | 'verifying'
+  | 'code_entry'
   | 'alert'
   | 'activated'
   | 'unknown';
@@ -34,6 +36,8 @@ export class RegistrationPage extends BasePage {
       return 'permission_rationale';
     }
     if (await this.isPresent(selectors.selectCountry.searchInput, 300)) return 'country_picker';
+    // Before `verifying`: its `message` id is generic enough to sit on the code screen too.
+    if (await this.isCodeEntryShown(300)) return 'code_entry';
     if (await this.isPresent(selectors.verifying.message, 300)) return 'verifying';
     if (await this.isPresent(selectors.registration.phoneField, 300)) return 'phone_input';
     if (await this.isPresent(selectors.splash.startButton, 300)) return 'splash';
@@ -87,6 +91,25 @@ export class RegistrationPage extends BasePage {
     const chosen = await this.selectedCountry();
     if (!chosen.toLowerCase().includes(country.toLowerCase())) {
       throw new Error(`Picked "${country}" but the form now shows "${chosen}".`);
+    }
+  }
+
+  /**
+   * Replaces the calling code Viber prefilled (from the SIM / locale) with the
+   * number's own, e.g. "48" for +48…. Viber updates the country button from it.
+   */
+  async setCallingCode(code: string): Promise<void> {
+    const digits = code.replace(/\D/gu, '');
+    if (digits === '' || (await this.countryCode()) === digits) return;
+
+    const field = await this.waitFor(selectors.registration.codeField);
+    await field.click();
+    await field.clearValue();
+    await field.setValue(digits);
+
+    const shown = await this.countryCode();
+    if (shown !== digits) {
+      throw new Error(`Country code field holds "${shown}" after typing "${digits}".`);
     }
   }
 
@@ -165,6 +188,69 @@ export class RegistrationPage extends BasePage {
       await this.driver.pause(700);
     }
     throw new Error('Viber never finished verifying the number.');
+  }
+
+  /** The code entry screen, by its input or by the «Call me» control. */
+  async isCodeEntryShown(timeout = 1_000): Promise<boolean> {
+    const deadline = Date.now() + timeout;
+    do {
+      for (const selector of [
+        selectors.smsCode.callMeButton,
+        selectors.smsCode.codeInput,
+        selectors.smsCode.verificationCode,
+        selectors.smsCode.pinDigit,
+        selectors.smsCode.mainView,
+      ]) {
+        if (await this.isPresent(selector, 150)) return true;
+      }
+    } while (Date.now() < deadline);
+    return false;
+  }
+
+  /**
+   * Presses «Call me» once the code screen offers it: Viber then rings the
+   * number, and the code is the last digits of the number it calls from.
+   *
+   * Waits because Viber may only enable the control after its own countdown.
+   * A confirmation dialog, if one follows, is accepted.
+   */
+  async requestCall(timeout = 20_000): Promise<{ requested: boolean; codeLength: number | null }> {
+    if (!(await this.isPresent(selectors.smsCode.callMeButton, timeout))) {
+      return { requested: false, codeLength: null };
+    }
+    await this.tap(selectors.smsCode.callMeButton);
+    await this.driver.pause(1_000);
+
+    for (const confirm of [selectors.viberDialog.positiveButton, selectors.alert.positiveButton]) {
+      if (await this.isPresent(confirm, 1_500)) {
+        await this.tap(confirm);
+        await this.driver.pause(600);
+        break;
+      }
+    }
+
+    const source = await this.driver.getPageSource().catch(() => '');
+    return { requested: true, codeLength: readCallCodeLength(source) };
+  }
+
+  /**
+   * Puts the cursor into the code field, so digits typed over adb land there
+   * rather than wherever focus happened to be.
+   */
+  async focusCodeInput(timeout = 5_000): Promise<boolean> {
+    for (const selector of [
+      selectors.smsCode.codeInput,
+      selectors.smsCode.verificationCode,
+      selectors.smsCode.pinDigit,
+      selectors.smsCode.mainView,
+    ]) {
+      if (await this.isPresent(selector, timeout)) {
+        await this.tap(selector);
+        return true;
+      }
+      timeout = 300;
+    }
+    return false;
   }
 
   /** Closes an AlertDialog with its right-hand button (CLOSE, not HELP). */

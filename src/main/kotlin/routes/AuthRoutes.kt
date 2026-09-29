@@ -1,6 +1,7 @@
 package com.viber.routes
 
 import com.viber.bot.DeviceQueueRouting
+import com.viber.models.CallRequest
 import com.viber.models.CodeRequest
 import com.viber.models.LoginRequest
 import com.viber.models.QrStartRequest
@@ -8,6 +9,7 @@ import com.viber.routes.docs.describeCancelQrLogin
 import com.viber.routes.docs.describeEnterCode
 import com.viber.routes.docs.describeGetQrLoginStatus
 import com.viber.routes.docs.describeLogin
+import com.viber.routes.docs.describeRequestCall
 import com.viber.routes.docs.describeStartQrLogin
 import com.viber.services.AuthService
 import io.github.smiley4.ktoropenapi.get
@@ -43,6 +45,17 @@ fun Route.authRoutes(authService: AuthService) {
             if (result.success){
                 call.respond(HttpStatusCode.OK, result)
             }else {
+                call.respond(HttpStatusCode.BadRequest, result)
+            }
+        }
+
+        post("/call", describeRequestCall) {
+            val request = call.receiveNullable<CallRequest>() ?: CallRequest()
+            validateDeviceId(request.deviceId)
+            val result = authService.requestCall(request)
+            if (result.success) {
+                call.respond(HttpStatusCode.OK, result)
+            } else {
                 call.respond(HttpStatusCode.BadRequest, result)
             }
         }

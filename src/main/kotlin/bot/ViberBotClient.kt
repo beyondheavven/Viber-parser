@@ -11,6 +11,7 @@ import com.viber.models.EnableMonitorGroupRequest
 import com.viber.models.GroupSummary
 import com.viber.models.QueryOnlineStatusRequest
 import com.viber.models.StartMonitorRequest
+import com.viber.models.CallRequest
 import com.viber.models.CodeRequest
 import com.viber.models.LoginRequest
 import com.viber.models.LoginResponse
@@ -26,6 +27,7 @@ import kotlinx.serialization.json.put
 interface BotAuthClient {
     suspend fun enterPhoneNumber(request: LoginRequest): LoginResponse
     suspend fun enterCode(request: CodeRequest): LoginResponse
+    suspend fun requestCall(request: CallRequest): LoginResponse
     suspend fun getAuthStatus(): String
     suspend fun startQrLogin(request: QrStartRequest): String
     suspend fun getQrLoginStatus(deviceId: String? = null): String
@@ -164,6 +166,11 @@ class ViberBotClient(
 
     override suspend fun enterCode(request: CodeRequest): LoginResponse {
         val raw = rpcClient.call("viber.auth.code", json.encodeToString(request), authQueue(request.deviceId))
+        return json.decodeFromString(raw)
+    }
+
+    override suspend fun requestCall(request: CallRequest): LoginResponse {
+        val raw = rpcClient.call("viber.auth.call", queueName = authQueue(request.deviceId))
         return json.decodeFromString(raw)
     }
 

@@ -12,6 +12,8 @@ data class LoginRequest(
     val clearData: Boolean? = null,
     /** Emulator instance the panel addresses; this API drives a single emulator. */
     val deviceId: String? = null,
+    /** Press «Call me» once the code screen is up; the bot does by default. */
+    val requestCall: Boolean? = null,
 )
 
 @Serializable
@@ -19,7 +21,17 @@ data class LoginResponse(
     val success: Boolean,
     val message: String,
     val data: String? = null,
-    val step: String? = null
+    val step: String? = null,
+    /** "call" — Viber rings the number, the code is the caller's last digits; "sms" otherwise. */
+    val verification: String? = null,
+    /** Digits Viber asks for, when its screen says so. */
+    val codeLength: Int? = null,
+)
+
+@Serializable
+data class CallRequest(
+    /** Emulator instance the panel addresses. */
+    val deviceId: String? = null,
 )
 
 @Serializable

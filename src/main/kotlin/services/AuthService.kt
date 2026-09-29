@@ -1,6 +1,7 @@
 package com.viber.services
 
 import com.viber.bot.BotAuthClient
+import com.viber.models.CallRequest
 import com.viber.models.CodeRequest
 import com.viber.models.LoginRequest
 import com.viber.models.LoginResponse
@@ -20,6 +21,14 @@ class AuthService(
     suspend fun enterCode(request: CodeRequest): LoginResponse {
         return try {
             viberBotClient.enterCode(request)
+        } catch (e: Exception) {
+            LoginResponse(false, "Ошибка: ${e.message}")
+        }
+    }
+
+    suspend fun requestCall(request: CallRequest): LoginResponse {
+        return try {
+            viberBotClient.requestCall(request)
         } catch (e: Exception) {
             LoginResponse(false, "Ошибка: ${e.message}")
         }

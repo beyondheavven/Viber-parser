@@ -4,6 +4,7 @@ import com.viber.bot.BotAuthClient
 import com.viber.bot.DeviceQueueRouting
 import com.viber.infrastructure.rabbitmq.RpcClient
 import com.viber.bot.ViberBotClient
+import com.viber.models.CallRequest
 import com.viber.models.CodeRequest
 import com.viber.models.LoginRequest
 import com.viber.models.LoginResponse
@@ -18,6 +19,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
@@ -63,11 +65,12 @@ class DeviceQueueRoutingTest {
 
         client.enterPhoneNumber(LoginRequest(deviceId = routingId))
         client.enterCode(CodeRequest(code = "1234", deviceId = routingId))
+        client.requestCall(CallRequest(deviceId = routingId))
         client.startQrLogin(QrStartRequest(deviceId = routingId))
         client.getQrLoginStatus(routingId)
         client.cancelQrLogin(routingId)
 
-        assertEquals(List(5) { expectedRoutingQueue }, rpc.queues)
+        assertEquals(List(6) { expectedRoutingQueue }, rpc.queues)
     }
 
     @Test
@@ -92,6 +95,26 @@ class DeviceQueueRoutingTest {
         assertEquals(HttpStatusCode.OK, client.get("/auth/qr/status?deviceId=136.92.24.88%3A5556").status)
         assertEquals(HttpStatusCode.OK, client.post("/auth/qr/cancel?deviceId=136.92.24.88%3A5556").status)
         assertEquals(listOf<String?>(routingId, routingId), authClient.deviceIds.toList())
+    }
+
+    @Test
+    fun `call route forwards device id and reports the call`() = testApplication {
+        val authClient = RecordingAuthClient()
+        application {
+            install(ContentNegotiation) { json() }
+            routing { authRoutes(AuthService(authClient)) }
+        }
+
+        val response = client.post("/auth/call") {
+            contentType(ContentType.Application.Json)
+            setBody("{\"deviceId\":\"$routingId\"}")
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals(listOf<String?>(routingId), authClient.deviceIds.toList())
+        val body = response.bodyAsText()
+        kotlin.test.assertTrue(body.contains("\"verification\":\"call\""), body)
+        kotlin.test.assertTrue(body.contains("\"codeLength\":4"), body)
     }
 
     @Test
@@ -244,7 +267,7 @@ class DeviceQueueRoutingTest {
 
         override suspend fun call(pattern: String, payload: Any?, queueName: String?): String {
             queues += requireNotNull(queueName)
-            return if (pattern == "viber.auth.phone" || pattern == "viber.auth.code") {
+            return if (pattern == "viber.auth.phone" || pattern == "viber.auth.code" || pattern == "viber.auth.call") {
                 "{\"success\":true,\"message\":\"ok\"}"
             } else {
                 "{}"
@@ -257,6 +280,10 @@ class DeviceQueueRoutingTest {
 
         override suspend fun enterPhoneNumber(request: LoginRequest) = LoginResponse(true, "ok")
         override suspend fun enterCode(request: CodeRequest) = LoginResponse(true, "ok")
+        override suspend fun requestCall(request: CallRequest): LoginResponse {
+            deviceIds += request.deviceId
+            return LoginResponse(true, "ok", verification = "call", codeLength = 4)
+        }
         override suspend fun getAuthStatus() = "{}"
         override suspend fun startQrLogin(request: QrStartRequest) = "{}"
         override suspend fun getQrLoginStatus(deviceId: String?): String {

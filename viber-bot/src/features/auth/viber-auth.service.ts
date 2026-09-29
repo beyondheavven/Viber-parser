@@ -4,6 +4,9 @@ import { openDevice } from '../../platform/context.js';
 import { withViberSession } from '../../platform/appium/session.js';
 import { ActivationRejectedError } from '../../viber/pages/errors.js';
 import { RegistrationPage } from '../../viber/pages/registration.page.js';
+import { grantAppPermissions } from './permissions.js';
+import { maskPhone, splitPhoneNumber } from './qr/phone-number.js';
+import { callCodeMessage } from './verification.js';
 import type {
   AuthResponseDto,
   AuthStatusDto,
@@ -25,6 +28,22 @@ export class ViberAuthService {
   private readonly logger = new Logger(ViberAuthService.name);
 
   /**
+   * Grants Viber its runtime permissions over root adb, so the activation flow
+   * meets no "Allow" dialogs. Never decides the outcome of the flow.
+   */
+  private async grantPermissions(): Promise<void> {
+    try {
+      const { adb } = await openDevice({ ensureUp: false });
+      const granted = grantAppPermissions(adb, loadViberConfig().appPackage);
+      if (granted.length > 0) {
+        this.logger.log(`Pre-granted ${String(granted.length)} Viber permissions.`);
+      }
+    } catch (error) {
+      this.logger.warn(`Could not pre-grant Viber permissions: ${String(error)}`);
+    }
+  }
+
+  /**
    * Drives Viber from its welcome splash to a submitted phone number.
    *
    * Runs through Appium rather than `adb input tap`: the screen scrolls under
@@ -38,7 +57,11 @@ export class ViberAuthService {
     const defaultCountry = process.env['VIBER_DEFAULT_COUNTRY']?.trim() ?? '';
 
     const phoneNumber = dto.phoneNumber?.trim() || defaultPhone;
-    const country = dto.countryName?.trim() || defaultCountry;
+    // A number in international form names its own country: +48… is Poland
+    // whatever VIBER_DEFAULT_COUNTRY says. The default only fills in for a
+    // bare local number.
+    const parts = splitPhoneNumber(phoneNumber, dto.countryCode);
+    const country = dto.countryName?.trim() || (parts.countryCode ? '' : defaultCountry);
 
     if (!phoneNumber) {
       return {
@@ -55,6 +78,8 @@ export class ViberAuthService {
         const { adb } = await openDevice({ ensureUp: false });
         adb.shell(`pm clear ${loadViberConfig().appPackage}`, { allowFailure: true });
       }
+      // After the wipe: `pm clear` takes the runtime permissions with the data.
+      await this.grantPermissions();
 
       return await withViberSession(async (driver) => {
         const page = new RegistrationPage(driver);
@@ -72,10 +97,13 @@ export class ViberAuthService {
         if (country) {
           this.logger.log(`Selecting country "${country}"...`);
           await page.chooseCountry(country);
+        } else if (parts.countryCode) {
+          this.logger.log(`Setting calling code +${parts.countryCode}...`);
+          await page.setCallingCode(parts.countryCode);
         }
 
         const nationalNumber = stripCountryCode(phoneNumber, await page.countryCode());
-        this.logger.log(`Entering number ${nationalNumber} (+${await page.countryCode()})...`);
+        this.logger.log(`Entering number ${maskPhone(nationalNumber)} (+${await page.countryCode()})...`);
         await page.enterPhone(nationalNumber);
         await page.submitPhone();
 
@@ -90,12 +118,29 @@ export class ViberAuthService {
         const screen = await page.awaitVerificationOutcome();
         this.logger.log(`Number submitted; Viber is now on "${screen}".`);
 
+        const call =
+          dto.requestCall === false ? { requested: false, codeLength: null } : await page.requestCall();
+        if (call.requested) {
+          this.logger.log('Requested the verification call («Call me»).');
+          return {
+            success: true,
+            message: callCodeMessage(call.codeLength),
+            step: 'WAITING_FOR_CODE' as const,
+            verification: 'call' as const,
+            codeLength: call.codeLength,
+          };
+        }
+        if (dto.requestCall !== false) {
+          this.logger.warn(`«Call me» never showed up: ${await page.describeScreen().catch(() => '?')}`);
+        }
+
         return {
           success: true,
           message:
-            `Номер ${phoneNumber} отправлен (страна: ${await page.selectedCountry()}). ` +
-            'Запросите звонок или SMS и введите код активации.',
+            `Номер ${maskPhone(phoneNumber)} отправлен (страна: ${await page.selectedCountry().catch(() => '?')}). ` +
+            'Введите код из SMS или запросите звонок на экране устройства.',
           step: 'WAITING_FOR_CODE' as const,
+          verification: 'sms' as const,
         };
       });
     } catch (error) {
@@ -113,15 +158,50 @@ export class ViberAuthService {
     }
   }
 
+  /** Presses «Call me» again, for when the first call was missed. */
+  async requestCall(): Promise<AuthResponseDto> {
+    try {
+      return await withViberSession(async (driver) => {
+        const call = await new RegistrationPage(driver).requestCall(5_000);
+        return call.requested
+          ? {
+              success: true,
+              message: callCodeMessage(call.codeLength),
+              step: 'WAITING_FOR_CODE' as const,
+              verification: 'call' as const,
+              codeLength: call.codeLength,
+            }
+          : {
+              success: false,
+              message:
+                'Кнопка «Позвонить мне» сейчас недоступна. Дождитесь окончания таймера Viber и повторите.',
+              step: 'WAITING_FOR_CODE' as const,
+            };
+      });
+    } catch (error) {
+      this.logger.error(`Error requesting the verification call: ${String(error)}`);
+      return { success: false, message: `Ошибка запроса звонка: ${String(error)}`, step: 'ERROR' };
+    }
+  }
+
   async enterCode(dto: ConfirmCodeDto): Promise<AuthResponseDto> {
     try {
-      this.logger.log(`Entering activation digits: ${dto.code}`);
-      const { adb } = await openDevice({ ensureUp: false });
-
       const digits = dto.code.replace(/\D/g, '');
       if (digits.length === 0) {
         throw new Error('Код активации должен содержать цифры');
       }
+      this.logger.log(`Entering ${String(digits.length)} activation digits...`);
+      await this.grantPermissions();
+      const { adb } = await openDevice({ ensureUp: false });
+
+      // Digits go in over adb, so the field has to hold focus first.
+      const focused = await withViberSession((driver) =>
+        new RegistrationPage(driver).focusCodeInput(),
+      ).catch((error: unknown) => {
+        this.logger.warn(`Could not focus the code field: ${String(error)}`);
+        return false;
+      });
+      if (!focused) this.logger.warn('Code field not found; typing into the focused view.');
 
       for (const char of digits) {
         adb.shell(`input text ${char}`);
