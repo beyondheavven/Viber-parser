@@ -180,8 +180,13 @@ val describeGetGroupUsers: RouteConfig.() -> Unit = {
 
     request {
         pathParameter<String>("id") {
-            description = "ID беседы (conversationId) или ключ группы (viberGroupId / groupKey)"
+            description = "Ключ группы (groupKey / viberGroupId) или ID беседы (conversationId)"
             required = true
+        }
+        queryParameter<String>("instanceId") {
+            description = "Инстанс (эмулятор), в рамках которого искать группу по conversationId: " +
+                "conversationId уникален только внутри инстанса. Без параметра берётся самая свежая по lastSyncedAt"
+            required = false
         }
     }
 

@@ -88,6 +88,18 @@ class UsersSyncService(
             filter { eq("id", id) }
         }.decodeList<ViberGroupRow>().singleOrNull()
     },
+    private val findGroup: suspend (column: String, value: Any, instanceId: String?) -> ViberGroupRow? =
+        { column, value, instanceId ->
+            val client = supabase() ?: throw SupabaseDisabledException()
+            client.from("viber_groups").select(Columns.ALL) {
+                filter {
+                    eq(column, value)
+                    instanceId?.let { eq("instance_id", it) }
+                }
+                order("last_synced_at", Order.DESCENDING)
+                limit(1)
+            }.decodeList<ViberGroupRow>().firstOrNull()
+        },
 ) {
     private val logger = LoggerFactory.getLogger(UsersSyncService::class.java)
 
@@ -352,31 +364,15 @@ class UsersSyncService(
         )
     }
 
-    suspend fun getGroupUsers(targetId: String): List<ParticipantModel> {
+    // conversation_id уникален только в пределах инстанса, поэтому ищем его последним и в рамках instanceId.
+    suspend fun resolveGroup(targetId: String, instanceId: String? = null): ViberGroupRow? =
+        findGroup("group_key", targetId, null)
+            ?: findGroup("viber_group_id", targetId, null)
+            ?: targetId.toIntOrNull()?.let { findGroup("conversation_id", it, instanceId?.takeIf(String::isNotBlank)) }
+
+    suspend fun getGroupUsers(targetId: String, instanceId: String? = null): List<ParticipantModel> {
         val client = supabase() ?: throw SupabaseDisabledException()
-        val convId = targetId.toIntOrNull()
-
-        var group: ViberGroupRow? = null
-        if (convId != null) {
-            group = client.from("viber_groups").select(Columns.ALL) {
-                filter { eq("conversation_id", convId) }
-                limit(1)
-            }.decodeList<ViberGroupRow>().firstOrNull()
-        }
-        if (group == null) {
-            group = client.from("viber_groups").select(Columns.ALL) {
-                filter { eq("group_key", targetId) }
-                limit(1)
-            }.decodeList<ViberGroupRow>().firstOrNull()
-        }
-        if (group == null) {
-            group = client.from("viber_groups").select(Columns.ALL) {
-                filter { eq("viber_group_id", targetId) }
-                limit(1)
-            }.decodeList<ViberGroupRow>().firstOrNull()
-        }
-
-        val groupId = group?.id ?: return emptyList()
+        val groupId = resolveGroup(targetId, instanceId)?.id ?: return emptyList()
 
         val allMembers = mutableListOf<SupabaseGroupMemberJoin>()
         var offset = 0L
