@@ -67,6 +67,7 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
   private deviceUnreachable = false;
   private unreachableUntil = 0;
   private resumeOnInit = false;
+  private lastPersistedState: string | null = null;
   private lastContactRefreshAt = 0;
   private contactSyncRestartTimer: NodeJS.Timeout | null = null;
   private contactSyncRestartRunning = false;
@@ -1008,9 +1009,12 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
       pollIntervalMs: this.pollIntervalMs,
       groups: [...this.groups.values()],
     };
+    const serialized = `${JSON.stringify(payload, null, 2)}\n`;
+    if (serialized === this.lastPersistedState) return;
     try {
       this.ensureDirectory(dirname(this.statePath));
-      writeFileSync(this.statePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+      writeFileSync(this.statePath, serialized, 'utf8');
+      this.lastPersistedState = serialized;
     } catch (err) {
       this.logger.warn(`Failed to persist monitor state: ${String(err)}`);
     }
