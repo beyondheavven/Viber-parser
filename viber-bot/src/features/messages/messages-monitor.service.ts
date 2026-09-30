@@ -26,7 +26,6 @@ const MAX_RING_BUFFER_SIZE = 2000;
 const CATCH_UP_BATCH_SIZE = 200;
 const LIVE_INGEST_DELAY_MS = 80;
 const LIVE_CATCHUP_MS = 8_000;
-const POLL_WITHOUT_HOOK_MS = 400;
 const DEVICE_RETRY_MS = 5_000;
 const LIVE_WRITE_TIMEOUT_MS = 5_000;
 const CONTACT_REFRESH_MS = 5_000;
@@ -876,7 +875,7 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     if (this.deviceUnreachable) return DEVICE_RETRY_MS;
     if (fetchedCount >= CATCH_UP_BATCH_SIZE) return 100;
     if (this.messageWatch?.isAttached() === true) return LIVE_CATCHUP_MS;
-    return POLL_WITHOUT_HOOK_MS;
+    return this.pollIntervalMs;
   }
 
   private async ensureLiveWatch(): Promise<void> {

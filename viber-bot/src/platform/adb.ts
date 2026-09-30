@@ -219,6 +219,19 @@ export class Adb {
       });
   }
 
+  /**
+   * Asks the adb server whether it already holds the device in the `device`
+   * state. A second opinion for {@link probeTcp}: while spawnSync keeps the
+   * event loop busy the probe's timer can fire before its connect is seen.
+   */
+  reportsDevice(timeout = CONNECT_TIMEOUT): boolean {
+    try {
+      return this.device(['get-state'], { allowFailure: true, timeout }).trim() === 'device';
+    } catch {
+      return false;
+    }
+  }
+
   isBooted(): boolean {
     if (!this.isOnline()) return false;
     const value = this.shell('getprop sys.boot_completed', { allowFailure: true }).trim();

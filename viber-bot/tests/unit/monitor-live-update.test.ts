@@ -102,6 +102,7 @@ function fakeWatch(): MessageWatchService & {
 
 interface MonitorInternals {
   pollTick(): Promise<void>;
+  nextPollDelay(fetchedCount: number): number;
   ensureLiveWatch(): Promise<void>;
   isRunning: boolean;
   pollTimeout: NodeJS.Timeout | null;
@@ -208,6 +209,13 @@ describe('safe monitor polling', () => {
     await runOneTick(service);
     expect(openDevice).toHaveBeenCalledTimes(2);
     expect(fake.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not fast-poll the device when the live watch is unavailable', () => {
+    const service = createService({ watch: fakeWatch() });
+    const internals = service as unknown as MonitorInternals;
+
+    expect(internals.nextPollDelay(0)).toBe(2500);
   });
 });
 
