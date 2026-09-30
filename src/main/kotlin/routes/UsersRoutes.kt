@@ -63,7 +63,8 @@ fun Route.usersRoutes(usersSyncService: UsersSyncService, parserSecret: String?)
 
         get("/group/{id}", describeGetGroupUsers) {
             val id = call.parameters["id"]!!
-            call.respond(HttpStatusCode.OK, usersSyncService.getGroupUsers(id))
+            val instanceId = call.request.queryParameters["instanceId"]
+            call.respond(HttpStatusCode.OK, usersSyncService.getGroupUsers(id, instanceId))
         }
 
         post("/sync/group/{id}", describeSyncGroupUsers) {
