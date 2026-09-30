@@ -25,7 +25,7 @@ export async function openDevice(options: { ensureUp?: boolean } = {}): Promise<
   const adb = new Adb();
 
   if (options.ensureUp === false || !ld.isAvailable()) {
-    const reachable = await probeTcp(adb.serial);
+    const reachable = (await probeTcp(adb.serial)) || adb.reportsDevice();
     if (!reachable) {
       throw new AdbError(
         `Could not connect to ${adb.serial}. Is the Android emulator running with ADB debugging enabled?`,
