@@ -76,8 +76,10 @@ export interface FridaRuntime {
   /**
    * Non-destructive reuse: if a matching frida-server is already running it is
    * reused as-is; if none is running but the matching binary is installed it is
-   * started. Never kills a running server, so it is safe while other Frida work
-   * is attached. Throws when it cannot proceed without killing/installing.
+   * started. Never kills a healthy running server, so it is safe while other
+   * Frida work is attached; only a server that predates the running
+   * system_server (dead binder, DeadSystemException) is restarted. Throws when
+   * it cannot proceed without killing/installing.
    */
   ensureServerRunning(version: string, abi: string): Promise<string>;
   /** Waits for the Frida device (addressed by adb serial) to answer. */
@@ -178,6 +180,28 @@ export function createFridaRuntime(options: FridaRuntimeOptions): FridaRuntime {
     return link.stdout.includes('(deleted)');
   }
 
+  function startTicks(pid: string): number | undefined {
+    const result = adbShell(`cut -d' ' -f22 /proc/${pid}/stat`, 5_000);
+    if (result.timedOut) return undefined;
+    const ticks = Number.parseInt(result.stdout.trim(), 10);
+    return Number.isFinite(ticks) ? ticks : undefined;
+  }
+
+  /**
+   * True when a frida-server was started before the running system_server.
+   * After an Android framework restart such a server keeps a dead binder and
+   * every enumerate/attach fails with DeadSystemException; whatever it had
+   * attached died with the old app processes, so restarting it is safe. Any
+   * read failure answers "not stale", like {@link isReplacedBinary}.
+   */
+  function outlivedSystemServer(pid: string): boolean {
+    const systemServer = adbShell('pidof system_server', 5_000).stdout.trim().split(/\s+/)[0];
+    if (systemServer === undefined || systemServer === '') return false;
+    const server = startTicks(pid);
+    const system = startTicks(systemServer);
+    return server !== undefined && system !== undefined && server < system;
+  }
+
   async function stopServer(timeoutMs = 5_000): Promise<boolean> {
     adbShell('killall frida-server 2>/dev/null; pkill -x frida-server 2>/dev/null');
     const deadline = Date.now() + timeoutMs;
@@ -186,6 +210,14 @@ export function createFridaRuntime(options: FridaRuntimeOptions): FridaRuntime {
       if (Date.now() >= deadline) return false;
       await delay(250);
     }
+  }
+
+  async function stopServerOrFail(): Promise<void> {
+    if (await stopServer()) return;
+    fail(
+      'frida-server is still running after killall/pkill. Kill it by hand ' +
+        `(\`${adbBin} -s ${serial} shell killall -9 frida-server\`) or restart the LDPlayer instance.`,
+    );
   }
 
   function serverVersionOutput(): string {
@@ -289,8 +321,9 @@ export function createFridaRuntime(options: FridaRuntimeOptions): FridaRuntime {
     const pids = serverPids();
     const binaryOk = installedVersion === version;
     const staleProcess = pids.some(isReplacedBinary);
+    const outlived = pids.some(outlivedSystemServer);
 
-    if (binaryOk && pids.length === 1 && !staleProcess) {
+    if (binaryOk && pids.length === 1 && !staleProcess && !outlived) {
       log(`frida-server ${version} already running (pid ${pids[0] ?? ''}).`);
       return version;
     }
@@ -298,16 +331,13 @@ export function createFridaRuntime(options: FridaRuntimeOptions): FridaRuntime {
     if (pids.length > 0) {
       const reason = staleProcess
         ? 'its binary was replaced on disk'
-        : !binaryOk
+        : outlived
+          ? 'it predates the running system_server'
+          : !binaryOk
           ? `device has "${installedVersion ?? 'unknown'}", need ${version}`
           : `${String(pids.length)} instances are running`;
       log(`stopping frida-server (${reason}), pid(s) ${pids.join(', ')}.`);
-      if (!(await stopServer())) {
-        fail(
-          'frida-server is still running after killall/pkill. Kill it by hand ' +
-            `(\`${adbBin} -s ${serial} shell killall -9 frida-server\`) or restart the LDPlayer instance.`,
-        );
-      }
+      await stopServerOrFail();
     }
 
     if (!binaryOk) {
@@ -319,12 +349,18 @@ export function createFridaRuntime(options: FridaRuntimeOptions): FridaRuntime {
 
   async function ensureServerRunning(version: string, abi: string): Promise<string> {
     // Kept non-destructive on purpose: other Frida work may already be attached
-    // to a running server, so this never kills or restarts one.
+    // to a running server, so this never kills or restarts a healthy one. A server
+    // that outlived system_server is the exception: nothing attached to it survived.
     void abi; // accepted for signature parity with ensureServer; no install here
     const installedVersion = parseServerVersion(serverVersionOutput());
     const pids = serverPids();
 
     if (pids.length > 0) {
+      if (installedVersion === version && pids.some(outlivedSystemServer)) {
+        log(`stopping frida-server (it predates the running system_server), pid(s) ${pids.join(', ')}.`);
+        await stopServerOrFail();
+        return startServer(version);
+      }
       const staleProcess = pids.some(isReplacedBinary);
       if (installedVersion === version && !staleProcess) {
         log(`reusing running frida-server ${version} (pid ${pids.join(', ')}).`);

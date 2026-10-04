@@ -102,6 +102,7 @@ function fakeWatch(): MessageWatchService & {
 
 interface MonitorInternals {
   pollTick(): Promise<void>;
+  nextPollDelay(fetchedCount: number): number;
   ensureLiveWatch(): Promise<void>;
   isRunning: boolean;
   pollTimeout: NodeJS.Timeout | null;
@@ -208,6 +209,42 @@ describe('safe monitor polling', () => {
     await runOneTick(service);
     expect(openDevice).toHaveBeenCalledTimes(2);
     expect(fake.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not fast-poll the device when the live watch is unavailable', () => {
+    const service = createService({ watch: fakeWatch() });
+    const internals = service as unknown as MonitorInternals;
+
+    expect(internals.nextPollDelay(0)).toBe(2500);
+  });
+});
+
+describe('monitor state persistence', () => {
+  it('rewrites monitor-state.json only when the persisted state changes', async () => {
+    const fake = fakeContext();
+    openDevice.mockResolvedValue(fake.context);
+    const service = createService({ mutex: new DeviceMutexService() });
+    const statePath = join(process.env['MONITOR_DATA_DIR'] ?? '', 'monitor-state.json');
+    service.enableTrackedGroup(26, { fromLatest: false });
+    const internals = service as unknown as MonitorInternals;
+    internals.isRunning = true;
+
+    try {
+      await internals.pollTick();
+      writeFileSync(statePath, 'written by another writer', 'utf8');
+
+      await internals.pollTick();
+      expect(readFileSync(statePath, 'utf8')).toBe('written by another writer');
+
+      fake.messagesSince.mockReturnValueOnce([message({ id: 150, conversationId: 26 })]);
+      await internals.pollTick();
+      const persisted = JSON.parse(readFileSync(statePath, 'utf8')) as {
+        groups: { conversationId: number; lastMessageId: number }[];
+      };
+      expect(persisted.groups).toEqual([expect.objectContaining({ conversationId: 26, lastMessageId: 150 })]);
+    } finally {
+      service.stop();
+    }
   });
 });
 

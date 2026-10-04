@@ -26,7 +26,6 @@ const MAX_RING_BUFFER_SIZE = 2000;
 const CATCH_UP_BATCH_SIZE = 200;
 const LIVE_INGEST_DELAY_MS = 80;
 const LIVE_CATCHUP_MS = 8_000;
-const POLL_WITHOUT_HOOK_MS = 400;
 const DEVICE_RETRY_MS = 5_000;
 const LIVE_WRITE_TIMEOUT_MS = 5_000;
 const CONTACT_REFRESH_MS = 5_000;
@@ -68,6 +67,7 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
   private deviceUnreachable = false;
   private unreachableUntil = 0;
   private resumeOnInit = false;
+  private lastPersistedState: string | null = null;
   private lastContactRefreshAt = 0;
   private contactSyncRestartTimer: NodeJS.Timeout | null = null;
   private contactSyncRestartRunning = false;
@@ -876,7 +876,7 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
     if (this.deviceUnreachable) return DEVICE_RETRY_MS;
     if (fetchedCount >= CATCH_UP_BATCH_SIZE) return 100;
     if (this.messageWatch?.isAttached() === true) return LIVE_CATCHUP_MS;
-    return POLL_WITHOUT_HOOK_MS;
+    return this.pollIntervalMs;
   }
 
   private async ensureLiveWatch(): Promise<void> {
@@ -1009,9 +1009,12 @@ export class MessagesMonitorService implements OnModuleInit, OnModuleDestroy {
       pollIntervalMs: this.pollIntervalMs,
       groups: [...this.groups.values()],
     };
+    const serialized = `${JSON.stringify(payload, null, 2)}\n`;
+    if (serialized === this.lastPersistedState) return;
     try {
       this.ensureDirectory(dirname(this.statePath));
-      writeFileSync(this.statePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+      writeFileSync(this.statePath, serialized, 'utf8');
+      this.lastPersistedState = serialized;
     } catch (err) {
       this.logger.warn(`Failed to persist monitor state: ${String(err)}`);
     }
