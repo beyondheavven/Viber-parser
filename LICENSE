@@ -1,0 +1,122 @@
+PROPRIETARY SOURCE-AVAILABLE LICENSE
+(RESTRICTED USE — NO MODIFICATIONS OR EXTENSIONS PERMITTED)
+
+Copyright (c) 2024-2026 Kiryl Kurzau (@beyondheavven), Maksim Alesiayuk (@olmax04).
+All rights reserved.
+
+Repository: https://github.com/beyondheavven/Viber-parser
+
+================================================================================
+ENGLISH VERSION (LEGAL TEXT)
+================================================================================
+
+IMPORTANT NOTICE: This software is NOT open source. It is protected by copyright
+law and international treaties. Access to this source code is provided under a
+restrictive source-available license.
+
+1. DEFINITIONS
+- "Software" refers to all source code, documentation, scripts, build configs,
+  assets, and materials contained in this repository and any related branches.
+- "Authors" / "Copyright Holders" refers to the original creators and copyright
+  owners: Kiryl Kurzau (@beyondheavven) and Maksim Alesiayuk (@olmax04).
+- "You" (or "User") refers to any individual or legal entity accessing, viewing,
+  downloading, or executing the Software.
+
+2. GRANT OF LIMITED RIGHTS
+Subject to the restrictions set forth in Section 3, the Authors grant You a
+limited, non-exclusive, non-transferable, revocable, and non-sublicensable right to:
+(a) View, read, and inspect the source code solely for personal study, research,
+    and evaluation purposes;
+(b) Run and execute the Software locally in its original, unmodified form solely
+    for personal, non-commercial evaluation.
+
+3. STRICT PROHIBITIONS & RESTRICTIONS
+You expressly agree NOT to:
+(a) NO MODIFICATIONS: Modify, alter, patch, edit, adapt, translate, refactor,
+    decompile, reverse engineer, or create derivative works based on the Software
+    or any part thereof.
+(b) NO EXTENSIONS: Extend, augment, add new modules or features to, build plugins
+    or add-ons for, wrap, or embed this Software into any third-party software,
+    platform, or service.
+(c) EXCLUSIVE AUTHOR RIGHTS: The sole and exclusive right to modify, extend,
+    update, maintain, branch, and release new versions or derivative works of
+    this Software is strictly reserved to the Authors.
+(d) NO REDISTRIBUTION: Distribute, publish, mirror, sub-license, rent, lease,
+    sell, monetize, or host the Software (or any derivative or modified version)
+    as a service (SaaS), API, or bundle without prior express written permission
+    from the Authors.
+(e) PRESERVATION OF NOTICES: Remove, obscure, or alter any copyright notices,
+    author attributions, or license text contained within the Software.
+
+4. COMMERCIAL USE
+Any commercial use, commercial exploitation, or incorporation of this Software
+into any commercial product or enterprise workflow is strictly prohibited
+without a separate written license agreement executed by the Authors.
+
+5. TERMINATION
+Any breach of these terms immediately and automatically terminates all rights
+granted to You under this license. Upon termination, You must immediately destroy
+and remove all copies of the Software in Your possession.
+
+6. DISCLAIMER OF WARRANTY & LIMITATION OF LIABILITY
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+================================================================================
+РУССКАЯ ВЕРСИЯ (ИНФОРМАЦИОННЫЙ ПЕРЕВОД)
+================================================================================
+
+ПРОПРИЕТАРНАЯ ЛИЦЕНЗИЯ С ДОСТУПОМ К ИСХОДНОМУ КОДУ
+(ОГРАНИЧЕННОЕ ИСПОЛЬЗОВАНИЕ — ИЗМЕНЕНИЯ И РАСШИРЕНИЯ ЗАПРЕЩЕНЫ)
+
+Авторские права (c) 2024-2026 Kiryl Kurzau (@beyondheavven), Maksim Alesiayuk (@olmax04).
+Все права защищены.
+
+ВАЖНОЕ ПРИМЕЧАНИЕ: Данное программное обеспечение НЕ является Open Source (свободным ПО).
+Оно защищено законами об авторском праве. Доступ к коду предоставляется на условиях
+ограниченной проприетарной лицензии.
+
+1. ОПРЕДЕЛЕНИЯ
+- «Программное обеспечение» (ПО) — исходный код, документация, скрипты, конфигурации
+  и файлы данного репозитория.
+- «Авторы» / «Правообладатели» — Kiryl Kurzau (@beyondheavven) и Maksim Alesiayuk (@olmax04).
+- «Пользователь» — любое физическое или юридическое лицо, получающее доступ к коду,
+  скачивающее или запускающее ПО.
+
+2. ПРЕДОСТАВЛЯЕМЫЕ ПРАВА
+Авторы предоставляют ограниченное, неисключительное, непередаваемое право:
+(а) Просматривать и изучать исходный код исключительно в личных образовательных
+    и ознакомительных целях;
+(б) Запускать ПО локально в исходном, неизменённом виде для личного некоммерческого
+    ознакомления.
+
+3. ПРЯМЫЕ ЗАПРЕТЫ И ОГРАНИЧЕНИЯ
+Пользователю категорически запрещается:
+(а) ЗАПРЕТ НА ИЗМЕНЕНИЯ: Изменять, модифицировать, патчить, адаптировать,
+    декомпилировать, рефакторить или создавать производные работы на базе ПО
+    или любых его частей.
+(б) ЗАПРЕТ НА РАСШИРЕНИЯ: Расширять функционал, разрабатывать плагины, модули,
+    надстройки, интеграции, обёртки или встраивать данный код в сторонние
+    библиотеки, платформы и сервисы.
+(в) ИСКЛЮЧИТЕЛЬНЫЕ ПРАВА АВТОРОВ: Исключительное право изменять, расширять,
+    дорабатывать, обновлять и выпускать любые модификации данного ПО принадлежит
+    только и исключительно его Авторам (Правообладателям).
+(г) ЗАПРЕТ НА РАСПРОСТРАНЕНИЕ: Распространять, публиковать зеркала (mirror),
+    продавать, сдавать в аренду, предоставлять доступ по модели SaaS / API,
+    а также сублицензировать ПО (или его изменённые версии) без предварительного
+    письменного согласия Авторов.
+(д) СОХРАНЕНИЕ УВЕДОМЛЕНИЙ: Удалять или изменять копирайты и уведомления об авторстве.
+
+4. КОММЕРЧЕСКОЕ ИСПОЛЬЗОВАНИЕ
+Любое коммерческое использование ПО строго запрещено без отдельного письменного
+договора с Правообладателями.
+
+5. ОТКАЗ ОТ ГАРАНТИЙ
+ПРОГРАММНОЕ ОБЕСПЕЧЕНИЕ ПРЕДОСТАВЛЯЕТСЯ «КАК ЕСТЬ» («AS IS»), БЕЗ КАКИХ-ЛИБО
+ЯВНЫХ ИЛИ ПОДРАЗУМЕВАЕМЫХ ГАРАНТИЙ. АВТОРЫ НЕ НЕСУТ ОТВЕТСТВЕННОСТИ ЗА ЛЮБЫЕ
+УБЫТКИ ИЛИ ПРЕТЕНЗИИ, ВОЗНИКШИЕ В СВЯЗИ С ИСПОЛЬЗОВАНИЕМ ДАННОГО ПО.
